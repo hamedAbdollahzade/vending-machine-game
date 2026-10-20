@@ -111,15 +111,36 @@ const journeyPanel = document.createElement('section');
 journeyPanel.id = 'journey-panel';
 journeyPanel.innerHTML = '<small>FOREST ROAD · یک سفر کنار هم</small><h2></h2><p></p><button></button>';
 document.body.append(journeyPanel);
-journeyPanel.querySelector('button').onclick = () => { if (advanceJourney(journey)) {firstPerson=false;clearInput();syncHUD();} };
+journeyPanel.querySelector('button').onclick = () => {
+    if (advanceJourney(journey)) {
+        firstPerson = false;
+        clearInput();
+        syncHUD();
+    }
+};
 const viewButton = document.createElement('button');
-viewButton.id = 'camera-view';viewButton.textContent = 'تغییر دوربین · V';document.body.append(viewButton);
-viewButton.onclick = () => {firstPerson = !firstPerson;};
+viewButton.id = 'camera-view';
+viewButton.textContent = 'تغییر دوربین · V';
+document.body.append(viewButton);
+viewButton.onclick = () => {
+    firstPerson = !firstPerson;
+};
 let dragging = false, dragX = 0, dragY = 0;
-canvas.addEventListener('pointerdown', e => {dragging=true;dragX=e.clientX;dragY=e.clientY;canvas.setPointerCapture(e.pointerId);});
-canvas.addEventListener('pointermove', e => {if(!dragging)return;viewYaw=THREE.MathUtils.clamp(viewYaw+(e.clientX-dragX)*.005,-1.3,1.3);viewPitch=THREE.MathUtils.clamp(viewPitch-(e.clientY-dragY)*.004,-.6,.6);dragX=e.clientX;dragY=e.clientY;});
-canvas.addEventListener('pointerup',()=>dragging=false);
-canvas.addEventListener('pointercancel',()=>dragging=false);
+canvas.addEventListener('pointerdown', e => {
+    dragging = true;
+    dragX = e.clientX;
+    dragY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    viewYaw = THREE.MathUtils.clamp(viewYaw + (e.clientX - dragX) * .005, -1.3, 1.3);
+    viewPitch = THREE.MathUtils.clamp(viewPitch - (e.clientY - dragY) * .004, -.6, .6);
+    dragX = e.clientX;
+    dragY = e.clientY;
+});
+canvas.addEventListener('pointerup', () => dragging = false);
+canvas.addEventListener('pointercancel', () => dragging = false);
 const characters = createFamily();
 const family = characters.group;
 scene.add(family);
@@ -130,23 +151,33 @@ const machine = new THREE.Group();
 machine.position.set(stationX, 0, stationZ);
 machine.rotation.y = .13;
 scene.add(machine);
-const shell = material('#243c3c', {metalness:.55, roughness:.32});
+const shell = material('#243c3c', {metalness: .55, roughness: .32});
 box(1.82, 2.96, 1.15, shell, machine, [0, 1.48, 0]);
-const bezel = material('#bbc6bd', {metalness:.75,roughness:.25});
-const led = new THREE.MeshBasicMaterial({color:'#c7f6dc'});
-for(const side of [-1,1]) {
-    box(.045,2.78,.04,bezel,machine,[side*.86,1.5,.6]);
-    box(.018,1.86,.025,led,machine,[-.13+side*.60,1.55,.86]);
+const bezel = material('#bbc6bd', {metalness: .75, roughness: .25});
+const led = new THREE.MeshBasicMaterial({color: '#c7f6dc'});
+for (const side of [-1, 1]) {
+    box(.045, 2.78, .04, bezel, machine, [side * .86, 1.5, .6]);
+    box(.018, 1.86, .025, led, machine, [-.13 + side * .60, 1.55, .86]);
 }
-box(1.72,.07,.04,bezel,machine,[0,2.91,.6]);
-box(1.72,.07,.04,bezel,machine,[0,.12,.6]);
-box(.3,1.45,.08,material('#142625'),machine,[.67,1.53,.6]);
-box(1.2,.04,.08,bezel,machine,[-.13,2.5,.7]);
-const displayCanvas=document.createElement('canvas');displayCanvas.width=256;displayCanvas.height=256;
-const displayCtx=displayCanvas.getContext('2d');displayCtx.fillStyle='#122d2c';displayCtx.fillRect(0,0,256,256);
-displayCtx.textAlign='center';displayCtx.fillStyle='#bcf2d5';displayCtx.font='bold 31px Tahoma';displayCtx.fillText('پرداخت',128,70);
-displayCtx.font='24px Tahoma';displayCtx.fillText('کارت بکشید',128,125);displayCtx.fillStyle='#85bbab';displayCtx.fillRect(44,170,168,4);
-mesh(new THREE.PlaneGeometry(.23,.3),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(displayCanvas)}),machine,[.67,1.7,.669]);
+box(1.72, .07, .04, bezel, machine, [0, 2.91, .6]);
+box(1.72, .07, .04, bezel, machine, [0, .12, .6]);
+box(.3, 1.45, .08, material('#142625'), machine, [.67, 1.53, .6]);
+box(1.2, .04, .08, bezel, machine, [-.13, 2.5, .7]);
+const displayCanvas = document.createElement('canvas');
+displayCanvas.width = 256;
+displayCanvas.height = 256;
+const displayCtx = displayCanvas.getContext('2d');
+displayCtx.fillStyle = '#122d2c';
+displayCtx.fillRect(0, 0, 256, 256);
+displayCtx.textAlign = 'center';
+displayCtx.fillStyle = '#bcf2d5';
+displayCtx.font = 'bold 31px Tahoma';
+displayCtx.fillText('پرداخت', 128, 70);
+displayCtx.font = '24px Tahoma';
+displayCtx.fillText('کارت بکشید', 128, 125);
+displayCtx.fillStyle = '#85bbab';
+displayCtx.fillRect(44, 170, 168, 4);
+mesh(new THREE.PlaneGeometry(.23, .3), new THREE.MeshBasicMaterial({map: new THREE.CanvasTexture(displayCanvas)}), machine, [.67, 1.7, .669]);
 
 box(1.25, 1.85, .08, material('#a6d5c3', {metalness: .4, roughness: .22}), machine, [-.13, 1.55, .59]);
 box(1.13, 1.72, .1, material('#223f3b'), machine, [-.13, 1.55, .65]);
@@ -207,7 +238,7 @@ ctx.fillStyle = '#d9efa7';
 ctx.font = 'bold 52px Tahoma';
 ctx.textAlign = 'center';
 ctx.fillText('روبات مارکت', 256, 83);
-const sign = new THREE.MeshBasicMaterial({color:'#ffffff', map: new THREE.CanvasTexture(label)});
+const sign = new THREE.MeshBasicMaterial({color: '#ffffff', map: new THREE.CanvasTexture(label)});
 box(1.5, .38, .05, sign, machine, [0, 2.68, .58]);
 // A separate card, animated through the reader only after an explicit swipe.
 const bankCard = box(.24, .15, .014, material('#ddd4b4', {metalness: .2}), machine, [.9, 1.8, .8]);
@@ -344,8 +375,15 @@ function renderChapter() {
 }
 
 function performStoryAction() {
-    if(shop.open || notebook.open || ending.open || state.busy) return;
-    if (journey.phase !== 'walking') { if (advanceJourney(journey)) {firstPerson=false;clearInput();syncHUD();} return; }
+    if (shop.open || notebook.open || ending.open || state.busy) return;
+    if (journey.phase !== 'walking') {
+        if (advanceJourney(journey)) {
+            firstPerson = false;
+            clearInput();
+            syncHUD();
+        }
+        return;
+    }
     if (!chapterId || shop.open || notebook.open || ending.open || state.busy) return;
     const chapter = chapters[chapterId];
     if (chapter.action && chapterLine === chapter.lines.length - 1) finishChapter(chapter.action.value);
@@ -489,10 +527,10 @@ function syncHUD() {
     $('#basket').textContent = state.basket.length ? '🧺 ' + state.basket.map(p => p.icon).join(' ') : '🧺 سبد پیک‌نیک خالی است';
     $('#mission').textContent = journey.phase !== 'walking' ? journeyLabels[journey.phase][1]
         : state.finished ? 'به قله رسیدید؛ روی فرش استراحت کنید'
-        : chapterId ? chapters[chapterId].title
-        : !story.done.includes('camp') ? 'مسیر جنگل را تا جمع کنار آتش ادامه بدهید'
-        : !readyForPicnic(state) ? 'از دستگاه یک نوشیدنی و یک خوراکی بخرید'
-        : 'خرید آماده است؛ مسیر را تا فرش بالای قله ادامه بدهید';
+            : chapterId ? chapters[chapterId].title
+                : !story.done.includes('camp') ? 'مسیر جنگل را تا جمع کنار آتش ادامه بدهید'
+                    : !readyForPicnic(state) ? 'از دستگاه یک نوشیدنی و یک خوراکی بخرید'
+                        : 'خرید آماده است؛ مسیر را تا فرش بالای قله ادامه بدهید';
 }
 
 function selectChannel(code) {
@@ -616,7 +654,10 @@ $('#interact').onclick = openShop;
 $('#close').onclick = () => shop.close();
 window.addEventListener('keydown', e => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    if(e.key.toLowerCase()==='v' && !e.repeat){firstPerson=!firstPerson;return;}
+    if (e.key.toLowerCase() === 'v' && !e.repeat) {
+        firstPerson = !firstPerson;
+        return;
+    }
     if (e.key.toLowerCase() === 'f') {
         if (!e.repeat) performStoryAction();
         return;
@@ -629,7 +670,10 @@ window.addEventListener('keydown', e => {
     if (notebook.open || ending.open) return;
     if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', ' '].includes(e.key) && !shop.open && !ending.open) e.preventDefault();
     pressed.add(e.key.toLowerCase());
-    if (e.key.toLowerCase() === 'e') { e.preventDefault(); openShop(); }
+    if (e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        openShop();
+    }
 });
 window.addEventListener('keyup', e => pressed.delete(e.key.toLowerCase()));
 
@@ -652,8 +696,12 @@ for (const [id, dir] of [['back', -1], ['forward', 1], ['zoom-in', 'in'], ['zoom
 }
 
 function reset() {
-    journey = createJourney(); firstPerson=false;viewYaw=0;viewPitch=0;
-    camera.position.set(-39,3.5,-6);look.set(-32,1,0);
+    journey = createJourney();
+    firstPerson = false;
+    viewYaw = 0;
+    viewPitch = 0;
+    camera.position.set(-39, 3.5, -6);
+    look.set(-32, 1, 0);
     payment = createPayment();
     paymentTime = 0;
     $('#payment-panel').hidden = true;
@@ -675,7 +723,9 @@ function reset() {
     encounterActive = false;
     facing = Math.PI / 2;
     zoomDistance = 1;
-    picnicFood.traverse(node => { if (node.isMesh) node.geometry.dispose(); });
+    picnicFood.traverse(node => {
+        if (node.isMesh) node.geometry.dispose();
+    });
     picnicFood.clear();
     clearInput();
     if (shop.open) shop.close();
@@ -732,8 +782,8 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 const camTarget = new THREE.Vector3(), look = new THREE.Vector3(x + 1, .8, pathZ(x)), lookTarget = new THREE.Vector3();
-camera.position.set(-39,3.5,-6);
-look.set(-32,1,0);
+camera.position.set(-39, 3.5, -6);
+look.set(-32, 1, 0);
 let last = performance.now();
 
 function frame(now) {
@@ -742,8 +792,11 @@ function frame(now) {
     last = now;
     elapsed += dt;
     const paused = shop.open || notebook.open || ending.open || document.hidden;
-    tickJourney(journey, dt, paused, {throttle:Number(pressed.has('w') || pressed.has('arrowup') || held.has(1))-Number(pressed.has('s') || pressed.has('arrowdown') || held.has(-1)),steer:Number(pressed.has('d') || pressed.has('arrowright') || held.has('out'))-Number(pressed.has('a') || pressed.has('arrowleft') || held.has('in'))});
-    scenery.update(elapsed, journey.phase, journey.distance/21, journey.lane);
+    tickJourney(journey, dt, paused, {
+        throttle: Number(pressed.has('w') || pressed.has('arrowup') || held.has(1)) - Number(pressed.has('s') || pressed.has('arrowdown') || held.has(-1)),
+        steer: Number(pressed.has('d') || pressed.has('arrowright') || held.has('out')) - Number(pressed.has('a') || pressed.has('arrowleft') || held.has('in'))
+    });
+    scenery.update(elapsed, journey.phase, journey.distance / 21, journey.lane);
     const walking = journey.phase === 'walking';
     document.body.classList.toggle('on-journey', !walking);
     document.body.classList.toggle('driving', journey.phase === 'driving');
@@ -751,10 +804,18 @@ function frame(now) {
     $('#back').textContent = journey.phase === 'driving' ? 'ترمز' : '←';
     $('#zoom-in').textContent = journey.phase === 'driving' ? '↶' : '↑';
     $('#zoom-out').textContent = journey.phase === 'driving' ? '↷' : '↓';
-    for (const [id, driveLabel, walkLabel] of [['forward','گاز','حرکت به جلو'],['back','ترمز','حرکت به عقب'],['zoom-in','فرمان چپ','زوم نزدیک'],['zoom-out','فرمان راست','زوم دور']]) $('#'+id).setAttribute('aria-label', journey.phase === 'driving' ? driveLabel : walkLabel);
+    for (const [id, driveLabel, walkLabel] of [['forward', 'گاز', 'حرکت به جلو'], ['back', 'ترمز', 'حرکت به عقب'], ['zoom-in', 'فرمان چپ', 'زوم نزدیک'], ['zoom-out', 'فرمان راست', 'زوم دور']]) $('#' + id).setAttribute('aria-label', journey.phase === 'driving' ? driveLabel : walkLabel);
     journeyPanel.hidden = walking;
-    if(!walking){const [title,line,action]=journeyLabels[journey.phase];journeyPanel.querySelector('h2').textContent=title;journeyPanel.querySelector('p').textContent=line;const button=journeyPanel.querySelector('button');button.textContent=action;button.hidden=!action;if(journey.phase==='driving')journeyPanel.querySelector('h2').textContent=`جادهٔ جنگلی · ${Math.round(journey.distance/21*100).toLocaleString('fa-IR')}٪ · ${Math.round(journey.speed*12).toLocaleString('fa-IR')} کیلومتر/ساعت`;}
-    const direction = movementDirection(pressed, held) || (Number(pressed.has('w'))-Number(pressed.has('s')));
+    if (!walking) {
+        const [title, line, action] = journeyLabels[journey.phase];
+        journeyPanel.querySelector('h2').textContent = title;
+        journeyPanel.querySelector('p').textContent = line;
+        const button = journeyPanel.querySelector('button');
+        button.textContent = action;
+        button.hidden = !action;
+        if (journey.phase === 'driving') journeyPanel.querySelector('h2').textContent = `جادهٔ جنگلی · ${Math.round(journey.distance / 21 * 100).toLocaleString('fa-IR')}٪ · ${Math.round(journey.speed * 12).toLocaleString('fa-IR')} کیلومتر/ساعت`;
+    }
+    const direction = movementDirection(pressed, held) || (Number(pressed.has('w')) - Number(pressed.has('s')));
     const next = nextChapter(story, x);
     if (walking && next && !chapterId && !shop.open && !ending.open && !notebook.open && !state.busy && !state.finished) showChapter(next);
     if (chapterId && !state.busy && !shop.open && !notebook.open && !ending.open && !document.hidden) {
@@ -799,12 +860,15 @@ function frame(now) {
         finished: state.finished,
         watchRabbit: encounterActive
     });
-    if (state.finished) {family.position.copy(picnic.position);family.rotation.y=0;}
+    if (state.finished) {
+        family.position.copy(picnic.position);
+        family.rotation.y = 0;
+    }
     rabbit.position.set(-2.5 + (rabbitSeen ? Math.min(4, encounterTime) * .8 : 0), rabbitSeen ? Math.abs(Math.sin(elapsed * 8)) * .3 : 0, pathZ(-2.5) + 2.5 + (rabbitSeen ? Math.min(4, encounterTime) : 0));
     if (rabbitSeen) encounterTime = Math.min(4, encounterTime + dt);
     camTarget.set(x - 4.5, pathHeight(x) + (innerWidth < 650 ? 4 : 3), pathZ(x - 4.5) + 2);
     lookTarget.set(x + 1, .8 + pathHeight(x), pathZ(x));
-    if (walking && (shopping || Math.abs(x-stationX)<3.2)) {
+    if (walking && (shopping || Math.abs(x - stationX) < 3.2)) {
         camTarget.set(stationX + 2.6, 2.5, stationZ + (innerWidth < 650 ? 6.5 : 5));
         lookTarget.set(stationX, 1.5, stationZ + .6);
     }
@@ -817,21 +881,38 @@ function frame(now) {
         zoomDistance = THREE.MathUtils.clamp(zoomDistance + zoomInput * dt * .45, .6, 1.6);
     }
     camTarget.sub(lookTarget).multiplyScalar(zoomDistance).add(lookTarget);
-    if(walking && Math.abs(x-stationX)>=3.2 && firstPerson && !shopping && !state.finished && !encounterActive){
-        const bob=moving?Math.sin(gait*2)*.035:0;
-        camTarget.set(x-.35,1.7+pathHeight(x)+bob,pathZ(x)-.7);
-        lookTarget.set(x+5*Math.cos(viewYaw),1.65+pathHeight(x)+viewPitch*4,pathZ(x)+5*Math.sin(viewYaw));
+    if (walking && Math.abs(x - stationX) >= 3.2 && firstPerson && !shopping && !state.finished && !encounterActive) {
+        const bob = moving ? Math.sin(gait * 2) * .035 : 0;
+        camTarget.set(x - .35, 1.7 + pathHeight(x) + bob, pathZ(x) - .7);
+        lookTarget.set(x + 5 * Math.cos(viewYaw), 1.65 + pathHeight(x) + viewPitch * 4, pathZ(x) + 5 * Math.sin(viewYaw));
     }
-    if(!walking){
-        const cx=scenery.car.position.x;
-        family.position.set(journey.phase==='home'?-35:journey.phase==='boarding'?-35+Math.min(1,journey.time/2)*3:-10,0,journey.phase==='home'?4.2-Math.min(1,journey.time/2)*1.2:0);
-        if(journey.phase==='boarding')characters.update({dt,time:elapsed,gait:elapsed*6,moving:true,facing:Math.PI/2});
-        camTarget.set(cx-6,3.2,-7);lookTarget.set(cx,1,0);
-        if(journey.phase==='driving' || journey.phase==='entrance'){camTarget.set(cx-5,3.2,scenery.car.position.z-5);lookTarget.set(cx+3,1,scenery.car.position.z);}
+    if (!walking) {
+        const cx = scenery.car.position.x;
+        family.position.set(journey.phase === 'home' ? -35 : journey.phase === 'boarding' ? -35 + Math.min(1, journey.time / 2) * 3 : -10, 0, journey.phase === 'home' ? 4.2 - Math.min(1, journey.time / 2) * 1.2 : 0);
+        if (journey.phase === 'boarding') characters.update({
+            dt,
+            time: elapsed,
+            gait: elapsed * 6,
+            moving: true,
+            facing: Math.PI / 2
+        });
+        camTarget.set(cx - 6, 3.2, -7);
+        lookTarget.set(cx, 1, 0);
+        if (journey.phase === 'driving' || journey.phase === 'entrance') {
+            camTarget.set(cx - 5, 3.2, scenery.car.position.z - 5);
+            lookTarget.set(cx + 3, 1, scenery.car.position.z);
+        }
     }
     family.visible = journey.phase !== 'driving' && !(journey.phase === 'boarding' && journey.time > 1.8) && !(walking && firstPerson && !shopping && !state.finished && !encounterActive);
-    if(chapterId==='camp' && walking){camTarget.set(1,2.4,-1);lookTarget.set(4,1,4.4);family.visible=true;}
-    if(state.finished){camTarget.set(25.5,5.1,picnic.position.z+6);lookTarget.copy(picnic.position).add(new THREE.Vector3(0,.6,0));}
+    if (chapterId === 'camp' && walking) {
+        camTarget.set(1, 2.4, -1);
+        lookTarget.set(4, 1, 4.4);
+        family.visible = true;
+    }
+    if (state.finished) {
+        camTarget.set(25.5, 5.1, picnic.position.z + 6);
+        lookTarget.copy(picnic.position).add(new THREE.Vector3(0, .6, 0));
+    }
     if (['approaching', 'ready', 'approved'].includes(payment.phase)) {
         const reader = new THREE.Vector3(.67, 1.7, .68);
         machine.localToWorld(reader);
@@ -861,14 +942,14 @@ function frame(now) {
     $('#speech').hidden = !walking || Boolean(chapterId) || shop.open || notebook.open || ending.open;
     $('#speech').textContent = state.finished ? (state.recycled ? 'بچه: جنگل رو تمیز گذاشتیم؛ چه روز خوبی!' : 'بچه: رسیدیم نوک قله؛ روی فرش کنار هم نشستیم.')
         : payment.phase !== 'idle' ? $('#payment-result').textContent
-        : deliveryTime > 0 ? 'پدر: محصول در حال تحویل است؛ کمی صبر کن.'
-        : near ? (readyForPicnic(state) ? 'پدر: خرید کامل شد؛ حالا به سمت قله برویم.' : 'پدر: این هم دستگاه؛ با E نوشیدنی و خوراکی انتخاب کن.')
-        : x > 20 && !readyForPicnic(state) ? 'پدر: هنوز نوشیدنی و خوراکی نداریم؛ به دستگاه برگردیم.'
-        : x > 16 ? 'پدر: مسیر قله را ادامه بده؛ فرش بالای کوه آماده است.'
-        : x > 11 ? 'بچه: از مسیر جنگل به سمت بالای کوه می‌ریم.'
-        : x > 2.7 && story.done.includes('camp') ? 'بچه: دوستان گفتند دستگاه کمی جلوتره؛ بریم خرید کنیم.'
-        : x > -2.2 ? 'پدر: از روی پل عبور کنیم و مسیر جنگل را ادامه بدهیم.'
-        : 'بچه: از ورودی جنگل به سمت مسیر پیاده‌روی بریم.';
+            : deliveryTime > 0 ? 'پدر: محصول در حال تحویل است؛ کمی صبر کن.'
+                : near ? (readyForPicnic(state) ? 'پدر: خرید کامل شد؛ حالا به سمت قله برویم.' : 'پدر: این هم دستگاه؛ با E نوشیدنی و خوراکی انتخاب کن.')
+                    : x > 20 && !readyForPicnic(state) ? 'پدر: هنوز نوشیدنی و خوراکی نداریم؛ به دستگاه برگردیم.'
+                        : x > 16 ? 'پدر: مسیر قله را ادامه بده؛ فرش بالای کوه آماده است.'
+                            : x > 11 ? 'بچه: از مسیر جنگل به سمت بالای کوه می‌ریم.'
+                                : x > 2.7 && story.done.includes('camp') ? 'بچه: دوستان گفتند دستگاه کمی جلوتره؛ بریم خرید کنیم.'
+                                    : x > -2.2 ? 'پدر: از روی پل عبور کنیم و مسیر جنگل را ادامه بدهیم.'
+                                        : 'بچه: از ورودی جنگل به سمت مسیر پیاده‌روی بریم.';
     if (!shop.open && !notebook.open && !ending.open && x > 21 && storyReady(story) && readyForPicnic(state) && !state.busy && !state.finished) finish();
     if (payment.phase !== 'idle') {
         paymentTime += dt;
