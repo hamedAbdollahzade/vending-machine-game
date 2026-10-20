@@ -41,26 +41,29 @@ export function createFamily() {
         root.add(torso);
         const cloth = mat(isChild ? '#d98150' : '#e4c695'), pants = mat(isChild ? '#527463' : '#496474');
         // Tapered jacket, hips and neck replace the single rounded toy-like body.
-        shape(torso,new THREE.CylinderGeometry(.255*scale,.22*scale,.62*scale,16),cloth,[0,1.2*scale,0]).scale.z=.72;
-        sphere(torso,.23,pants,[0,.88*scale,0],[scale,.55*scale,.72*scale]);
-        shape(torso,new THREE.CylinderGeometry(.075*scale,.09*scale,.18*scale,12),skin,[0,1.59*scale,0]);
-        const seam=shape(torso,new THREE.BoxGeometry(.014*scale,.5*scale,.014*scale),mat('#bda77f'),[0,1.2*scale,.19*scale]);
-        for(const side of [-1,1]){
-            const collar=shape(torso,new THREE.BoxGeometry(.12*scale,.09*scale,.025*scale),cloth,[side*.07*scale,1.49*scale,.15*scale]);collar.rotation.z=side*.4;
+        shape(torso, new THREE.CylinderGeometry(.255 * scale, .22 * scale, .62 * scale, 16), cloth, [0, 1.2 * scale, 0]).scale.z = .72;
+        sphere(torso, .23, pants, [0, .88 * scale, 0], [scale, .55 * scale, .72 * scale]);
+        shape(torso, new THREE.CylinderGeometry(.075 * scale, .09 * scale, .18 * scale, 12), skin, [0, 1.59 * scale, 0]);
+        const seam = shape(torso, new THREE.BoxGeometry(.014 * scale, .5 * scale, .014 * scale), mat('#bda77f'), [0, 1.2 * scale, .19 * scale]);
+        for (const side of [-1, 1]) {
+            const collar = shape(torso, new THREE.BoxGeometry(.12 * scale, .09 * scale, .025 * scale), cloth, [side * .07 * scale, 1.49 * scale, .15 * scale]);
+            collar.rotation.z = side * .4;
         }
         const head = new THREE.Group();
         head.position.y = 1.77 * scale;
         torso.add(head);
-        head.scale.setScalar(isChild?.9:.77);
-        const eyes=[];
+        head.scale.setScalar(isChild ? .9 : .77);
+        const eyes = [];
         sphere(head, .27 * scale, skin, [0, 0, 0]);
         sphere(head, .275 * scale, hair, [0, .11 * scale, -.035 * scale], [1, .65, 1]);
         sphere(head, .058 * scale, skin, [0, -.02 * scale, .25 * scale]);
         for (const side of [-1, 1]) {
             sphere(head, .06 * scale, skin, [side * .26 * scale, 0, 0]);
-            sphere(head,.037*scale,mat('#f6f1e7'),[side*.09*scale,.03*scale,.241*scale],[1,.65,.5]);
-            const eye=sphere(head,.022*scale,shoes,[side*.09*scale,.03*scale,.258*scale],[.8,1,.45]);eyes.push(eye);
-            const brow=shape(head,new THREE.BoxGeometry(.075*scale,.015*scale,.015*scale),hair,[side*.09*scale,.087*scale,.237*scale]);brow.rotation.z=side*-.08;
+            sphere(head, .037 * scale, mat('#f6f1e7'), [side * .09 * scale, .03 * scale, .241 * scale], [1, .65, .5]);
+            const eye = sphere(head, .022 * scale, shoes, [side * .09 * scale, .03 * scale, .258 * scale], [.8, 1, .45]);
+            eyes.push(eye);
+            const brow = shape(head, new THREE.BoxGeometry(.075 * scale, .015 * scale, .015 * scale), hair, [side * .09 * scale, .087 * scale, .237 * scale]);
+            brow.rotation.z = side * -.08;
             sphere(head, .04 * scale, mat('#d79379'), [side * .15 * scale, -.055 * scale, .215 * scale]);
         }
         const smile = shape(head, new THREE.TorusGeometry(.068 * scale, .012 * scale, 6, 14, Math.PI), shoes, [0, -.075 * scale, .252 * scale]);
@@ -89,31 +92,31 @@ export function createFamily() {
             lower: segment(group, null, null, .061 * scale, skin),
             hand: sphere(group, .075 * scale, skin, [0, 0, 0])
         }));
-        return {root, torso, head, legs, arms, scale, z,eyes};
+        return {root, torso, head, legs, arms, scale, z, eyes};
     }
 
     const father = makePerson(false, -.45), child = makePerson(true, .45);
 
 
-    function update({time, gait, moving, facing, shopping, delivery, finished, watchRabbit,dt=1/60}) {
+    function update({time, gait, moving, facing, shopping, delivery, finished, watchRabbit, dt = 1 / 60}) {
         const actors = [father, child];
         actors.forEach((actor, index) => {
-            const blend=1-Math.exp(-dt*7);
-            actor.root.position.x=THREE.MathUtils.lerp(actor.root.position.x,shopping?(index===0?-.55:.25):0,blend);
-            actor.root.position.y=THREE.MathUtils.lerp(actor.root.position.y,finished?-.32:0,blend);
-            actor.root.position.z=actor.z;
+            const blend = 1 - Math.exp(-dt * 7);
+            actor.root.position.x = THREE.MathUtils.lerp(actor.root.position.x, shopping ? (index === 0 ? -.55 : .25) : 0, blend);
+            actor.root.position.y = THREE.MathUtils.lerp(actor.root.position.y, finished ? -.32 : 0, blend);
+            actor.root.position.z = actor.z;
             actor.root.rotation.y = facing;
             const bob = moving ? Math.abs(Math.sin(gait)) * .022 : Math.sin(time * 2) * .006;
             actor.torso.position.y = bob;
-            actor.torso.rotation.z=moving?Math.sin(gait)*.018:0;
-            const blinking=Math.sin(time*1.3+index)>.993;
-            actor.eyes.forEach(eye=>eye.scale.y=blinking?.12:1);
+            actor.torso.rotation.z = moving ? Math.sin(gait) * .018 : 0;
+            const blinking = Math.sin(time * 1.3 + index) > .993;
+            actor.eyes.forEach(eye => eye.scale.y = blinking ? .12 : 1);
             actor.head.rotation.y = shopping ? -.65 : watchRabbit ? .55 : Math.sin(time * .7) * .06;
             actor.torso.rotation.x = delivery && index === 1 ? .22 : 0;
             actor.legs.forEach((leg, i) => {
                 const phase = gait + i * Math.PI;
                 leg.hip.rotation.x = finished ? -1.3 : moving ? Math.sin(phase) * .34 : 0;
-                leg.foot.rotation.x=moving?Math.sin(phase+.5)*.12:0;
+                leg.foot.rotation.x = moving ? Math.sin(phase + .5) * .12 : 0;
                 leg.knee.rotation.x = finished ? 1.5 : moving ? Math.max(0, -Math.sin(phase)) * .5 : .05;
             });
         });
