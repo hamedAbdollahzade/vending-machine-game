@@ -1,5 +1,5 @@
 export const chapters = {
-    morning: {title: 'تپهٔ آرزوها', lines: ['پدر: بریم تپه؟ امروز راه رو با هم کشف می‌کنیم.']},
+    morning: {title: 'ورود به جنگل', lines: ['پدر: ماشین همین‌جا می‌مونه. پیاده می‌ریم تا بالای کوه.']},
     rabbit: {
         title: 'یک دوست کوچک',
         lines: ['بچه: یه خرگوش! آروم نگاهش کنیم؟'],
@@ -7,6 +7,7 @@ export const chapters = {
     },
     bridge: {title: 'روی پل', lines: ['پدر: دستم رو بگیر؛ با هم رد می‌شیم.']},
     fish: {title: 'زیر پل', lines: ['بچه: ماهی‌ها رو ببین!']},
+    camp: {title: 'دور آتش', lines: ['بچه: بابا! اون دخترها و پسرها دور آتیش می‌رقصن. نوشیدنی‌هاشون رو از کجا گرفتن؟', 'پدر: بریم بپرسیم. سلام! نوشیدنی رو از کجا خریدین؟', 'یکی از دوستان: سلام! کمی جلوتر یه دستگاه روبات مارکت هست؛ نوشیدنی و خوراکی داره.', 'بچه: پس ما هم از همون‌جا برای پیک‌نیک خرید کنیم!'], action: {value: 'ask', label: 'رفتن به دستگاه وندینگ'}},
     courage: {title: 'اولین خرید من', lines: ['پدر: حالا برای پیک‌نیک خرید کنیم.']},
     wind: {title: 'باد و نقاشی', lines: ['بچه: نقاشیم رفت کنار بوته!']},
     paper: {
@@ -45,7 +46,7 @@ export function completeChapter(story, id, choice) {
 export function nextChapter(story, x) {
     const done = id => story.done.includes(id);
     if (!done('morning')) return 'morning';
-    for (const [id, threshold] of [['rabbit', -3.7], ['bridge', -2.2], ['fish', 0], ['courage', 2.7], ['wind', 12], ['paper', 14], ['fork', 16]]) {
+    for (const [id, threshold] of [['rabbit', -3.7], ['bridge', -2.2], ['fish', 0], ['camp', 2.7], ['courage', 6.5], ['wind', 12], ['paper', 14], ['fork', 16]]) {
         if (!done(id)) return x >= threshold ? id : null;
     }
     if (!done(story.route)) return x >= 19 ? story.route : null;
@@ -53,7 +54,7 @@ export function nextChapter(story, x) {
 }
 
 export function storyReady(story) {
-    return ['morning', 'rabbit', 'bridge', 'fish', 'courage', 'wind', 'paper', 'fork', story.route].every(id => story.done.includes(id));
+    return ['morning', 'rabbit', 'bridge', 'fish', 'camp', 'courage', 'wind', 'paper', 'fork', story.route].every(id => story.done.includes(id));
 }
 
 export function routeOffset(story, x) {
@@ -65,6 +66,7 @@ export function routeOffset(story, x) {
 export function discoveries(story) {
     const entries = [];
     if (story.done.includes('rabbit')) entries.push(story.rabbitChoice === 'sketch' ? '🐇 نقاشی خرگوش' : '🐇 تماشای آرام خرگوش');
+    if (story.done.includes('camp')) entries.push('🔥 دوستان کنار آتش و آدرس وندینگ');
     if (story.done.includes('fish')) entries.push('🐟 ماهی‌های زیر پل');
     if (story.done.includes('courage')) entries.push('🌉 پل شجاعت');
     if (story.done.includes('paper')) entries.push('📄 نقاشی بازیابی‌شده');

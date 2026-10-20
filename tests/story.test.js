@@ -4,7 +4,7 @@ import {createStory,completeChapter,nextChapter,storyReady,routeOffset,discoveri
 import {createState,purchase,readyForPicnic,productByCode} from '../src/game-state.js';
 for(const route of ['sunny'])test(`Complete ${route} story and picnic`,()=>{
  const story=createStory();assert.equal(nextChapter(story,-8),'morning');
- for(const [id,x,choice] of [['morning',-8],['rabbit',-3,'watch'],['bridge',-2],['fish',0],['courage',3],['wind',12],['paper',14,'recover'],['fork',16,route],[route,19]]){
+ for(const [id,x,choice] of [['morning',-8],['rabbit',-3,'watch'],['bridge',-2],['fish',0],['camp',3,'ask'],['courage',7],['wind',12],['paper',14,'recover'],['fork',16,route],[route,19]]){
  assert.equal(nextChapter(story,x),id);assert.ok(completeChapter(story,id,choice));assert.equal(completeChapter(story,id,choice),false);
  }
  assert.ok(storyReady(story));assert.equal(nextChapter(story,22),null);assert.ok(discoveries(story).length>=5);
@@ -21,5 +21,5 @@ test('No early triggers, unknown choices, or leaked reset state',()=>{
 test('Every story action exposes one fixed action instead of choices',async()=>{
  const {chapters}=await import('../src/story.js');
  for(const chapter of Object.values(chapters))assert.equal(chapter.choices,undefined);
- for(const id of ['rabbit','paper','fork','summit']){const s=createStory();assert.equal(completeChapter(s,id,'wrong'),false);assert.ok(completeChapter(s,id,chapters[id].action.value));}
+ for(const id of ['rabbit','paper','fork','summit','camp']){const s=createStory();assert.equal(completeChapter(s,id,'wrong'),false);assert.ok(completeChapter(s,id,chapters[id].action.value));}
 });

@@ -102,9 +102,9 @@ export function createFamily() {
         const actors = [father, child];
         actors.forEach((actor, index) => {
             const blend = 1 - Math.exp(-dt * 7);
-            actor.root.position.x = THREE.MathUtils.lerp(actor.root.position.x, shopping ? (index === 0 ? -.55 : .25) : 0, blend);
-            actor.root.position.y = THREE.MathUtils.lerp(actor.root.position.y, finished ? -.32 : 0, blend);
-            actor.root.position.z = actor.z;
+            actor.root.position.x = THREE.MathUtils.lerp(actor.root.position.x, finished ? (index === 0 ? -.55 : .55) : shopping ? (index === 0 ? -.55 : .25) : 0, blend);
+            actor.root.position.y = THREE.MathUtils.lerp(actor.root.position.y, finished ? -.6 * actor.scale : 0, blend);
+            actor.root.position.z = finished ? 0 : actor.z;
             actor.root.rotation.y = facing;
             const bob = moving ? Math.abs(Math.sin(gait)) * .022 : Math.sin(time * 2) * .006;
             actor.torso.position.y = bob;
@@ -115,9 +115,9 @@ export function createFamily() {
             actor.torso.rotation.x = delivery && index === 1 ? .22 : 0;
             actor.legs.forEach((leg, i) => {
                 const phase = gait + i * Math.PI;
-                leg.hip.rotation.x = finished ? -1.3 : moving ? Math.sin(phase) * .34 : 0;
+                leg.hip.rotation.x = finished ? -1.4 : moving ? Math.sin(phase) * .34 : 0;
                 leg.foot.rotation.x = moving ? Math.sin(phase + .5) * .12 : 0;
-                leg.knee.rotation.x = finished ? 1.5 : moving ? Math.max(0, -Math.sin(phase)) * .5 : .05;
+                leg.knee.rotation.x = finished ? 2.5 : moving ? Math.max(0, -Math.sin(phase)) * .5 : .05;
             });
         });
         group.updateMatrixWorld(true);
