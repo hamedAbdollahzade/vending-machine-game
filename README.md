@@ -2,6 +2,14 @@
 
 بازی سه‌بعدی JavaScript با Three.js: پدر و بچه در جنگل راه می‌روند، از دستگاه خرید می‌کنند و به پیک‌نیک می‌رسند. مدل‌ها با کد ساخته شده‌اند.
 
+🎮 [اجرای آنلاین بازی](https://hamedabdollahzade.github.io/vending-machine-game/)
+
+## انتشار در GitHub Pages
+
+در تنظیمات مخزن، بخش **Settings → Pages → Build and deployment**، گزینهٔ **Source** را روی **GitHub Actions** قرار دهید. انتشار مستقیم از `main / (root)` مناسب این پروژه نیست: فایل‌های سورس باید ابتدا با Vite ساخته شوند تا JavaScript، استایل‌ها و وابستگی‌ها برای مرورگر آماده شوند.
+
+گردش‌کار `.github/workflows/pages.yml` با هر push به `main` تست‌ها و build را اجرا می‌کند و فقط خروجی `dist` را منتشر می‌کند. پس از تغییر Source، تغییرات را به `main` بفرستید یا از بخش **Actions** گردش‌کار **Deploy game to GitHub Pages** را دستی اجرا کنید. تنظیم `base: './'` در Vite مسیر فایل‌های خروجی را با زیرمسیر مخزن سازگار نگه می‌دارد.
+
 ## اجرا
 
 ```sh
