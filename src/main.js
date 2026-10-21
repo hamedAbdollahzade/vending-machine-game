@@ -835,7 +835,8 @@ function frame(now) {
         shopOpen: shop.open,
         notebookOpen: notebook.open,
         endingOpen: ending.open,
-        busy: state.busy || Boolean(chapterId),
+        busy: state.busy,
+        chapterId,
         finished: state.finished
     }) ? direction : 0;
     x = THREE.MathUtils.clamp(x + moving * (pressed.has('shift') ? 3.7 : 2.2) * dt, -9, 22);
@@ -881,7 +882,15 @@ function frame(now) {
         zoomDistance = THREE.MathUtils.clamp(zoomDistance + zoomInput * dt * .45, .6, 1.6);
     }
     camTarget.sub(lookTarget).multiplyScalar(zoomDistance).add(lookTarget);
-    if (walking && Math.abs(x - stationX) >= 3.2 && firstPerson && !shopping && !state.finished && !encounterActive) {
+    const firstPersonActive = walking && Math.abs(x - stationX) >= 3.2 && firstPerson && !shopping && !state.finished && !encounterActive && chapterId !== 'camp';
+    if (walking && !firstPersonActive && !shopping && !state.finished && !encounterActive && chapterId !== 'camp' && Math.abs(x - stationX) >= 3.2) {
+        camTarget.sub(lookTarget);
+        const orbit = new THREE.Spherical().setFromVector3(camTarget);
+        orbit.theta += viewYaw;
+        orbit.phi = THREE.MathUtils.clamp(orbit.phi - viewPitch, .2, Math.PI / 2 - .05);
+        camTarget.setFromSpherical(orbit).add(lookTarget);
+    }
+    if (firstPersonActive) {
         const bob = moving ? Math.sin(gait * 2) * .035 : 0;
         camTarget.set(x - .35, 1.7 + pathHeight(x) + bob, pathZ(x) - .7);
         lookTarget.set(x + 5 * Math.cos(viewYaw), 1.65 + pathHeight(x) + viewPitch * 4, pathZ(x) + 5 * Math.sin(viewYaw));
@@ -903,7 +912,7 @@ function frame(now) {
             lookTarget.set(cx + 3, 1, scenery.car.position.z);
         }
     }
-    family.visible = journey.phase !== 'driving' && !(journey.phase === 'boarding' && journey.time > 1.8) && !(walking && firstPerson && !shopping && !state.finished && !encounterActive);
+    family.visible = journey.phase !== 'driving' && !(journey.phase === 'boarding' && journey.time > 1.8) && !firstPersonActive;
     if (chapterId === 'camp' && walking) {
         camTarget.set(1, 2.4, -1);
         lookTarget.set(4, 1, 4.4);

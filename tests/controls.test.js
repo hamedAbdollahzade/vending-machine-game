@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import {canWalk,movementDirection} from '../src/controls.js';
 import {products,createState,purchase,INITIAL_BALANCE,formatHetoman} from '../src/game-state.js';
 import {createFamily} from '../src/characters.js';
-test('Walking remains enabled during dialogue; arrows up/down only zoom',()=>{
- assert.ok(canWalk({chapterId:'bridge'}));assert.ok(canWalk({chapterId:'fish'}));
+test('Dialogue pauses walking; arrows up/down only zoom',()=>{
+ assert.equal(canWalk({chapterId:'bridge'}),false);assert.equal(canWalk({chapterId:'fish'}),false);
+ assert.ok(canWalk({chapterId:null}));
  assert.equal(canWalk({busy:true}),false);assert.equal(canWalk({shopOpen:true}),false);
  assert.equal(movementDirection(new Set(['arrowup']),new Set()),0);
  assert.equal(movementDirection(new Set(['arrowright']),new Set()),1);
