@@ -30,3 +30,15 @@ test('Sixty channels, exactly 21–60 purchasable, Hetoman conversion',async()=>
  assert.equal(productByCode('۲۲').channel,22);assert.equal(productByCode('٦٠').channel,60);assert.equal(productByCode('61'),null);
  const s=createState();assert.equal(purchase(s,'channel-20'),null);assert.equal(s.balance,500);
 });
+
+ test('Robot Market mascot replaces the child and keeps its articulated rig',()=>{
+ const family=createFamily();
+ const robot=family.group.getObjectByName('robot-market-mascot');
+ assert.ok(robot);
+ assert.equal(family.group.children.filter(node=>node.type==='Group').length,2);
+ for(const mode of ['walk','shop','sit']){
+  family.update({time:2,gait:1,dt:.016,moving:mode==='walk',facing:Math.PI/2,shopping:mode==='shop',delivery:mode==='shop',finished:mode==='sit'});
+  family.group.updateMatrixWorld(true);
+  robot.traverse(node=>assert.ok(node.matrixWorld.elements.every(Number.isFinite)));
+ }
+ });
