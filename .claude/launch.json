@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "game",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "npx vite build && npx vite preview --port 4173 --strictPort"],
+      "port": 4173
+    }
+  ]
+}
