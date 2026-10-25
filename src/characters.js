@@ -33,7 +33,7 @@ export function createFamily() {
         bone.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.normalize());
     }
 
-    // Procedural Robot Market mascot: the child-sized playable companion.
+    // Procedural Robot Market mascot: a hovering guide that follows the father and child.
     function makeRobot(z) {
         const scale = .69, root = new THREE.Group(), torso = new THREE.Group();
         root.name = 'robot-market-mascot';
@@ -169,15 +169,20 @@ export function createFamily() {
         return {root, torso, head, legs, arms, scale, z, eyes};
     }
 
-    const father = makePerson(false, -.45), child = makeRobot(.45);
+    const father = makePerson(false, -.45), child = makePerson(true, .45), robot = makeRobot(1.45);
+    robot.root.scale.setScalar(.7);
 
 
-    function update({time, gait, moving, facing, shopping, delivery, finished, watchRabbit, dt = 1 / 60}) {
-        const actors = [father, child];
+    // The group faces +X; `facing` is the actors' own yaw inside it (π/2 = along +X).
+    function update({time, gait, moving, facing = Math.PI / 2, shopping, delivery, finished, talking = false, dt = 1 / 60}) {
+        const actors = [father, child, robot];
         actors.forEach((actor, index) => {
-            const blend = 1 - Math.exp(-dt * 7);
-            actor.root.position.x = THREE.MathUtils.lerp(actor.root.position.x, finished ? (index === 0 ? -.55 : .55) : shopping ? (index === 0 ? -.55 : .25) : 0, blend);
-            actor.root.position.y = THREE.MathUtils.lerp(actor.root.position.y, finished ? -.6 * actor.scale : 0, blend);
+            const blend = 1 - Math.exp(-dt * 7), isRobot = actor === robot;
+            const restX = isRobot ? -.7 : 0;
+            actor.root.position.x = THREE.MathUtils.lerp(actor.root.position.x, finished ? (index === 0 ? -.55 : .55) : shopping ? [-.55, .25, -.9][index] : restX, blend);
+            // The robot hovers; it bobs faster while it is speaking.
+            const hover = isRobot ? .35 + Math.sin(time * (talking ? 6 : 2.2)) * .07 : 0;
+            actor.root.position.y = THREE.MathUtils.lerp(actor.root.position.y, finished ? -.6 * actor.scale : hover, isRobot ? 1 : blend);
             actor.root.position.z = finished ? 0 : actor.z;
             actor.root.rotation.y = facing;
             const bob = moving ? Math.abs(Math.sin(gait)) * .022 : Math.sin(time * 2) * .006;
@@ -185,22 +190,23 @@ export function createFamily() {
             actor.torso.rotation.z = moving ? Math.sin(gait) * .018 : 0;
             const blinking = Math.sin(time * 1.3 + index) > .993;
             actor.eyes.forEach(eye => eye.scale.y = blinking ? .12 : 1);
-            actor.head.rotation.y = shopping ? -.65 : watchRabbit ? .55 : Math.sin(time * .7) * .06;
+            actor.head.rotation.y = shopping ? -.65 : isRobot ? Math.sin(time * .9) * .35 : Math.sin(time * .7) * .06;
             actor.torso.rotation.x = delivery && index === 1 ? .22 : 0;
             actor.legs.forEach((leg, i) => {
                 const phase = gait + i * Math.PI;
-                leg.hip.rotation.x = finished ? -1.4 : moving ? Math.sin(phase) * .34 : 0;
+                const stride = isRobot ? .08 : .34;
+                leg.hip.rotation.x = finished ? -1.4 : moving ? Math.sin(phase) * stride : 0;
                 leg.foot.rotation.x = moving ? Math.sin(phase + .5) * .12 : 0;
-                leg.knee.rotation.x = finished ? 2.5 : moving ? Math.max(0, -Math.sin(phase)) * .5 : .05;
+                leg.knee.rotation.x = finished ? 2.5 : isRobot ? .25 : moving ? Math.max(0, -Math.sin(phase)) * .5 : .05;
             });
         });
         group.updateMatrixWorld(true);
         const toFamily = (actor, point) => point.applyMatrix4(actor.root.matrix).clone();
-        const shoulder = (actor, side) => toFamily(actor, new THREE.Vector3(side * .29 * actor.scale, 1.43 * actor.scale, 0));
+        const shoulder = (actor, side) => toFamily(actor, new THREE.Vector3(side * .29 * actor.scale, (actor === robot ? 1.12 : 1.43) * actor.scale, 0));
         // With characters facing +X, father's left and child's right hands meet.
         const contact = new THREE.Vector3(0, 1.06, 0);
         actors.forEach((actor, index) => actor.arms.forEach((arm, i) => {
-            const side = i === 0 ? -1 : 1, inside = index === 0 ? side === -1 : side === 1;
+            const side = i === 0 ? -1 : 1, inside = index === 0 ? side === -1 : index === 1 && side === 1;
             const a = shoulder(actor, side);
             let target;
             if (inside && !shopping && !finished) target = contact.clone();
@@ -213,6 +219,6 @@ export function createFamily() {
         }));
     }
 
-    update({time: 0, gait: 0, moving: false, facing: Math.PI / 2});
-    return {group, update};
+    update({time: 0, gait: 0, moving: false});
+    return {group, update, robot: robot.root};
 }

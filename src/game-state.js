@@ -1,56 +1,56 @@
+// Money is counted in whole hetoman: 10 hetoman = 100,000 rial.
 export const INITIAL_BALANCE = 500;
-export const formatHetoman = value => `${value.toLocaleString('fa-IR')} هتومان`;
+export const START_MINUTES = 8 * 60 + 30;
+export const fa = n => n.toLocaleString('fa-IR');
+export const formatHetoman = value => `${fa(value)} هتومان`;
 export const hetomanToRial = value => value * 10000;
+export const formatClock = minutes => {
+    const m = Math.floor(minutes) % (24 * 60);
+    return `${fa(Math.floor(m / 60)).padStart(2, '۰')}:${fa(m % 60).padStart(2, '۰')}`;
+};
 
-const assortment = [
-    {id: 'juice', code: '11', name: 'آب‌میوه', icon: '🧃', cost: 35000, type: 'drink'},
-    {id: 'water', code: '12', name: 'آب معدنی', icon: '💧', cost: 15000, type: 'drink'},
-    {id: 'biscuit', code: '13', name: 'بیسکویت', icon: '🍪', cost: 25000, type: 'snack'},
-    {id: 'milk', code: '14', name: 'شیر کاکائو', icon: '🥛', cost: 40000, type: 'drink'},
-    {id: 'tea', code: '15', name: 'چای سرد', icon: '🧋', cost: 45000, type: 'drink'},
-    {id: 'lemonade', code: '16', name: 'لیموناد', icon: '🍋', cost: 40000, type: 'drink'},
-    {id: 'chocolate', code: '17', name: 'شکلات', icon: '🍫', cost: 30000, type: 'snack'},
-    {id: 'nuts', code: '18', name: 'آجیل', icon: '🥜', cost: 65000, type: 'snack'},
-    {id: 'cake', code: '19', name: 'کیک', icon: '🧁', cost: 35000, type: 'snack'}
-];
+export const catalog = {
+    juice: {id: 'juice', name: 'آب‌میوه', icon: '🧃', cost: 35, type: 'drink'},
+    water: {id: 'water', name: 'آب معدنی', icon: '💧', cost: 15, type: 'drink'},
+    milk: {id: 'milk', name: 'شیر کاکائو', icon: '🥛', cost: 40, type: 'drink'},
+    tea: {id: 'tea', name: 'چای سرد', icon: '🧋', cost: 45, type: 'drink'},
+    lemonade: {id: 'lemonade', name: 'لیموناد', icon: '🍋', cost: 40, type: 'drink'},
+    biscuit: {id: 'biscuit', name: 'بیسکویت', icon: '🍪', cost: 25, type: 'snack'},
+    chocolate: {id: 'chocolate', name: 'شکلات', icon: '🍫', cost: 30, type: 'snack'},
+    nuts: {id: 'nuts', name: 'آجیل', icon: '🥜', cost: 65, type: 'snack'},
+    cake: {id: 'cake', name: 'کیک', icon: '🧁', cost: 35, type: 'snack'}
+};
 
-// All 60 physical channels exist; only 21–60 are available in this scene.
-export const channels = Array.from({length: 60}, (_, index) => {
-    const channel = index + 1, base = assortment[(channel - 22 + 63) % assortment.length];
-    return {
-        ...base,
-        baseId: base.id,
-        id: `channel-${channel}`,
-        code: String(channel),
-        channel,
-        cost: base.cost / 1000,
-        available: channel >= 21
-    };
-});
-export const products = channels.filter(channel => channel.available);
+export const priceAt = (machine, productId) => Math.round(catalog[productId].cost * machine.priceFactor);
+
+export function isOpen(machine, minutes) {
+    const m = minutes % (24 * 60);
+    return m >= machine.hours[0] && m < machine.hours[1];
+}
 
 export function createState() {
-    return {balance: INITIAL_BALANCE, basket: [], busy: false, finished: false, recycled: false};
+    return {balance: INITIAL_BALANCE, purchases: [], xp: 0, missionsDone: [], minutes: START_MINUTES, busy: false};
 }
 
-export function readyForPicnic(state) {
-    return state.basket.some(p => p.type === 'drink') && state.basket.some(p => p.type === 'snack');
+// Returns why a purchase cannot happen, or null when it can.
+export function purchaseBlocker(state, machine, productId) {
+    if (!machine || !machine.products.includes(productId)) return 'unknown';
+    if (state.busy) return 'busy';
+    if (!isOpen(machine, state.minutes)) return 'closed';
+    if (state.balance < priceAt(machine, productId)) return 'funds';
+    return null;
 }
 
-export function purchase(state, id) {
-    const product = products.find(p => p.id === id);
-    if (!product || state.busy || state.finished || state.balance < product.cost) return null;
-    // Keep enough money for the missing picnic category, so the quest stays completable.
-    const next = [...state.basket, product];
-    const reserve = ['drink', 'snack'].reduce((total, type) => total + (next.some(p => p.type === type) ? 0 : Math.min(...products.filter(p => p.type === type).map(p => p.cost))), 0);
-    if (state.balance - product.cost < reserve) return null;
-    state.balance -= product.cost;
-    state.basket.push(product);
-    state.busy = true;
-    return product;
+export function purchase(state, machine, productId) {
+    if (purchaseBlocker(state, machine, productId)) return null;
+    const product = catalog[productId], price = priceAt(machine, productId);
+    const record = {machineId: machine.id, category: machine.category, productId, type: product.type, price, minutes: state.minutes};
+    state.balance -= price;
+    state.purchases.push(record);
+    return record;
 }
 
-export function productByCode(value) {
-    const normalized = String(value).trim().replace(/[۰-۹]/g, c => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c))).replace(/[٠-٩]/g, c => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)));
-    return products.find(p => p.code === normalized) ?? null;
+// The run ends once no open or later-opening machine sells anything the player can afford.
+export function canAffordAnything(state, machines) {
+    return machines.some(m => m.products.some(id => priceAt(m, id) <= state.balance) && (state.minutes % 1440) < m.hours[1]);
 }

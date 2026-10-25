@@ -1,1022 +1,1079 @@
-import {createJourney, advanceJourney, tickJourney, journeyLabels} from './journey.js';
-import {createJourneyScenery} from './scenery.js';
 import * as THREE from 'three';
 import './style.css';
-import {createPayment, beginPayment, swipePayment, cancelPayment} from './payment.js';
-import {movementDirection, canWalk} from './controls.js';
-import {chapters, createStory, completeChapter, nextChapter, storyReady, routeOffset, discoveries} from './story.js';
+import data from './data/mellat.json';
+import iran from './data/iran.json';
+import {createCity} from './city.js';
+import {createCollisionWorld, addPolygon, resolveCircle, clearFraction} from './collision.js';
+import {buildGraph, routeBetween, buildSegmentIndex, nearestSegment, DRIVABLE_MAX_TYPE} from './routing.js';
+import {machines, CATEGORIES, START, lockedPlaces} from './locations.js';
+import {createState, catalog, priceAt, isOpen, purchaseBlocker, formatHetoman, formatClock, fa, canAffordAnything} from './game-state.js';
+import {createPayment, beginPayment, readyPayment, swipePayment, cancelPayment} from './payment.js';
+import {awardsFor, rankFor, completeMissions, activeMission, MISSIONS} from './scoring.js';
 import {createFamily} from './characters.js';
-import {products, createState, readyForPicnic, purchase, productByCode, channels, formatHetoman} from './game-state.js';
+import {createVendingMachine} from './vending.js';
+import {createCar, stepCar, kmh} from './vehicle.js';
+import {createCarModel, createTraffic} from './traffic.js';
+import {createMapAssets, drawMinimap, drawFullMap, drawIran} from './map-render.js';
+import {bearing, formatDistance} from './geo.js';
 
-// One shared path coordinate drives both characters, their gait and the camera.
-const canvas = document.querySelector('#world');
+const $ = s => document.querySelector(s);
+const canvas = $('#world');
 let renderer;
 try {
-    renderer = new THREE.WebGLRenderer({canvas, antialias: true});
+    renderer = new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: 'high-performance'});
 } catch {
-    document.querySelector('#loading').textContent = 'مرورگر شما گرافیک سه‌بعدی را اجرا نمی‌کند. شتاب‌دهی گرافیکی را فعال کنید.';
+    $('#loading').textContent = 'مرورگر شما گرافیک سه‌بعدی (WebGL) را اجرا نمی‌کند. شتاب‌دهی گرافیکی را فعال کنید.';
     throw new Error('WebGL unavailable');
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
+// Low quality (no shadows, 1× pixels) for weak phones; chosen with ?quality=low or the toolbar button.
+const quality = new URLSearchParams(location.search).get('quality') ?? (() => {
+    try {
+        return localStorage.getItem('quality');
+    } catch {
+        return null;
+    }
+})() ?? (matchMedia('(pointer: coarse)').matches ? 'low' : 'high');
+renderer.setPixelRatio(quality === 'low' ? 1 : Math.min(devicePixelRatio, 1.75));
+renderer.shadowMap.enabled = quality !== 'low';
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.setClearColor('#a4b492');
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2('#a4b492', .018);
-const camera = new THREE.PerspectiveCamera(65, 1, .1, 140);
-scene.add(new THREE.HemisphereLight('#fff3cc', '#375946', 2.8));
-const sun = new THREE.DirectionalLight('#ffe5a3', 3.3);
-sun.position.set(-5, 12, -8);
+scene.fog = new THREE.Fog('#d8cdb4', 220, 1500);
+const camera = new THREE.PerspectiveCamera(62, 1, .3, 6000);
+
+// Morning sky over Mashhad: a gradient dome, warm haze at the horizon.
+const sky = new THREE.Mesh(new THREE.SphereGeometry(5000, 32, 16), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false,
+    uniforms: {top: {value: new THREE.Color('#6f9fd0')}, horizon: {value: new THREE.Color('#e6dbc3')}},
+    vertexShader: 'varying vec3 vPos; void main(){ vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform vec3 top; uniform vec3 horizon; varying vec3 vPos; void main(){ float h = clamp(normalize(vPos).y * 2.2, 0.0, 1.0); gl_FragColor = vec4(mix(horizon, top, h), 1.0); }'
+}));
+scene.add(sky);
+scene.add(new THREE.HemisphereLight('#fff4dc', '#7d715d', 1.6));
+const sun = new THREE.DirectionalLight('#ffe9c2', 3.2);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, {left: -24, right: 24, top: 24, bottom: -24, far: 60});
-scene.add(sun);
-let story = createStory(), chapterId = null, chapterLine = 0, chapterTimer = 0;
-const material = (color, extra = {}) => new THREE.MeshStandardMaterial({color, roughness: .85, ...extra});
-const green = material('#6d975b'), bark = material('#755a3e'), dark = material('#172c2a');
+Object.assign(sun.shadow.camera, {left: -75, right: 75, top: 75, bottom: -75, near: 10, far: 700});
+sun.shadow.bias = -.0004;
+sun.shadow.normalBias = .4;
+scene.add(sun, sun.target);
 
-function mesh(geometry, mat, parent = scene, position = [0, 0, 0]) {
-    const m = new THREE.Mesh(geometry, mat);
-    m.position.set(...position);
-    m.castShadow = true;
-    m.receiveShadow = true;
-    parent.add(m);
-    return m;
-}
+// ---------- World data ----------
+const collision = createCollisionWorld(data.buildings.map(b => b.slice(1)));
+const segments = buildSegmentIndex(data.roads);
+const walkGraph = buildGraph(data.roads), driveGraph = buildGraph(data.roads, {drivable: true});
+const ROAD_HALF_WIDTH = [5.5, 5, 4.5, 4, 3.2, 3, 2.5, 2];
 
-function box(w, h, d, mat, parent, pos) {
-    return mesh(new THREE.BoxGeometry(w, h, d), mat, parent, pos)
-}
+const rotateLocal = (lx, lz, rot) => ({x: lx * Math.cos(rot) + lz * Math.sin(rot), z: -lx * Math.sin(rot) + lz * Math.cos(rot)});
 
-function ball(r, mat, parent, pos) {
-    return mesh(new THREE.SphereGeometry(r, 12, 10), mat, parent, pos)
-}
-
-const ground = mesh(new THREE.PlaneGeometry(160, 120), green);
-ground.rotation.x = -Math.PI / 2;
-
-// A broad, gently curving ribbon defines the walking route.
-function pathZ(x) {
-    return Math.sin(x * .17) * 1.5 + routeOffset(story, x)
-}
-
-const points = [];
-for (let x = -42; x <= 50; x += .5) points.push(new THREE.Vector3(x, .025, pathZ(x)));
-const curve = new THREE.CatmullRomCurve3(points);
-const path = mesh(new THREE.TubeGeometry(curve, 180, 1.35, 8, false), material('#cbb889'));
-path.scale.y = .025;
-let seed = 42;
-
-function random() {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    return seed / 4294967296
-}
-
-const trees = [];
-
-function tree(x, z, s) {
-    const g = new THREE.Group();
-    g.position.set(x, 0, z);
-    g.scale.setScalar(s);
-    trees.push(g);
-    scene.add(g);
-    mesh(new THREE.CylinderGeometry(.17, .3, 2.6, 7), bark, g, [0, 1.3, 0]);
-    const foliage = material(['#315e42', '#47764b', '#597f4c', '#749759'][Math.floor(random() * 4)]);
-    for (let i = 0; i < 3; i++) {
-        mesh(new THREE.ConeGeometry(1.55 - i * .25, 2.6, 7), foliage, g, [0, 2.7 + i * .9, 0]);
+// Machines stand beside their path point, on whichever side is free, facing the path.
+const stations = machines.map(def => {
+    const seg = nearestSegment(segments, def.anchor.x, def.anchor.z, 40) ?? {dx: 1, dz: 0, type: 9};
+    const len = Math.hypot(seg.dx, seg.dz) || 1, nx = -seg.dz / len, nz = seg.dx / len;
+    const off = (seg.type <= DRIVABLE_MAX_TYPE ? ROAD_HALF_WIDTH[seg.type] : 1.2) + 2.4;
+    let pos = null;
+    for (const d of [off, -off, off + 1.5, -off - 1.5]) {
+        const x = def.anchor.x + nx * d, z = def.anchor.z + nz * d;
+        if (!resolveCircle(collision, x, z, 1.4).hit) {
+            pos = {x, z};
+            break;
+        }
     }
-}
+    pos ??= {x: def.anchor.x + nx * off, z: def.anchor.z + nz * off};
+    const model = createVendingMachine(def), rot = Math.atan2(def.anchor.x - pos.x, def.anchor.z - pos.z);
+    model.group.position.set(pos.x, 0, pos.z);
+    model.group.rotation.y = rot;
+    scene.add(model.group);
+    addPolygon(collision, [[-1, -.6], [1, -.6], [1, .6], [-1, .6]].flatMap(([lx, lz]) => {
+        const p = rotateLocal(lx, lz, rot);
+        return [pos.x + p.x, pos.z + p.z];
+    }));
+    const front = rotateLocal(0, 1.9, rot);
+    return {def, model, x: pos.x, z: pos.z, rot, front: {x: pos.x + front.x, z: pos.z + front.z}};
+});
+const stationById = id => stations.find(s => s.def.id === id);
 
-for (let i = 0; i < 130; i++) {
-    const x = random() * 100 - 45, z = random() * 65 - 33;
-    if (Math.abs(z - pathZ(x)) > 3.6 && !(Math.abs(x - 9) < 4 && z > -5 && z < 2) && !(x > 17 && x < 28 && Math.abs(z) < 7)) tree(x, z, .7 + random() * 1.2)
-}
-for (let i = 0; i < 150; i++) {
-    const x = random() * 65 - 25, z = random() * 32 - 16;
-    if (Math.abs(z - pathZ(x)) < 1.7) continue;
-    const rock = mesh(new THREE.DodecahedronGeometry(.13 + random() * .3), material('#8c9c78'), scene, [x, .12, z]);
-    rock.scale.y = .6;
-}
-for (let i = 0; i < 100; i++) {
-    const x = random() * 55 - 20, z = random() * 25 - 12;
-    if (Math.abs(z - pathZ(x)) < 1.5) continue;
-    ball(.065, material(i % 3 ? '#eadba0' : '#e4ae89'), scene, [x, .22, z]);
-}
+createCity(scene, data, {collision, segments});
+const traffic = createTraffic(scene, data, 34);
+const mapAssets = createMapAssets(data);
 
-const scenery = createJourneyScenery(scene, pathZ);
-let journey = createJourney(), firstPerson = false, viewYaw = 0, viewPitch = 0;
-const journeyPanel = document.createElement('section');
-journeyPanel.id = 'journey-panel';
-journeyPanel.innerHTML = '<small>FOREST ROAD · یک سفر کنار هم</small><h2></h2><p></p><button></button>';
-document.body.append(journeyPanel);
-journeyPanel.querySelector('button').onclick = () => {
-    if (advanceJourney(journey)) {
-        firstPerson = false;
-        clearInput();
-        syncHUD();
+// Park gate sign at the start, so the first view says where you are.
+{
+    const start = stationById(START.machineId), sign = document.createElement('canvas');
+    sign.width = 512;
+    sign.height = 128;
+    const c = sign.getContext('2d');
+    c.fillStyle = '#244d2e';
+    c.fillRect(0, 0, 512, 128);
+    c.fillStyle = '#f4efd9';
+    c.textAlign = 'center';
+    c.font = 'bold 64px Vazirmatn, Tahoma, sans-serif';
+    c.fillText('بوستان ملت', 256, 86);
+    const texture = new THREE.CanvasTexture(sign);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const gate = new THREE.Group(), post = new THREE.MeshStandardMaterial({color: '#6b5a49'});
+    for (const side of [-1, 1]) {
+        const p = new THREE.Mesh(new THREE.BoxGeometry(.3, 4, .3), post);
+        p.position.set(side * 2.6, 2, 0);
+        p.castShadow = true;
+        gate.add(p);
     }
-};
-const viewButton = document.createElement('button');
-viewButton.id = 'camera-view';
-viewButton.textContent = 'تغییر دوربین · V';
-document.body.append(viewButton);
-viewButton.onclick = () => {
-    firstPerson = !firstPerson;
-};
-let dragging = false, dragX = 0, dragY = 0;
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 1.4), new THREE.MeshBasicMaterial({map: texture, side: THREE.DoubleSide}));
+    board.position.y = 4;
+    gate.add(board);
+    const at = rotateLocal(-4.5, 1.5, start.rot);
+    gate.position.set(start.x + at.x, 0, start.z + at.z);
+    gate.rotation.y = start.rot;
+    scene.add(gate);
+}
+
+// ---------- Actors ----------
+const family = createFamily();
+scene.add(family.group);
+const carModel = createCarModel('#f2f2ee');
+scene.add(carModel.group);
+
+let state, payment, player, car, mode, cam, waypoint, route, routeTimer, deliveryTimer, ended;
+const keys = new Set();
+
+function spawnCar() {
+    const seg = nearestSegment(segments, START.carAnchor.x, START.carAnchor.z, 60, s => s[4] <= DRIVABLE_MAX_TYPE);
+    const len = Math.hypot(seg.dx, seg.dz) || 1, heading = Math.atan2(-seg.dz / len, seg.dx / len);
+    // Park on the right-hand kerb of the lane.
+    const right = {x: Math.sin(heading), z: Math.cos(heading)};
+    return createCar(seg.x + right.x * 1.2, seg.z + right.z * 1.2, heading);
+}
+
+function reset() {
+    state = createState();
+    payment = createPayment();
+    const start = stationById(START.machineId);
+    const spot = resolveCircle(collision, start.front.x + (start.front.x - start.x) * 3, start.front.z + (start.front.z - start.z) * 3, 1);
+    player = {x: spot.x, z: spot.z, heading: Math.atan2(-(start.z - spot.z), start.x - spot.x), speed: 0, gait: 0};
+    car = spawnCar();
+    mode = 'walk';
+    // Camera yaw: the camera sits at target + (sin yaw, cos yaw) * distance, so it looks along (-sin, -cos).
+    cam = {yaw: Math.atan2(-Math.cos(player.heading), Math.sin(player.heading)), pitch: .32, distance: 5.5, lastMouse: -10};
+    waypoint = null;
+    route = null;
+    routeTimer = 0;
+    deliveryTimer = 0;
+    ended = false;
+    hints = {near: false, closed: false, car: false};
+    $('#payment').hidden = true;
+    for (const s of stations) {
+        s.model.delivery.visible = s.model.card.visible = false;
+        s.model.flap.rotation.x = 0;
+    }
+    for (const d of ['#shop', '#map-dialog', '#end']) if ($(d).open) $(d).close();
+    keys.clear();
+    refreshHUD();
+}
+
+// ---------- Input ----------
+const isTouch = matchMedia('(pointer: coarse)').matches;
+const anyDialogOpen = () => $('#shop').open || $('#map-dialog').open || $('#end').open || !$('#briefing').hidden;
+// Physical key codes, so the controls also work with a Persian keyboard layout.
+const keyName = e => e.code.startsWith('Key') ? e.code.slice(3).toLowerCase() : e.key.toLowerCase();
+window.addEventListener('keydown', e => {
+    if (e.target instanceof HTMLInputElement) return;
+    const k = keyName(e);
+    if (k === 'm' && !e.repeat && $('#briefing').hidden) {
+        e.preventDefault();
+        $('#map-dialog').open ? $('#map-dialog').close() : openMap();
+        return;
+    }
+    if (anyDialogOpen()) return;
+    if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'tab'].includes(k)) e.preventDefault();
+    if (e.repeat) return;
+    keys.add(k);
+    if (k === 'f') toggleCar();
+    if (k === 'e') interact();
+    if (k === 'c') swipe();
+    if (k === 'escape' && payment.phase !== 'idle') cancel();
+});
+window.addEventListener('keyup', e => keys.delete(keyName(e)));
+window.addEventListener('blur', () => keys.clear());
+
+// Pointer lock gives a shooter-style mouse look; dragging works as a fallback and on touch.
+canvas.addEventListener('click', () => {
+    if (!isTouch && !anyDialogOpen() && document.pointerLockElement !== canvas) canvas.requestPointerLock?.()?.catch?.(() => {});
+});
+document.addEventListener('mousemove', e => {
+    if (document.pointerLockElement !== canvas) return;
+    look(e.movementX, e.movementY, .0024);
+});
+let drag = null;
 canvas.addEventListener('pointerdown', e => {
-    dragging = true;
-    dragX = e.clientX;
-    dragY = e.clientY;
+    if (document.pointerLockElement === canvas) return;
+    drag = {id: e.pointerId, x: e.clientX, y: e.clientY};
     canvas.setPointerCapture(e.pointerId);
 });
 canvas.addEventListener('pointermove', e => {
-    if (!dragging) return;
-    viewYaw = THREE.MathUtils.clamp(viewYaw + (e.clientX - dragX) * .005, -1.3, 1.3);
-    viewPitch = THREE.MathUtils.clamp(viewPitch - (e.clientY - dragY) * .004, -.6, .6);
-    dragX = e.clientX;
-    dragY = e.clientY;
+    if (!drag || drag.id !== e.pointerId) return;
+    look(e.clientX - drag.x, e.clientY - drag.y, .005);
+    drag.x = e.clientX;
+    drag.y = e.clientY;
 });
-canvas.addEventListener('pointerup', () => dragging = false);
-canvas.addEventListener('pointercancel', () => dragging = false);
-const characters = createFamily();
-const family = characters.group;
-scene.add(family);
+canvas.addEventListener('pointerup', () => drag = null);
+canvas.addEventListener('pointercancel', () => drag = null);
+canvas.addEventListener('wheel', e => {
+    cam.distance = THREE.MathUtils.clamp(cam.distance + Math.sign(e.deltaY) * .6, 3, 12);
+}, {passive: true});
 
-// Procedural vending machine, with a canvas sign and visible product rows.
-const stationX = 9, stationZ = pathZ(9) - 2.65;
-const machine = new THREE.Group();
-machine.position.set(stationX, 0, stationZ);
-machine.rotation.y = .13;
-scene.add(machine);
-const shell = material('#243c3c', {metalness: .55, roughness: .32});
-box(1.82, 2.96, 1.15, shell, machine, [0, 1.48, 0]);
-const bezel = material('#bbc6bd', {metalness: .75, roughness: .25});
-const led = new THREE.MeshBasicMaterial({color: '#c7f6dc'});
-for (const side of [-1, 1]) {
-    box(.045, 2.78, .04, bezel, machine, [side * .86, 1.5, .6]);
-    box(.018, 1.86, .025, led, machine, [-.13 + side * .60, 1.55, .86]);
-}
-box(1.72, .07, .04, bezel, machine, [0, 2.91, .6]);
-box(1.72, .07, .04, bezel, machine, [0, .12, .6]);
-box(.3, 1.45, .08, material('#142625'), machine, [.67, 1.53, .6]);
-box(1.2, .04, .08, bezel, machine, [-.13, 2.5, .7]);
-const displayCanvas = document.createElement('canvas');
-displayCanvas.width = 256;
-displayCanvas.height = 256;
-const displayCtx = displayCanvas.getContext('2d');
-displayCtx.fillStyle = '#122d2c';
-displayCtx.fillRect(0, 0, 256, 256);
-displayCtx.textAlign = 'center';
-displayCtx.fillStyle = '#bcf2d5';
-displayCtx.font = 'bold 31px Tahoma';
-displayCtx.fillText('پرداخت', 128, 70);
-displayCtx.font = '24px Tahoma';
-displayCtx.fillText('کارت بکشید', 128, 125);
-displayCtx.fillStyle = '#85bbab';
-displayCtx.fillRect(44, 170, 168, 4);
-mesh(new THREE.PlaneGeometry(.23, .3), new THREE.MeshBasicMaterial({map: new THREE.CanvasTexture(displayCanvas)}), machine, [.67, 1.7, .669]);
-
-box(1.25, 1.85, .08, material('#a6d5c3', {metalness: .4, roughness: .22}), machine, [-.13, 1.55, .59]);
-box(1.13, 1.72, .1, material('#223f3b'), machine, [-.13, 1.55, .65]);
-const bottleMats = ['#e5ae47', '#badd81', '#c8704e'].map(c => material(c));
-const steel = material('#aeb8b6', {metalness: .8, roughness: .3});
-for (let row = 0; row < 6; row++) {
-    const shelfY = .86 + row * .275;
-    box(1.17, .025, .28, steel, machine, [-.13, shelfY, .73]);
-    for (let col = 0; col < 10; col++) {
-        const channel = (5 - row) * 10 + col + 1, px = -.65 + col * .115;
-        if (channel % 3) {
-            mesh(new THREE.CylinderGeometry(.033, .04, .155, 10), bottleMats[channel % 3], machine, [px, shelfY + .105, .73]);
-            box(.035, .035, .035, dark, machine, [px, shelfY + .195, .73]);
-        } else box(.068, .14, .07, bottleMats[channel % 3], machine, [px, shelfY + .09, .73]);
-        // Each slot has its own dispensing spiral.
-        const spiral = mesh(new THREE.TorusGeometry(.035, .006, 4, 10), steel, machine, [px, shelfY + .045, .79]);
-    }
-}
-const slots = document.createElement('canvas');
-slots.width = 1000;
-slots.height = 900;
-const slotContext = slots.getContext('2d');
-slotContext.textAlign = 'center';
-slotContext.font = 'bold 25px sans-serif';
-for (let row = 0; row < 6; row++) for (let col = 0; col < 10; col++) {
-    const n = row * 10 + col + 1;
-    slotContext.fillStyle = n >= 21 ? '#d1f0b3' : '#9ca6a0';
-    slotContext.fillRect(col * 100 + 8, row * 150 + 120, 84, 30);
-    slotContext.fillStyle = '#172c2a';
-    slotContext.fillText(String(n), col * 100 + 50, row * 150 + 144);
-}
-const slotLabels = mesh(new THREE.PlaneGeometry(1.16, 1.65), new THREE.MeshBasicMaterial({
-    map: new THREE.CanvasTexture(slots),
-    transparent: true
-}), machine, [-.13, 1.56, .82]);
-for (const px of [-.77, .48]) box(.025, 1.85, .08, steel, machine, [px, 1.55, .82]);
-const glass = mesh(new THREE.PlaneGeometry(1.24, 1.86), material('#d5eee9', {
-    transparent: true,
-    opacity: .1,
-    metalness: .3,
-    roughness: .08,
-    depthWrite: false
-}), machine, [-.13, 1.55, .84]);
-box(.04, .5, .06, steel, machine, [.52, 1.4, .88]);
-for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) box(.045, .045, .035, steel, machine, [.60 + c * .065, 1.43 - r * .07, .64]);
-for (let i = 0; i < 6; i++) box(.24, .014, .025, steel, machine, [.67, .55 + i * .045, .58]);
-for (const px of [-.65, .65]) box(.15, .09, .6, dark, machine, [px, .015, 0]);
-box(.24, .38, .08, material('#81d9ba', {emissive: '#50a486', emissiveIntensity: .5}), machine, [.67, 1.7, .62]);
-for (let i = 0; i < 3; i++) box(.15, .05, .08, material('#e4d7ad'), machine, [.67, 1.3 - i * .1, .62]);
-box(.85, .3, .1, material('#050f10'), machine, [-.13, .36, .62]);
-const label = document.createElement('canvas');
-label.width = 512;
-label.height = 128;
-const ctx = label.getContext('2d');
-ctx.fillStyle = '#193332';
-ctx.fillRect(0, 0, 512, 128);
-ctx.fillStyle = '#d9efa7';
-ctx.font = 'bold 52px Tahoma';
-ctx.textAlign = 'center';
-ctx.fillText('روبات مارکت', 256, 83);
-const sign = new THREE.MeshBasicMaterial({color: '#ffffff', map: new THREE.CanvasTexture(label)});
-box(1.5, .38, .05, sign, machine, [0, 2.68, .58]);
-// A separate card, animated through the reader only after an explicit swipe.
-const bankCard = box(.24, .15, .014, material('#ddd4b4', {metalness: .2}), machine, [.9, 1.8, .8]);
-box(.2, .03, .016, dark, bankCard, [0, .035, .008]);
-bankCard.visible = false;
-const pad = mesh(new THREE.CylinderGeometry(2.3, 2.4, .12, 32), material('#9caa80'), scene, [9, .05, stationZ]);
-const delivery = new THREE.Group();
-scene.add(delivery);
-const deliveryBody = mesh(new THREE.CylinderGeometry(.1, .1, .28, 10), bottleMats[0], delivery);
-box(.09, .05, .09, dark, delivery, [0, .16, 0]);
-delivery.visible = false;
-
-// Picnic clearing, checked blanket, basket and a recycling bin.
-const picnic = new THREE.Group();
-picnic.position.set(23, 1.8, pathZ(22));
-scene.add(picnic);
-for (let i = 0; i < 6; i++) for (let j = 0; j < 5; j++) box(.5, .035, .5, material((i + j) % 2 ? '#f3dca9' : '#b96f51'), picnic, [(i - 2.5) * .5, .08, (j - 2) * .5]);
-const picnicFood = new THREE.Group();
-picnic.add(picnicFood);
-box(.5, .3, .35, material('#ac8252'), picnic, [-1, .25, -.8]);
-mesh(new THREE.TorusGeometry(.22, .035, 6, 16, Math.PI), bark, picnic, [-1, .5, -.8]);
-const bin = box(.55, .8, .55, material('#39735b'), scene, [24, 2.2, pathZ(22) - 2.3]);
-box(.65, .08, .65, dark, scene, [24, 2.64, pathZ(22) - 2.3]);
-const flap = new THREE.Group();
-flap.position.set(-.13, .53, .69);
-machine.add(flap);
-box(.87, .28, .035, material('#527268', {metalness: .45}), flap, [0, -.14, 0]);
-const glow = new THREE.PointLight('#a8ffc5', 2, 7);
-glow.position.set(9, 2, stationZ + 1);
-scene.add(glow);
-const butterfly = new THREE.Group();
-scene.add(butterfly);
-const wings = [-1, 1].map(side => {
-    const wing = mesh(new THREE.SphereGeometry(.16, 8, 6), material('#efb75b'), butterfly, [side * .14, 0, 0]);
-    wing.scale.set(1, .12, 1.4);
-    return wing;
-});
-// A raised footbridge crosses a shallow stream before the vending stop.
-const bridgeX = 0;
-const water = mesh(new THREE.PlaneGeometry(3.4, 40), material('#68b4b6', {
-    metalness: .3,
-    roughness: .25
-}), scene, [bridgeX, .035, 0]);
-water.rotation.x = -Math.PI / 2;
-const bridge = new THREE.Group();
-scene.add(bridge);
-const wood = material('#a57b50');
-for (let i = 0; i < 13; i++) {
-    const bx = -2 + i / 3;
-    box(.29, .14, 2.8, wood, bridge, [bx, .22, pathZ(bx)]);
-}
-for (const side of [-1, 1]) {
-    for (const bx of [-2, 0, 2]) box(.12, 1, .12, bark, bridge, [bx, .65, pathZ(bx) + side * 1.3]);
-    const rail = box(4.3, .1, .1, wood, bridge, [0, 1.08, side * 1.3]);
-    rail.rotation.y = -.25;
+function look(dx, dy, k) {
+    cam.yaw -= dx * k;
+    cam.pitch = THREE.MathUtils.clamp(cam.pitch + dy * k * .8, -.15, 1.15);
+    cam.lastMouse = elapsed;
 }
 
-function pathHeight(at) {
-    return Math.max(0, Math.min(1, (2.6 - Math.abs(at)) / .6)) * .3 + THREE.MathUtils.smoothstep(at, 17, 22) * 1.8;
+// Touch joystick: x steers / strafes, y walks / throttles.
+const stick = {x: 0, y: 0, id: null};
+if (isTouch) {
+    $('#touch').hidden = false;
+    const pad = $('#stick'), knob = pad.querySelector('i');
+    const move = e => {
+        const r = pad.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+        const len = Math.min(1, Math.hypot(dx, dy) / (r.width / 2)), a = Math.atan2(dy, dx);
+        stick.x = Math.cos(a) * len;
+        stick.y = -Math.sin(a) * len;
+        knob.style.transform = `translate(${stick.x * 40}px, ${-stick.y * 40}px)`;
+    };
+    pad.addEventListener('pointerdown', e => {
+        stick.id = e.pointerId;
+        pad.setPointerCapture(e.pointerId);
+        move(e);
+    });
+    pad.addEventListener('pointermove', e => e.pointerId === stick.id && move(e));
+    const end = () => {
+        stick.id = null;
+        stick.x = stick.y = 0;
+        knob.style.transform = '';
+    };
+    pad.addEventListener('pointerup', end);
+    pad.addEventListener('pointercancel', end);
+    for (const b of document.querySelectorAll('.touch-buttons button')) b.addEventListener('click', () => {
+        const k = b.dataset.key;
+        if (k === 'shift') b.classList.toggle('on', keys.has('shift') ? (keys.delete('shift'), false) : (keys.add('shift'), true));
+        if (k === 'f') toggleCar();
+        if (k === 'e') payment.phase === 'ready' ? swipe() : interact();
+    });
 }
 
-const rabbit = new THREE.Group();
-scene.add(rabbit);
-const fur = material('#eee2ca'), pink = material('#d5a193');
-const rabbitBody = ball(.28, fur, rabbit, [0, .3, 0]);
-rabbitBody.scale.set(1.3, 1, 1);
-ball(.22, fur, rabbit, [.24, .55, 0]);
-ball(.12, fur, rabbit, [-.35, .4, 0]);
-for (const side of [-1, 1]) {
-    const ear = ball(.1, fur, rabbit, [.23, .86, side * .1]);
-    ear.scale.set(.75, 2.5, .75);
-    const inset = ball(.065, pink, rabbit, [.29, .88, side * .1]);
-    inset.scale.set(.4, 2.6, .7);
-    ball(.025, dark, rabbit, [.43, .58, side * .13]);
-    ball(.09, fur, rabbit, [.1, .1, side * .2]);
-}
-const lostPaper = box(.6, .025, .43, material('#fff3d5'), scene, [14, .35, Math.sin(14 * .17) * 1.5 + 1.5]);
-lostPaper.rotation.z = .15;
-const bush = ball(.55, material('#688a4b'), scene, [14, .3, Math.sin(14 * .17) * 1.5 + 2]);
-const oldTree = new THREE.Group();
-oldTree.position.set(19, 0, -5);
-scene.add(oldTree);
-mesh(new THREE.CylinderGeometry(.5, .8, 4, 9), bark, oldTree, [0, 2, 0]);
-ball(2, material('#54734a'), oldTree, [0, 4.8, 0]);
-const hill = mesh(new THREE.SphereGeometry(5, 24, 16), green, scene, [23, -1.3, 0]);
-hill.scale.set(1, .65, 1.3);
-let branchPath = null;
+const axis = (pos, neg) => Number(pos.some(k => keys.has(k))) - Number(neg.some(k => keys.has(k)));
 
-function rebuildRoute() {
-    if (branchPath) {
-        scene.remove(branchPath);
-        branchPath.geometry.dispose();
-        branchPath.material.dispose();
-    }
-    const pts = [];
-    for (let at = 11; at <= 24; at += .15) pts.push(new THREE.Vector3(at, pathHeight(at) + .045, pathZ(at)));
-    branchPath = mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 80, .8, 8, false), material('#cbb889'));
-    // Flatten only the cross-section, retaining the hill's elevation.
-    const positions = branchPath.geometry.attributes.position;
-    for (let i = 0; i < positions.count; i++) {
-        const px = positions.getX(i);
-        positions.setY(i, pathHeight(px) + .045);
-    }
-    positions.needsUpdate = true;
-    branchPath.geometry.computeVertexNormals();
+// ---------- Subtitles ----------
+const SPEAKERS = {robot: 'روبات', father: 'پدر', child: 'بچه'};
+let lines = [], lineTimer = 0, talking = false;
+
+function say(speaker, text, seconds = Math.max(2.6, text.length * .06)) {
+    if (lines.some(l => l.text === text)) return;
+    lines.push({speaker, text, seconds});
 }
 
-rebuildRoute();
-const fishes = [];
-for (let i = 0; i < 4; i++) {
-    const fish = ball(.09, material('#e8b365'), scene, [.4, .11, -.6 + i * .4]);
-    fish.scale.set(2, .5, 1);
-    fishes.push(fish);
-}
-let encounterTime = 0, rabbitSeen = false, encounterActive = false, facing = Math.PI / 2;
-const $ = s => document.querySelector(s), shop = $('#shop'), ending = $('#ending');
-const storyDialog = $('#story-dialog'), notebook = $('#notebook');
-
-function renderChapter() {
-    const chapter = chapters[chapterId];
-    $('#chapter-title').textContent = chapter.title;
-    $('#chapter-line').textContent = chapter.lines[chapterLine];
-    $('#chapter-count').textContent = `${chapterLine + 1} / ${chapter.lines.length}`;
-    $('#chapter-actions').replaceChildren();
-    const last = chapterLine === chapter.lines.length - 1;
-    if (last && chapter.action) {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.textContent = `${chapter.action.label} · F`;
-        b.onclick = performStoryAction;
-        $('#chapter-actions').append(b);
-    }
-    chapterTimer = Math.max(2.5, chapter.lines[chapterLine].length * .055);
+function updateSubtitles(dt) {
+    lineTimer -= dt;
+    if (lineTimer > 0) return;
+    const next = lines.shift();
+    $('#subtitle').hidden = !next;
+    talking = next?.speaker === 'robot';
+    if (!next) return;
+    $('#subtitle-speaker').textContent = `${SPEAKERS[next.speaker]}:`;
+    $('#subtitle-speaker').className = next.speaker;
+    $('#subtitle-text').textContent = next.text;
+    lineTimer = next.seconds;
 }
 
-function performStoryAction() {
-    if (shop.open || notebook.open || ending.open || state.busy) return;
-    if (journey.phase !== 'walking') {
-        if (advanceJourney(journey)) {
-            firstPerson = false;
-            clearInput();
-            syncHUD();
-        }
-        return;
-    }
-    if (!chapterId || shop.open || notebook.open || ending.open || state.busy) return;
-    const chapter = chapters[chapterId];
-    if (chapter.action && chapterLine === chapter.lines.length - 1) finishChapter(chapter.action.value);
-}
+// ---------- Sound ----------
+let audio = null, soundOn = false, engine = null;
 
-function showChapter(id) {
-    chapterId = id;
-    chapterLine = 0;
-    storyDialog.hidden = false;
-    renderChapter();
-}
-
-function finishChapter(choice) {
-    const id = chapterId;
-    if (!completeChapter(story, id, choice)) return;
-    if (id === 'rabbit') {
-        rabbitSeen = true;
-        encounterTime = 0;
-    }
-    if (id === 'fork' || id === 'wind') rebuildRoute();
-    storyDialog.hidden = true;
-    chapterId = null;
-    syncHUD();
-    if (id === 'summit') {
-        drawMemory($('#memory'));
-        $('#ending-discoveries').textContent = discoveries(story).join(' · ');
-        ending.showModal();
-    }
-}
-
-function drawMemory(canvas) {
-    const c = canvas.getContext('2d');
-    c.clearRect(0, 0, 600, 360);
-    c.fillStyle = story.sky === 'gold' ? '#f5d18b' : story.sky === 'rose' ? '#eeb9ba' : '#b9dfeb';
-    c.fillRect(0, 0, 600, 360);
-    c.fillStyle = '#fff0af';
-    c.beginPath();
-    c.arc(500, 65, 30, 0, Math.PI * 2);
-    c.fill();
-    c.fillStyle = '#84a36b';
-    c.beginPath();
-    c.moveTo(0, 240);
-    c.quadraticCurveTo(160, 90, 320, 235);
-    c.quadraticCurveTo(460, 120, 600, 210);
-    c.lineTo(600, 360);
-    c.lineTo(0, 360);
-    c.fill();
-    for (let i = 0; i < 5; i++) {
-        c.fillStyle = '#6a553e';
-        c.fillRect(30 + i * 115, 180, 8, 75);
-        c.fillStyle = '#456b47';
-        c.beginPath();
-        c.moveTo(5 + i * 115, 205);
-        c.lineTo(34 + i * 115, 125);
-        c.lineTo(63 + i * 115, 205);
-        c.fill();
-    }
-    c.strokeStyle = '#8a674d';
-    c.lineWidth = 8;
-    c.beginPath();
-    c.moveTo(75, 278);
-    c.lineTo(210, 278);
-    c.moveTo(85, 263);
-    c.lineTo(200, 263);
-    c.stroke();
-
-    function person(px, py, size, color) {
-        c.fillStyle = '#edbb94';
-        c.beginPath();
-        c.arc(px, py, size * .18, 0, Math.PI * 2);
-        c.fill();
-        c.strokeStyle = color;
-        c.lineWidth = size * .16;
-        c.beginPath();
-        c.moveTo(px, py + size * .22);
-        c.lineTo(px, py + size * .65);
-        c.moveTo(px, py + size * .3);
-        c.lineTo(px + size * .3, py + size * .48);
-        c.moveTo(px, py + size * .65);
-        c.lineTo(px - size * .15, py + size);
-        c.moveTo(px, py + size * .65);
-        c.lineTo(px + size * .15, py + size);
-        c.stroke();
-    }
-
-    person(300, 200, 90, '#b28b48');
-    person(347, 235, 58, '#c56f4d');
-    c.strokeStyle = '#d4a77d';
-    c.lineWidth = 5;
-    c.beginPath();
-    c.moveTo(327, 243);
-    c.lineTo(347, 252);
-    c.stroke();
-    c.font = '20px Tahoma';
-    c.textAlign = 'center';
-    c.fillStyle = '#294b3c';
-    c.fillText(story.sky ? 'من و بابا، تپهٔ آرزوها' : 'من و بابا… ادامه دارد', 300, 338);
-}
-
-$('#notebook-open').onclick = () => {
-    clearInput();
-    $('#discoveries').textContent = discoveries(story).join(' · ') || 'هنوز اول راهیم؛ کشف‌های امروز اینجا ثبت می‌شن.';
-    drawMemory($('#drawing'));
-    notebook.showModal();
-};
-$('#notebook-close').onclick = () => notebook.close();
-notebook.addEventListener('close', clearInput);
-let payment = createPayment(), paymentTime = 0;
-let state = createState(), x = -8, moving = 0, gait = 0, deliveryTime = 0, activeProduct = null, elapsed = 0;
-const pressed = new Set(), held = new Set();
-const fa = n => n.toLocaleString('fa-IR');
-let audio = null, soundEnabled = false, nextBird = 0, zoomDistance = 1;
-
-function tone(frequency, duration = .12, volume = .04) {
-    if (!soundEnabled || !audio) return;
-    const oscillator = audio.createOscillator(), gain = audio.createGain();
-    oscillator.frequency.setValueAtTime(frequency, audio.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(frequency * .7, audio.currentTime + duration);
-    gain.gain.setValueAtTime(volume, audio.currentTime);
-    gain.gain.exponentialRampToValueAtTime(.001, audio.currentTime + duration);
-    oscillator.connect(gain).connect(audio.destination);
-    oscillator.start();
-    oscillator.stop(audio.currentTime + duration);
+function tone(freq, duration = .12, volume = .05, type = 'sine') {
+    if (!soundOn) return;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, audio.currentTime);
+    o.frequency.exponentialRampToValueAtTime(freq * .7, audio.currentTime + duration);
+    g.gain.setValueAtTime(volume, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + duration);
+    o.connect(g).connect(audio.destination);
+    o.start();
+    o.stop(audio.currentTime + duration);
 }
 
 $('#sound').onclick = async () => {
     try {
         audio ??= new AudioContext();
         await audio.resume();
-        soundEnabled = !soundEnabled;
-        $('#sound').textContent = soundEnabled ? 'صدا: روشن ♫' : 'صدا: خاموش ♫';
-        $('#sound').setAttribute('aria-pressed', String(soundEnabled));
+        soundOn = !soundOn;
+        if (!engine) {
+            const o = audio.createOscillator(), g = audio.createGain();
+            o.type = 'sawtooth';
+            g.gain.value = 0;
+            o.connect(g).connect(audio.destination);
+            o.start();
+            engine = {o, g};
+        }
+        $('#sound').textContent = soundOn ? 'صدا: روشن' : 'صدا: خاموش';
+        $('#sound').setAttribute('aria-pressed', String(soundOn));
         tone(700);
     } catch {
         $('#sound').textContent = 'صدا در دسترس نیست';
     }
 };
 
-function syncHUD() {
-    $('#balance').textContent = fa(state.balance);
-    $('#basket').textContent = state.basket.length ? '🧺 ' + state.basket.map(p => p.icon).join(' ') : '🧺 سبد پیک‌نیک خالی است';
-    $('#mission').textContent = journey.phase !== 'walking' ? journeyLabels[journey.phase][1]
-        : state.finished ? 'به قله رسیدید؛ روی فرش استراحت کنید'
-            : chapterId ? chapters[chapterId].title
-                : !story.done.includes('camp') ? 'مسیر جنگل را تا جمع کنار آتش ادامه بدهید'
-                    : !readyForPicnic(state) ? 'از دستگاه یک نوشیدنی و یک خوراکی بخرید'
-                        : 'خرید آماده است؛ مسیر را تا فرش بالای قله ادامه بدهید';
-}
-
-function selectChannel(code) {
-    $('#product-code').value = code;
-    $('#product-code').removeAttribute('aria-invalid');
-    $('#shop-status').textContent = '';
-    document.querySelectorAll('[data-channel]').forEach(node => node.classList.toggle('selected', node.dataset.channel === code));
-    const row = $(`#products [data-channel="${code}"]`);
-    row?.scrollIntoView({block: 'nearest'});
-}
-
-function renderProducts() {
-    syncHUD();
-    $('#products').replaceChildren();
-    $('#channels').replaceChildren();
-    products.forEach(p => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.textContent = fa(p.channel);
-        button.dataset.channel = p.code;
-        button.disabled = !p.available;
-        button.setAttribute('aria-label', `کانال ${fa(p.channel)}${p.available ? '' : '؛ غیرفعال'}`);
-        button.onclick = () => selectChannel(p.code);
-        $('#channels').append(button);
-    });
-    products.forEach(p => {
-        const card = document.createElement('button');
-        card.type = 'button';
-        card.className = 'product-code-card';
-        card.dataset.channel = p.code;
-        card.innerHTML = `<span class="icon">${p.icon}</span><b>کد ${fa(p.channel)} · ${p.name}<small>محصول فرضی کانال ${fa(p.channel)}</small></b><span>${formatHetoman(p.cost)}</span>`;
-        card.onclick = () => selectChannel(p.code);
-        $('#products').append(card);
-    });
-}
-
-function deliver(p) {
-    activeProduct = p;
-    deliveryTime = 3.4;
-    delivery.visible = true;
-    deliveryBody.material = bottleMats[p.type === 'snack' ? 2 : p.baseId === 'water' ? 1 : 0];
-    renderProducts();
-    shop.close();
-    pressed.clear();
-    held.clear();
-    tone(480, .3);
-    $('#speech').textContent = 'پدر: ببین، دستگاه داره انتخابت رو آماده می‌کنه!';
-}
-
-function openShop() {
-    if (!chapterId && journey.phase === 'walking' && Math.abs(x - stationX) < 2.5 && !shop.open && !notebook.open && !state.busy && !state.finished) {
-        pressed.clear();
-        held.clear();
-        $('#shop-status').textContent = 'بچه: خودم می‌تونم انتخاب کنم؟  پدر: حتماً! برای نوشیدنی و خوراکی پول کنار بگذار.';
-        renderProducts();
-        $('#product-code').value = '';
-        $('#product-code').removeAttribute('aria-invalid');
-        shop.showModal();
-        $('#product-code').focus();
-        tone(750);
+// ---------- Car ----------
+function toggleCar() {
+    if (payment.phase !== 'idle' || state.busy) return;
+    if (mode === 'walk') {
+        if (Math.hypot(car.x - player.x, car.z - player.z) > 4.5) return;
+        mode = 'drive';
+        cam.distance = Math.max(cam.distance, 8);
+        tone(320, .2, .05, 'square');
+        say('robot', 'کمربندها بسته؟ مسیر طلایی روی زمین راهنمای شماست.');
+    } else {
+        if (Math.abs(car.speed) > 3) {
+            say('father', 'اول ماشین را نگه دار، بعد پیاده می‌شویم.');
+            return;
+        }
+        // Step out on the driver's (left) side, or wherever is free.
+        const left = {x: -Math.sin(car.heading), z: -Math.cos(car.heading)};
+        const spot = resolveCircle(collision, car.x + left.x * 2.8, car.z + left.z * 2.8, 1);
+        Object.assign(player, {x: spot.x, z: spot.z, heading: car.heading});
+        car.speed = 0;
+        mode = 'walk';
+        cam.distance = 5.5;
+        tone(260, .2, .05, 'square');
     }
+    refreshHUD();
 }
 
-$('#code-form').onsubmit = e => {
-    e.preventDefault();
-    if (state.busy || state.finished || !shop.open) return;
-    const field = $('#product-code'), product = productByCode(field.value);
-    let error = '';
-    if (!field.value.trim()) error = 'کد محصول را وارد کن.';
-    else if (!product) error = 'کانال قابل خرید نیست؛ عددی از ۲۱ تا ۶۰ وارد کن.';
-    else if (state.balance < product.cost) error = 'برای این محصول موجودی کافی نداری.';
-    else if (!purchase({
-        ...state,
-        basket: [...state.basket]
-    }, product.id)) error = 'برای تکمیل پیک‌نیک، هزینهٔ نوشیدنی و خوراکی را کنار بگذار؛ محصول دیگری انتخاب کن.';
-    if (error) {
-        $('#shop-status').textContent = error;
-        field.setAttribute('aria-invalid', 'true');
-        field.focus();
-        tone(200, .2);
+// ---------- Machines, shop and payment ----------
+const nearStation = () => mode === 'walk' ? stations.find(s => Math.hypot(s.front.x - player.x, s.front.z - player.z) < 3.4) : null;
+const hoursText = m => `${formatClock(m.hours[0])} تا ${formatClock(m.hours[1])}`;
+let shopStation = null;
+
+function interact() {
+    const station = nearStation();
+    if (!station || state.busy || payment.phase !== 'idle' || ended) return;
+    if (!isOpen(station.def, state.minutes)) {
+        say('robot', `این دستگاه الان بسته است. ساعت کاری: ${hoursText(station.def)}.`);
         return;
     }
-    field.removeAttribute('aria-invalid');
-    if (beginPayment(state, payment, product)) {
-        paymentTime = 0;
-        shop.close();
-        clearInput();
-        $('#payment-panel').hidden = false;
-        $('#cancel-payment').hidden = false;
-        $('#payment-message').textContent = `کانال ${fa(product.channel)} · ${product.name} · ${formatHetoman(product.cost)}`;
-        $('#swipe-card').disabled = true;
-        $('#payment-result').textContent = 'در حال نزدیک شدن به کارت‌خوان…';
-    }
-};
+    shopStation = station;
+    renderShop();
+    document.exitPointerLock?.();
+    keys.clear();
+    $('#shop').showModal();
+    tone(750);
+}
 
-function swipeCard() {
+function renderShop() {
+    const def = shopStation.def;
+    $('#shop-category').textContent = `${CATEGORIES[def.category].icon} ${CATEGORIES[def.category].label} · ساعت کاری ${hoursText(def)}`;
+    $('#shop-name').textContent = `روبات مارکت · ${def.name}`;
+    $('#shop-address').textContent = def.address;
+    $('#shop-note').textContent = `${def.note} · موجودی شما: ${formatHetoman(state.balance)}`;
+    $('#products').replaceChildren(...def.products.map(id => {
+        const p = catalog[id], price = priceAt(def, id), b = document.createElement('button');
+        b.type = 'button';
+        const blocker = purchaseBlocker(state, def, id);
+        b.disabled = Boolean(blocker);
+        b.innerHTML = `<span class="icon">${p.icon}</span><b>${p.name}</b><span class="price">${formatHetoman(price)}</span>${price !== p.cost ? `<s>${formatHetoman(p.cost)}</s>` : ''}<small>${p.type === 'drink' ? 'نوشیدنی' : 'خوراکی'}${blocker === 'funds' ? ' · موجودی کافی نیست' : ''}</small>`;
+        b.onclick = () => startPayment(id);
+        return b;
+    }));
+}
+
+function startPayment(productId) {
+    if (!beginPayment(state, payment, shopStation.def, productId)) return;
+    payment.station = shopStation;
+    payment.timer = 0;
+    $('#shop').close();
+    const p = catalog[productId];
+    $('#payment').hidden = false;
+    $('#payment-title').textContent = `${p.icon} ${p.name} · ${formatHetoman(priceAt(shopStation.def, productId))}`;
+    $('#payment-step').textContent = 'در حال نزدیک شدن به کارت‌خوان…';
+    $('#swipe').disabled = true;
+    $('#cancel-payment').hidden = false;
+    say('child', 'بابا، کارت رو بده من بکشم!');
+}
+
+function swipe() {
     if (!swipePayment(state, payment)) return;
-    paymentTime = 0;
-    bankCard.visible = true;
-    $('#swipe-card').disabled = true;
+    payment.timer = 0;
+    payment.station.model.card.visible = true;
+    $('#swipe').disabled = true;
     $('#cancel-payment').hidden = true;
-    $('#payment-result').textContent = 'خرید موفق ✓ محصول در حال تحویل است';
+    $('#payment-step').textContent = 'پرداخت موفق ✓ محصول در حال تحویل است';
     tone(1100, .3);
-    syncHUD();
+    refreshHUD();
 }
 
-$('#swipe-card').onclick = swipeCard;
-$('#cancel-payment').onclick = () => {
-    if (cancelPayment(state, payment)) {
-        $('#payment-panel').hidden = true;
-        bankCard.visible = false;
-        clearInput();
+function cancel() {
+    if (!cancelPayment(state, payment)) return;
+    $('#payment').hidden = true;
+}
+
+$('#swipe').onclick = swipe;
+$('#cancel-payment').onclick = cancel;
+$('#shop-close').onclick = () => $('#shop').close();
+
+function updatePayment(dt) {
+    if (payment.phase === 'idle') return;
+    payment.timer += dt;
+    const model = payment.station.model;
+    if (payment.phase === 'approaching' && payment.timer > 1) {
+        readyPayment(payment);
+        $('#swipe').disabled = false;
+        $('#payment-step').textContent = 'کارت را بکشید: دکمهٔ «کشیدن کارت» یا کلید C';
     }
+    if (payment.phase === 'approved') {
+        const t = Math.min(1, payment.timer);
+        model.card.position.set(.95 - t * .25, 1.7 - t * .1, .66);
+        if (payment.timer > 1.2) {
+            model.card.visible = false;
+            $('#payment').hidden = true;
+            model.setDelivery(payment.productId);
+            deliveryTimer = 2.6;
+            payment.delivering = {station: payment.station, record: payment.record};
+            Object.assign(payment, createPayment());
+        }
+    }
+}
+
+function updateDelivery(dt) {
+    if (deliveryTimer <= 0) return;
+    deliveryTimer = Math.max(0, deliveryTimer - dt);
+    const {station, record} = payment.delivering, model = station.model, t = 2.6 - deliveryTimer;
+    const slot = record ? catalog[record.productId] : null;
+    model.delivery.visible = t < 2.4;
+    // Falls from a shelf, waits in the tray, then lifts toward the child's hands.
+    const shelf = new THREE.Vector3(-.5 + (record.price % 7) * .1, 1.2 + (record.price % 5) * .15, .45);
+    if (t < .8) model.delivery.position.lerpVectors(shelf, model.slotPoint, t / .8);
+    else model.delivery.position.copy(model.slotPoint).add(new THREE.Vector3(0, Math.max(0, t - 1.6) * .6, Math.max(0, t - 1.6) * .8));
+    model.flap.rotation.x = t > .7 && t < 2 ? -1 : 0;
+    if (deliveryTimer > 0) return;
+    model.flap.rotation.x = 0;
+    state.busy = false;
+    tone(980, .18);
+    reward(record, slot);
+}
+
+function reward(record, product) {
+    const awards = awardsFor(state.purchases.slice(0, -1), record), rankBefore = rankFor(state.xp).index;
+    const total = awards.reduce((s, a) => s + a.points, 0);
+    state.xp += total;
+    $('#awards').replaceChildren(
+        Object.assign(document.createElement('div'), {className: 'total', textContent: `+${fa(total)}`}),
+        ...awards.map((a, i) => {
+            const line = document.createElement('div');
+            line.className = 'line';
+            line.style.animationDelay = `${i * .12}s`;
+            line.innerHTML = `${a.label}<b>+${fa(a.points)}</b>`;
+            return line;
+        })
+    );
+    clearTimeout(reward.timeout);
+    reward.timeout = setTimeout(() => $('#awards').replaceChildren(), 3200);
+    say('child', `${product.icon} ${product.name} گرفتم! مرسی بابا.`);
+    const done = completeMissions(state);
+    for (const m of done) {
+        showBanner('مأموریت انجام شد', m.title, `+${fa(m.xp)} XP · +${formatHetoman(m.hetoman)} پاداش`);
+        tone(660, .5);
+    }
+    if (rankFor(state.xp).index > rankBefore) setTimeout(() => showBanner('ارتقای درجه', rankFor(state.xp).name, 'دستگاه‌های بیشتری پیدا کن'), done.length ? 3400 : 0);
+    const next = activeMission(state);
+    if (next) {
+        waypoint = null;
+        route = null;
+        setTimeout(() => say('robot', `مأموریت بعدی: ${next.title}`), 1500);
+    }
+    refreshHUD();
+    checkEnd();
+}
+
+function showBanner(tag, title, sub) {
+    const b = $('#banner');
+    b.innerHTML = `<small>${tag}</small><strong>${title}</strong><span>${sub}</span>`;
+    b.hidden = false;
+    b.style.animation = 'none';
+    void b.offsetWidth;
+    b.style.animation = '';
+    clearTimeout(showBanner.timeout);
+    showBanner.timeout = setTimeout(() => b.hidden = true, 3200);
+}
+
+function checkEnd() {
+    const allDone = state.missionsDone.length === MISSIONS.length;
+    if (ended || (!allDone && canAffordAnything(state, machines))) return;
+    ended = true;
+    document.exitPointerLock?.();
+    $('#end-tag').textContent = allDone ? 'عملیات موفق' : 'پایان بودجه';
+    $('#end-title').textContent = allDone ? 'عملیات مشهد کامل شد!' : 'بودجهٔ امروز تمام شد';
+    $('#end-text').textContent = allDone ? 'همهٔ مأموریت‌های محدودهٔ بوستان ملت انجام شد. مناطق دیگر مشهد به‌زودی باز می‌شوند.' : 'دیگر نمی‌توانید از دستگاه‌ها خرید کنید. امتیاز امروز:';
+    const places = new Set(state.purchases.map(p => p.machineId)).size;
+    $('#end-stats').innerHTML = [['امتیاز', `${fa(state.xp)} XP`], ['درجه', rankFor(state.xp).name], ['خریدها', fa(state.purchases.length)], ['مکان‌های کشف‌شده', `${fa(places)} از ${fa(machines.length)}`], ['مأموریت‌ها', `${fa(state.missionsDone.length)} از ${fa(MISSIONS.length)}`], ['باقی‌مانده', formatHetoman(state.balance)]]
+        .map(([k, v]) => `<li><span>${k}</span><b>${v}</b></li>`).join('');
+    $('#continue').hidden = !allDone;
+    $('#end').showModal();
+}
+
+$('#quality').textContent = quality === 'low' ? 'گرافیک: سبک' : 'گرافیک: کامل';
+$('#quality').onclick = () => {
+    try {
+        localStorage.setItem('quality', quality === 'low' ? 'high' : 'low');
+    } catch {}
+    location.replace(location.pathname);
 };
-$('#product-code').addEventListener('input', () => {
-    document.querySelectorAll('[data-channel]').forEach(node => node.classList.remove('selected'));
-    $('#product-code').removeAttribute('aria-invalid');
-    $('#shop-status').textContent = '';
-});
-$('#interact').onclick = openShop;
-$('#close').onclick = () => shop.close();
-window.addEventListener('keydown', e => {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    if (e.key.toLowerCase() === 'v' && !e.repeat) {
-        firstPerson = !firstPerson;
-        return;
-    }
-    if (e.key.toLowerCase() === 'f') {
-        if (!e.repeat) performStoryAction();
-        return;
-    }
-    if (e.key.toLowerCase() === 'c' && payment.phase === 'ready') {
-        e.preventDefault();
-        swipeCard();
-        return;
-    }
-    if (notebook.open || ending.open) return;
-    if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', ' '].includes(e.key) && !shop.open && !ending.open) e.preventDefault();
-    pressed.add(e.key.toLowerCase());
-    if (e.key.toLowerCase() === 'e') {
-        e.preventDefault();
-        openShop();
-    }
-});
-window.addEventListener('keyup', e => pressed.delete(e.key.toLowerCase()));
-
-function clearInput() {
-    pressed.clear();
-    held.clear();
-}
-
-window.addEventListener('blur', clearInput);
-document.addEventListener('visibilitychange', clearInput);
-shop.addEventListener('close', clearInput);
-for (const [id, dir] of [['back', -1], ['forward', 1], ['zoom-in', 'in'], ['zoom-out', 'out']]) {
-    const b = $('#' + id);
-    b.onpointerdown = e => {
-        if ((state.busy || state.finished) && typeof dir === 'number') return;
-        b.setPointerCapture(e.pointerId);
-        held.add(dir);
-    };
-    b.onpointerup = b.onpointercancel = b.onlostpointercapture = () => held.delete(dir);
-}
-
-function reset() {
-    journey = createJourney();
-    firstPerson = false;
-    viewYaw = 0;
-    viewPitch = 0;
-    camera.position.set(-39, 3.5, -6);
-    look.set(-32, 1, 0);
-    payment = createPayment();
-    paymentTime = 0;
-    $('#payment-panel').hidden = true;
-    bankCard.visible = false;
-    story = createStory();
-    chapterId = null;
-    storyDialog.hidden = true;
-    chapterTimer = 0;
-    if (notebook.open) notebook.close();
-    rebuildRoute();
-    state = createState();
-    x = -8;
-    deliveryTime = 0;
-    delivery.visible = false;
-    activeProduct = null;
-    flap.rotation.x = 0;
-    encounterTime = 0;
-    rabbitSeen = false;
-    encounterActive = false;
-    facing = Math.PI / 2;
-    zoomDistance = 1;
-    picnicFood.traverse(node => {
-        if (node.isMesh) node.geometry.dispose();
-    });
-    picnicFood.clear();
-    clearInput();
-    if (shop.open) shop.close();
-    if (ending.open) ending.close();
-    $('#badge').textContent = '';
-    $('#recycle').disabled = false;
-    $('#recycle').textContent = 'بسته‌ها را در سطل بینداز ♻';
-    $('#speech').textContent = 'بچه: بابا، برای پیک‌نیک چی بخریم؟';
-    syncHUD();
-}
-
-$('#restart').onclick = reset;
 $('#again').onclick = reset;
-$('#recycle').onclick = () => {
-    state.recycled = true;
-    $('#badge').textContent = '🏅 نشان دوست جنگل را گرفتی!';
-    $('#recycle').disabled = true;
-    $('#recycle').textContent = 'جنگل تمیز ماند ✓';
-    $('#speech').textContent = 'بچه: چیزی جا نذاشتیم؟  پدر: فقط رد پامون.';
-    tone(880, .4);
+$('#continue').onclick = () => $('#end').close();
+$('#restart').onclick = reset;
+
+// ---------- Objective, route and HUD ----------
+const objectiveStation = () => {
+    if (waypoint) return stationById(waypoint);
+    const mission = activeMission(state);
+    if (mission?.target) return stationById(mission.target);
+    // Open-ended missions point to the nearest place not bought from yet.
+    const visited = new Set(state.purchases.map(p => p.machineId));
+    return stations.filter(s => !visited.has(s.def.id)).sort((a, b) => Math.hypot(a.x - player.x, a.z - player.z) - Math.hypot(b.x - player.x, b.z - player.z))[0] ?? null;
 };
 
-function finish() {
-    state.finished = true;
-    clearInput();
-    state.basket.slice(0, 10).forEach((p, i) => {
-        const item = mesh(p.type === 'drink' ? new THREE.CylinderGeometry(.09, .09, .3, 8) : new THREE.BoxGeometry(.25, .09, .2), bottleMats[p.type === 'drink' ? 0 : 2], picnicFood, [-.5 + (i % 5) * .28, .25, Math.floor(i / 5) * .3]);
-    });
-    $('#ending-text').textContent = `با ${fa(state.basket.length)} خوراکی و ${formatHetoman(state.balance)} باقی‌مانده، وقت یک استراحت دونفره است.`;
-    $('#ending-basket').textContent = state.basket.map(p => p.icon).join(' ');
-    $('#speech').textContent = 'بچه: بهترین قسمت گردش، با تو بودن بود بابا!';
-    $('#mission').textContent = 'پیک‌نیک آماده است؛ یک خاطرهٔ خوب ساختید';
-    tone(660, .5);
-    showChapter('summit');
+// The gold route ribbon on the ground, rebuilt when the route changes.
+const routeMaterial = new THREE.MeshBasicMaterial({color: '#f2c94c', transparent: true, opacity: .75, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -12, polygonOffsetUnits: -24});
+let routeMesh = null;
+
+function rebuildRouteMesh() {
+    if (routeMesh) {
+        scene.remove(routeMesh);
+        routeMesh.geometry.dispose();
+        routeMesh = null;
+    }
+    if (!route) return;
+    const pts = [], pos = [], idx = [];
+    let total = 0;
+    for (const p of route.points) {
+        if (pts.length) total += Math.hypot(p.x - pts.at(-1).x, p.z - pts.at(-1).z);
+        if (total > 700) break;
+        pts.push(p);
+    }
+    for (let i = 0; i < pts.length; i++) {
+        const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+        const dx = b.x - a.x, dz = b.z - a.z, len = Math.hypot(dx, dz) || 1, w = mode === 'drive' ? 1.1 : .55;
+        pos.push(pts[i].x - dz / len * w, .14, pts[i].z + dx / len * w, pts[i].x + dz / len * w, .14, pts[i].z - dx / len * w);
+        if (i) idx.push((i - 1) * 2, i * 2, (i - 1) * 2 + 1, (i - 1) * 2 + 1, i * 2, i * 2 + 1);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    routeMesh = new THREE.Mesh(g, routeMaterial);
+    scene.add(routeMesh);
 }
 
-// The ending opens on request so the picnic remains visible before the overlay.
-const celebrate = document.createElement('button');
-celebrate.id = 'celebrate';
-celebrate.textContent = 'پیک‌نیک و نشان دوست جنگل 🌿';
-celebrate.hidden = true;
-document.body.append(celebrate);
-celebrate.onclick = () => {
-    if (!story.done.includes('summit')) showChapter('summit'); else ending.showModal();
+let routeTarget = null, routeFrom = {x: 0, z: 0}, routeMode = null;
+
+function updateRoute(dt) {
+    routeTimer -= dt;
+    const target = objectiveStation();
+    if (!target) {
+        if (route) {
+            route = null;
+            rebuildRouteMesh();
+        }
+        return;
+    }
+    const pos = mode === 'drive' ? car : player;
+    const changed = target !== routeTarget || routeMode !== mode || !route;
+    if (!changed && (routeTimer > 0 || Math.hypot(pos.x - routeFrom.x, pos.z - routeFrom.z) < 10)) return;
+    routeTimer = 1.2;
+    routeTarget = target;
+    routeMode = mode;
+    routeFrom = {x: pos.x, z: pos.z};
+    route = routeBetween(mode === 'drive' ? driveGraph : walkGraph, pos.x, pos.z, target.front.x, target.front.z);
+    rebuildRouteMesh();
+}
+
+const compass = $('#compass').getContext('2d'), minimap = $('#minimap').getContext('2d');
+
+function drawCompass(headingDeg, markers) {
+    const w = 560, h = 44;
+    compass.clearRect(0, 0, w, h);
+    compass.fillStyle = 'rgba(10,16,14,.45)';
+    compass.fillRect(0, 10, w, 24);
+    compass.textAlign = 'center';
+    compass.textBaseline = 'middle';
+    const labels = {0: 'شمال', 90: 'شرق', 180: 'جنوب', 270: 'غرب'};
+    for (let d = -100; d <= 100; d += 5) {
+        const deg = ((Math.round(headingDeg / 5) * 5 + d) % 360 + 360) % 360, x = w / 2 + (deg - headingDeg + 540) % 360 * 2.6 - 180 * 2.6;
+        if (x < 10 || x > w - 10) continue;
+        compass.fillStyle = 'rgba(236,242,238,.8)';
+        if (labels[deg] !== undefined) {
+            compass.font = 'bold 13px Vazirmatn, sans-serif';
+            compass.fillStyle = deg === 0 ? '#f2c94c' : '#ecf2ee';
+            compass.fillText(labels[deg], x, 22);
+        } else if (deg % 15 === 0) {
+            compass.font = '10px Vazirmatn, sans-serif';
+            compass.fillText(fa(deg), x, 22);
+        } else compass.fillRect(x - .5, 18, 1, 8);
+    }
+    for (const m of markers) {
+        const x = w / 2 + ((m.bearing - headingDeg + 540) % 360 - 180) * 2.6;
+        if (x < 10 || x > w - 10) continue;
+        compass.save();
+        compass.translate(x, 6);
+        compass.rotate(Math.PI / 4);
+        compass.fillStyle = m.color;
+        compass.fillRect(-4, -4, 8, 8);
+        compass.restore();
+    }
+    compass.fillStyle = '#ecf2ee';
+    compass.fillRect(w / 2 - 1, 34, 2, 8);
+    compass.font = 'bold 11px Vazirmatn, sans-serif';
+    compass.fillText(fa(Math.round(headingDeg) % 360), w / 2, 6);
+}
+
+function refreshHUD() {
+    $('#balance').textContent = fa(state.balance);
+    const rank = rankFor(state.xp);
+    $('#rank-name').textContent = rank.name;
+    $('#xp').textContent = rank.next ? `${fa(state.xp)} / ${fa(rank.next)} XP` : `${fa(state.xp)} XP`;
+    $('#xp-bar').style.width = `${Math.round(rank.progress * 100)}%`;
+    const active = activeMission(state);
+    $('#mission-list').innerHTML = MISSIONS.map(m => {
+        const done = state.missionsDone.includes(m.id);
+        return `<li class="${done ? 'done' : m === active ? 'active' : ''}">${m.title}</li>`;
+    }).join('');
+    $('#mode-label').textContent = mode === 'drive' ? 'در ماشین · F برای پیاده شدن' : 'پیاده';
+    $('#speed-stat').hidden = mode !== 'drive';
+}
+
+function updatePrompt() {
+    let html = '';
+    const station = nearStation();
+    // The payment panel carries its own swipe button, so no prompt while paying or collecting.
+    if (state.busy || payment.phase !== 'idle') html = '';
+    else if (station) html = isOpen(station.def, state.minutes) ? `<kbd>E</kbd>خرید از روبات مارکت · ${station.def.name}` : `دستگاه بسته است · ${hoursText(station.def)}`;
+    else if (mode === 'walk' && Math.hypot(car.x - player.x, car.z - player.z) < 4.5) html = '<kbd>F</kbd>سوار ماشین شو';
+    else if (mode === 'drive' && Math.abs(car.speed) < 1 && stations.some(s => Math.hypot(s.front.x - car.x, s.front.z - car.z) < 25)) html = '<kbd>F</kbd>پیاده شو؛ دستگاه نزدیک است';
+    $('#prompt').hidden = !html;
+    if ($('#prompt').innerHTML !== html) $('#prompt').innerHTML = html;
+}
+
+// ---------- Map dialog ----------
+const mapView = {cx: 0, cz: 0, mpp: 2}, mapCanvas = $('#fullmap'), iranCanvas = $('#iran-map');
+let selected = null, mapTab = 'city';
+const markers = () => {
+    const visited = new Set(state.purchases.map(p => p.machineId)), objective = objectiveStation();
+    return stations.map(s => ({id: s.def.id, x: s.x, z: s.z, visited: visited.has(s.def.id), open: isOpen(s.def, state.minutes), objective: s === objective}));
 };
-ending.addEventListener('cancel', clearInput);
+
+function sizeCanvas(c) {
+    const r = c.getBoundingClientRect(), dpr = Math.min(devicePixelRatio, 2);
+    c.width = Math.max(1, r.width * dpr);
+    c.height = Math.max(1, r.height * dpr);
+    return dpr;
+}
+
+function renderMap() {
+    if (!$('#map-dialog').open) return;
+    if (mapTab === 'city') {
+        const dpr = sizeCanvas(mapCanvas);
+        const pos = mode === 'drive' ? car : player;
+        drawFullMap(mapCanvas.getContext('2d'), mapAssets, mapView, {dpr, markers: markers(), route: route?.points, selected, player: {x: pos.x, z: pos.z, heading: mode === 'drive' ? car.heading : player.heading}});
+    } else {
+        const dpr = sizeCanvas(iranCanvas), c = iranCanvas.getContext('2d');
+        c.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawIran(c, iran, {width: iranCanvas.width / dpr, height: iranCanvas.height / dpr, t: elapsed, cities: CITIES});
+    }
+}
+
+function renderMachineList() {
+    const pos = mode === 'drive' ? car : player, visited = new Set(state.purchases.map(p => p.machineId));
+    const items = stations.map(s => {
+        const li = document.createElement('li'), b = document.createElement('button'), open = isOpen(s.def, state.minutes);
+        b.type = 'button';
+        b.className = s.def.id === selected ? 'selected' : '';
+        b.innerHTML = `<span>${CATEGORIES[s.def.category].icon}</span><span>${s.def.name}${visited.has(s.def.id) ? ' ✓' : ''}<span class="meta">${CATEGORIES[s.def.category].label} · ${open ? 'باز' : 'بسته'}</span></span><span class="dist">${formatDistance(Math.hypot(s.x - pos.x, s.z - pos.z))}</span>`;
+        b.onclick = () => selectMachine(s.def.id, true);
+        li.append(b);
+        return li;
+    });
+    for (const place of lockedPlaces) {
+        const li = document.createElement('li');
+        li.innerHTML = `<button type="button" class="locked" disabled><span>🔒</span><span>${place.name}<span class="meta">${place.note}</span></span><span></span></button>`;
+        items.push(li);
+    }
+    $('#machine-list').replaceChildren(...items);
+}
+
+function selectMachine(id, center = false) {
+    selected = id;
+    const s = stationById(id), def = s.def;
+    if (center) {
+        mapView.cx = s.x;
+        mapView.cz = s.z;
+        mapView.mpp = Math.min(mapView.mpp, 1.4);
+    }
+    $('#machine-detail').hidden = false;
+    $('#detail-name').textContent = `${CATEGORIES[def.category].icon} ${def.name}`;
+    $('#detail-address').textContent = `📍 ${def.address}`;
+    $('#detail-meta').textContent = `🕒 ${hoursText(def)} · ${isOpen(def, state.minutes) ? 'الان باز است' : 'الان بسته است'} · ${def.note}`;
+    $('#detail-products').textContent = def.products.map(id => `${catalog[id].icon} ${catalog[id].name} ${fa(priceAt(def, id))}`).join(' · ');
+    $('#route-button').textContent = waypoint === id ? 'مسیر فعال است ✓' : 'مسیریابی تا اینجا';
+    renderMachineList();
+    renderMap();
+}
+
+$('#route-button').onclick = () => {
+    if (!selected) return;
+    waypoint = selected;
+    route = null;
+    routeTimer = 0;
+    updateRoute(0);
+    const s = stationById(selected);
+    say('robot', `مسیر تا ${s.def.name} مشخص شد؛ ${route ? formatDistance(route.length) : ''}. دنبال خط طلایی بیا.`);
+    selectMachine(selected);
+};
+
+function openMap() {
+    if (anyDialogOpen()) return;
+    document.exitPointerLock?.();
+    keys.clear();
+    const pos = mode === 'drive' ? car : player;
+    Object.assign(mapView, {cx: pos.x, cz: pos.z, mpp: 2.2});
+    $('#map-dialog').showModal();
+    selected ??= objectiveStation()?.def.id ?? null;
+    if (selected) selectMachine(selected);
+    renderMachineList();
+    renderMap();
+}
+
+$('#minimap-button').onclick = openMap;
+$('#map-close').onclick = () => $('#map-dialog').close();
+for (const tab of document.querySelectorAll('.tabs button')) tab.onclick = () => {
+    mapTab = tab.dataset.tab;
+    document.querySelectorAll('.tabs button').forEach(t => t.setAttribute('aria-selected', String(t === tab)));
+    mapCanvas.hidden = mapTab !== 'city';
+    iranCanvas.hidden = mapTab !== 'iran';
+    renderMap();
+};
+let mapDrag = null;
+mapCanvas.addEventListener('pointerdown', e => {
+    mapDrag = {x: e.clientX, y: e.clientY, moved: 0};
+    mapCanvas.setPointerCapture(e.pointerId);
+});
+mapCanvas.addEventListener('pointermove', e => {
+    if (!mapDrag) return;
+    mapView.cx -= (e.clientX - mapDrag.x) * mapView.mpp;
+    mapView.cz -= (e.clientY - mapDrag.y) * mapView.mpp;
+    mapDrag.moved += Math.abs(e.clientX - mapDrag.x) + Math.abs(e.clientY - mapDrag.y);
+    mapDrag.x = e.clientX;
+    mapDrag.y = e.clientY;
+    renderMap();
+});
+mapCanvas.addEventListener('pointerup', e => {
+    if (mapDrag && mapDrag.moved < 6) {
+        const r = mapCanvas.getBoundingClientRect();
+        const wx = mapView.cx + (e.clientX - r.left - r.width / 2) * mapView.mpp, wz = mapView.cz + (e.clientY - r.top - r.height / 2) * mapView.mpp;
+        const hit = stations.find(s => Math.hypot(s.x - wx, s.z - wz) < 14 * mapView.mpp);
+        if (hit) selectMachine(hit.def.id);
+    }
+    mapDrag = null;
+});
+mapCanvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    mapView.mpp = THREE.MathUtils.clamp(mapView.mpp * (e.deltaY > 0 ? 1.15 : 1 / 1.15), .35, 7);
+    renderMap();
+}, {passive: false});
+
+// ---------- Briefing ----------
+const CITIES = [
+    {name: 'مشهد', lat: 36.30, lon: 59.60, active: true}, {name: 'تهران', lat: 35.69, lon: 51.39}, {name: 'اصفهان', lat: 32.65, lon: 51.67},
+    {name: 'شیراز', lat: 29.59, lon: 52.58}, {name: 'تبریز', lat: 38.08, lon: 46.29}, {name: 'اهواز', lat: 31.32, lon: 48.67},
+    {name: 'کرمان', lat: 30.28, lon: 57.08}, {name: 'رشت', lat: 37.28, lon: 49.58}, {name: 'یزد', lat: 31.90, lon: 54.37},
+    {name: 'زاهدان', lat: 29.50, lon: 60.86}, {name: 'کرمانشاه', lat: 34.31, lon: 47.07}, {name: 'بندرعباس', lat: 27.18, lon: 56.27}
+];
+const BRIEF = [
+    'موقعیت: مشهد، بوستان ملت، بزرگراه وکیل‌آباد',
+    'تیم: پدر، فرزند و روبات راهنمای روبات مارکت',
+    'هدف: دستگاه‌های روبات مارکت را در پارک، مدرسه، دانشگاه، ایستگاه مترو و مرکز خرید پیدا کنید و از آن‌ها خرید کنید.',
+    'هر خرید امتیاز دارد؛ کشف مکان تازه و ترکیب نوشیدنی و خوراکی امتیاز بیشتری دارد.',
+    'بودجه: ۵۰۰ هتومان · مأموریت‌ها پاداش نقدی دارند.',
+    'رفت‌وآمد: پیاده یا با ماشین. نقشهٔ گوشهٔ صفحه را بزنید تا آدرس دستگاه‌ها را ببینید.'
+].join('\n');
+let briefChars = 0;
+
+$('#start-mission').onclick = () => {
+    $('#briefing').hidden = true;
+    $('#hud').hidden = false;
+    say('robot', 'سلام! من روبات راهنمای روبات مارکت هستم. اولین دستگاه همین‌جا، کنار ورودی بوستان ملته.');
+    say('child', 'بابا، بریم اولین خریدمون رو بکنیم!');
+    say('robot', 'نزدیک دستگاه برو و E را بزن. نقشه هم گوشهٔ صفحه است؛ با M بازش کن.');
+    if (!isTouch) canvas.requestPointerLock?.()?.catch?.(() => {});
+};
+
+// ---------- Loop ----------
+const camPos = new THREE.Vector3(), camTarget = new THREE.Vector3(), lookAt = new THREE.Vector3();
+let elapsed = 0, last = performance.now(), hudTimer = 0, streetTimer = 0;
+// Debug runs (headless checks render ~1 fps) may simulate a whole second per frame, still in substeps.
+const MAX_FRAME = new URLSearchParams(location.search).has('debug') ? 1 : .25;
 
 function resize() {
     renderer.setSize(innerWidth, innerHeight);
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
+    renderMap();
 }
 
 window.addEventListener('resize', resize);
-resize();
-const camTarget = new THREE.Vector3(), look = new THREE.Vector3(x + 1, .8, pathZ(x)), lookTarget = new THREE.Vector3();
-camera.position.set(-39, 3.5, -6);
-look.set(-32, 1, 0);
-let last = performance.now();
 
-function frame(now) {
+function updateWalk(dt) {
+    const forward = {x: -Math.sin(cam.yaw), z: -Math.cos(cam.yaw)}, right = {x: Math.cos(cam.yaw), z: -Math.sin(cam.yaw)};
+    const iy = axis(['w', 'arrowup'], ['s', 'arrowdown']) + stick.y, ix = axis(['d', 'arrowright'], ['a', 'arrowleft']) + stick.x;
+    const frozen = state.busy || payment.phase !== 'idle';
+    let dx = forward.x * iy + right.x * ix, dz = forward.z * iy + right.z * ix;
+    const len = Math.hypot(dx, dz);
+    const run = keys.has('shift');
+    const target = frozen || len < .1 ? 0 : (run ? 6.5 : 3.4) * Math.min(1, len);
+    player.speed += (target - player.speed) * Math.min(1, dt * 8);
+    if (len > .1 && !frozen) {
+        dx /= len;
+        dz /= len;
+        const want = Math.atan2(-dz, dx);
+        player.heading += Math.atan2(Math.sin(want - player.heading), Math.cos(want - player.heading)) * Math.min(1, dt * 9);
+    }
+    // Face the machine while buying.
+    const station = payment.station ?? payment.delivering?.station;
+    if (frozen && station) {
+        const want = Math.atan2(-(station.z - player.z), station.x - player.x);
+        player.heading += Math.atan2(Math.sin(want - player.heading), Math.cos(want - player.heading)) * Math.min(1, dt * 6);
+    }
+    const mx = Math.cos(player.heading) * player.speed * dt, mz = -Math.sin(player.heading) * player.speed * dt;
+    const p = resolveCircle(collision, player.x + mx, player.z + mz, 1);
+    const {minX, minZ, maxX, maxZ} = data.bounds;
+    player.x = THREE.MathUtils.clamp(p.x, minX + 15, maxX - 15);
+    player.z = THREE.MathUtils.clamp(p.z, minZ + 15, maxZ - 15);
+    player.gait += dt * player.speed * 1.9;
+}
+
+function updateDrive(dt) {
+    const throttle = THREE.MathUtils.clamp(axis(['w', 'arrowup'], ['s', 'arrowdown']) + stick.y, -1, 1);
+    const steer = THREE.MathUtils.clamp(axis(['d', 'arrowright'], ['a', 'arrowleft']) + stick.x, -1, 1);
+    stepCar(car, {throttle, steer, handbrake: keys.has(' ')}, dt);
+    // Two collision circles along the body keep the nose and tail out of buildings.
+    for (const along of [1.3, -1.3]) {
+        const cx = car.x + Math.cos(car.heading) * along, cz = car.z - Math.sin(car.heading) * along;
+        const p = resolveCircle(collision, cx, cz, 1.05);
+        if (p.hit) {
+            car.x += p.x - cx;
+            car.z += p.z - cz;
+            if (Math.abs(car.speed) > 4) tone(90, .2, .08, 'square');
+            car.speed *= .35;
+        }
+    }
+    for (const npc of traffic.cars) {
+        const dx = car.x - npc.x, dz = car.z - npc.z, d = Math.hypot(dx, dz);
+        if (d < 3.6 && d > 0) {
+            car.x = npc.x + dx / d * 3.6;
+            car.z = npc.z + dz / d * 3.6;
+            if (Math.abs(car.speed) > 4) tone(110, .25, .08, 'square');
+            car.speed *= -.2;
+        }
+    }
+    const {minX, minZ, maxX, maxZ} = data.bounds;
+    car.x = THREE.MathUtils.clamp(car.x, minX + 15, maxX - 15);
+    car.z = THREE.MathUtils.clamp(car.z, minZ + 15, maxZ - 15);
+    Object.assign(player, {x: car.x, z: car.z, heading: car.heading});
+    // Chase camera swings back behind the car when the mouse is idle.
+    if (elapsed - cam.lastMouse > 1.4 && Math.abs(car.speed) > 1) {
+        const want = Math.atan2(-Math.cos(car.heading), Math.sin(car.heading)) + (car.speed < 0 ? Math.PI : 0);
+        cam.yaw += Math.atan2(Math.sin(want - cam.yaw), Math.cos(want - cam.yaw)) * Math.min(1, dt * 2.2);
+        cam.pitch += (.28 - cam.pitch) * Math.min(1, dt * 1.5);
+    }
+    if (engine && soundOn) {
+        engine.o.frequency.setTargetAtTime(45 + Math.abs(car.speed) * 5 + Math.max(0, throttle) * 15, audio.currentTime, .1);
+        engine.g.gain.setTargetAtTime(.025, audio.currentTime, .2);
+    }
+}
+
+function updateCamera(dt) {
+    const station = payment.station;
+    if (station && payment.phase !== 'idle') {
+        // Close-up of the card reader during payment.
+        const reader = station.model.readerPoint.clone();
+        station.model.group.localToWorld(reader);
+        const side = rotateLocal(1.2, 1.9, station.rot);
+        camTarget.set(reader.x + side.x, reader.y + .4, reader.z + side.z);
+        lookAt.lerp(reader, 1 - Math.exp(-dt * 6));
+    } else {
+        const driving = mode === 'drive', height = driving ? 1.6 : 1.75;
+        const focus = new THREE.Vector3(player.x, height, player.z);
+        // Over-the-shoulder offset to the right, like a third-person shooter.
+        const shoulder = driving ? 0 : .75;
+        focus.x += Math.cos(cam.yaw) * shoulder;
+        focus.z += -Math.sin(cam.yaw) * shoulder;
+        let distance = cam.distance;
+        const ox = Math.sin(cam.yaw) * Math.cos(cam.pitch), oz = Math.cos(cam.yaw) * Math.cos(cam.pitch);
+        const free = clearFraction(collision, focus.x, focus.z, focus.x + ox * distance, focus.z + oz * distance, .8);
+        if (cam.pitch < .9) distance = Math.max(1.6, distance * free - .4);
+        camTarget.set(focus.x + ox * distance, Math.max(.6, focus.y + Math.sin(cam.pitch) * distance), focus.z + oz * distance);
+        lookAt.lerp(focus, 1 - Math.exp(-dt * 14));
+    }
+    camPos.lerp(camTarget, 1 - Math.exp(-dt * 12));
+    camera.position.copy(camPos);
+    camera.lookAt(lookAt);
+}
+
+function updateHUD(dt) {
+    const pos = mode === 'drive' ? car : player;
+    $('#clock').textContent = formatClock(state.minutes);
+    if (mode === 'drive') $('#speed').textContent = fa(kmh(car));
+    const forward = {x: -Math.sin(cam.yaw), z: -Math.cos(cam.yaw)}, headingDeg = bearing(forward.x, forward.z);
+    const objective = objectiveStation();
+    drawCompass(headingDeg, objective ? [{bearing: bearing(objective.x - pos.x, objective.z - pos.z), color: '#f2c94c'}] : []);
+    drawMinimap(minimap, mapAssets, {
+        size: 220, x: pos.x, z: pos.z, heading: mode === 'drive' ? car.heading : player.heading, camForward: forward,
+        radius: mode === 'drive' ? 420 : 200, markers: markers(), route: route?.points
+    });
+    // Objective marker above the machine, clamped to the screen edge when off-screen.
+    const wp = $('#waypoint');
+    wp.hidden = !objective;
+    if (objective) {
+        const d = Math.hypot(objective.x - pos.x, objective.z - pos.z), p = new THREE.Vector3(objective.x, 3.4, objective.z).project(camera);
+        let sx = (p.x * .5 + .5) * innerWidth, sy = (-p.y * .5 + .5) * innerHeight;
+        if (p.z > 1) {
+            sx = innerWidth - sx;
+            sy = innerHeight - 60;
+        }
+        $('#waypoint').style.left = `${THREE.MathUtils.clamp(sx, 60, innerWidth - 60)}px`;
+        $('#waypoint').style.top = `${THREE.MathUtils.clamp(sy, 90, innerHeight - 60)}px`;
+        $('#waypoint-name').textContent = objective.def.name;
+        $('#waypoint-distance').textContent = formatDistance(d);
+        wp.hidden = d < 6;
+        for (const s of stations) {
+            const isObjective = s === objective;
+            s.model.beacon.material.color.set(isObjective ? '#f2c94c' : '#3ee0c9');
+            s.model.beacon.material.opacity = (isObjective ? .32 : .14) * Math.min(1, Math.hypot(s.x - pos.x, s.z - pos.z) / 40);
+        }
+    }
+    streetTimer -= dt;
+    if (streetTimer <= 0) {
+        streetTimer = .6;
+        const street = nearestSegment(segments, pos.x, pos.z, 35, s => s[5] >= 0);
+        $('#street').textContent = street ? `مشهد · ${data.names[street.name]}` : 'مشهد · محدودهٔ بوستان ملت';
+    }
+    updatePrompt();
+}
+
+let hints = {near: false, closed: false, car: false};
+
+function updateHints() {
+    const station = nearStation();
+    if (station && !hints.near && isOpen(station.def, state.minutes)) {
+        hints.near = true;
+        say('robot', `رسیدیم به دستگاه ${station.def.name}. برای خرید E را بزن.`);
+    }
+    if (!station) hints.near = false;
+    const target = objectiveStation();
+    if (target && !isOpen(target.def, state.minutes) && !hints.closed) {
+        hints.closed = true;
+        say('robot', `${target.def.name} الان بسته است (${hoursText(target.def)}). از نقشه مقصد دیگری انتخاب کن.`);
+    }
+    if (route && route.length > 900 && mode === 'walk' && !hints.car) {
+        hints.car = true;
+        say('father', 'راه طولانیه؛ بهتره با ماشین بریم. ماشین کنار ایستگاه مترو پارکه.');
+    }
+}
+
+function frame() {
+    const now = performance.now();
     requestAnimationFrame(frame);
-    const dt = Math.min((now - last) / 1000, .1);
+    // The first rAF timestamp can predate `last`, so never let time run backwards. Long frames are
+    // simulated in short substeps, so slow devices keep real-time speed without unstable physics.
+    const dt = THREE.MathUtils.clamp((now - last) / 1000, 0, MAX_FRAME);
     last = now;
     elapsed += dt;
-    const paused = shop.open || notebook.open || ending.open || document.hidden;
-    tickJourney(journey, dt, paused, {
-        throttle: Number(pressed.has('w') || pressed.has('arrowup') || held.has(1)) - Number(pressed.has('s') || pressed.has('arrowdown') || held.has(-1)),
-        steer: Number(pressed.has('d') || pressed.has('arrowright') || held.has('out')) - Number(pressed.has('a') || pressed.has('arrowleft') || held.has('in'))
-    });
-    scenery.update(elapsed, journey.phase, journey.distance / 21, journey.lane);
-    const walking = journey.phase === 'walking';
-    document.body.classList.toggle('on-journey', !walking);
-    document.body.classList.toggle('driving', journey.phase === 'driving');
-    $('#forward').textContent = journey.phase === 'driving' ? 'گاز' : '→';
-    $('#back').textContent = journey.phase === 'driving' ? 'ترمز' : '←';
-    $('#zoom-in').textContent = journey.phase === 'driving' ? '↶' : '↑';
-    $('#zoom-out').textContent = journey.phase === 'driving' ? '↷' : '↓';
-    for (const [id, driveLabel, walkLabel] of [['forward', 'گاز', 'حرکت به جلو'], ['back', 'ترمز', 'حرکت به عقب'], ['zoom-in', 'فرمان چپ', 'زوم نزدیک'], ['zoom-out', 'فرمان راست', 'زوم دور']]) $('#' + id).setAttribute('aria-label', journey.phase === 'driving' ? driveLabel : walkLabel);
-    journeyPanel.hidden = walking;
-    if (!walking) {
-        const [title, line, action] = journeyLabels[journey.phase];
-        journeyPanel.querySelector('h2').textContent = title;
-        journeyPanel.querySelector('p').textContent = line;
-        const button = journeyPanel.querySelector('button');
-        button.textContent = action;
-        button.hidden = !action;
-        if (journey.phase === 'driving') journeyPanel.querySelector('h2').textContent = `جادهٔ جنگلی · ${Math.round(journey.distance / 21 * 100).toLocaleString('fa-IR')}٪ · ${Math.round(journey.speed * 12).toLocaleString('fa-IR')} کیلومتر/ساعت`;
+    const playing = $('#briefing').hidden;
+    const paused = !playing || $('#shop').open || $('#map-dialog').open || $('#end').open || document.hidden;
+    const steps = Math.max(1, Math.ceil(dt / (1 / 30))), step = dt / steps;
+    if (!playing) {
+        // Briefing: animate Iran, type the orders, slowly orbit the start point behind the overlay.
+        const ic = $('#iran'), dpr = sizeCanvas(ic), c = ic.getContext('2d');
+        c.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawIran(c, iran, {width: ic.width / dpr, height: ic.height / dpr, t: elapsed, cities: CITIES});
+        briefChars = Math.min(BRIEF.length, briefChars + dt * 55);
+        $('#brief-text').textContent = BRIEF.slice(0, Math.floor(briefChars)) + (briefChars < BRIEF.length ? '▌' : '');
     }
-    const direction = movementDirection(pressed, held) || (Number(pressed.has('w')) - Number(pressed.has('s')));
-    const next = nextChapter(story, x);
-    if (walking && next && !chapterId && !shop.open && !ending.open && !notebook.open && !state.busy && !state.finished) showChapter(next);
-    if (chapterId && !state.busy && !shop.open && !notebook.open && !ending.open && !document.hidden) {
-        const chapter = chapters[chapterId], lastLine = chapterLine === chapter.lines.length - 1;
-        if (!(lastLine && chapter.action)) {
-            chapterTimer -= dt;
-            if (chapterTimer <= 0) {
-                if (!lastLine) {
-                    chapterLine++;
-                    renderChapter();
-                } else finishChapter();
-            }
+    if (!paused) {
+        for (let i = 0; i < steps; i++) {
+            state.minutes += step * 10 / 60;
+            if (mode === 'drive') updateDrive(step);
+            else updateWalk(step);
+            updatePayment(step);
+            updateDelivery(step);
+            traffic.update(step, [{x: player.x, z: player.z}, {x: car.x, z: car.z}]);
         }
+        updateRoute(dt);
+        updateHints();
+        if (Math.floor(elapsed * 2) !== Math.floor((elapsed - dt) * 2)) checkEnd();
+    } else if (engine && soundOn) engine.g.gain.setTargetAtTime(0, audio.currentTime, .1);
+    if (mode === 'walk' && engine && soundOn) engine.g.gain.setTargetAtTime(0, audio.currentTime, .2);
+    updateSubtitles(dt);
+
+    family.group.visible = mode === 'walk';
+    family.group.position.set(player.x, 0, player.z);
+    family.group.rotation.y = player.heading;
+    family.update({dt, time: elapsed, gait: player.gait, moving: player.speed > .4, shopping: state.busy || payment.phase !== 'idle', delivery: deliveryTimer > 0, talking});
+    carModel.group.position.set(car.x, 0, car.z);
+    carModel.group.rotation.y = car.heading;
+    for (const [i, wheel] of carModel.wheels.entries()) {
+        wheel.rotation.z -= car.speed * dt / .36;
+        if (i >= 2) wheel.rotation.y = -car.steer;
     }
-    encounterActive = chapterId === 'rabbit';
-    moving = walking && canWalk({
-        shopOpen: shop.open,
-        notebookOpen: notebook.open,
-        endingOpen: ending.open,
-        busy: state.busy,
-        chapterId,
-        finished: state.finished
-    }) ? direction : 0;
-    x = THREE.MathUtils.clamp(x + moving * (pressed.has('shift') ? 3.7 : 2.2) * dt, -9, 22);
-    family.position.set(x, pathHeight(x), pathZ(x));
-    family.rotation.y = -Math.atan(.255 * Math.cos(x * .17));
-    const shopping = shop.open || state.busy;
-    if (shopping) {
-        family.position.x = THREE.MathUtils.lerp(x, stationX, 1 - Math.exp(-dt * 8));
-        x = family.position.x;
+    for (const s of stations) s.model.ring.material.opacity = .35 + Math.sin(elapsed * 3) * .25;
+    if (routeMesh) routeMaterial.opacity = .55 + Math.sin(elapsed * 4) * .15;
+
+    if (playing) updateCamera(dt);
+    else {
+        const a = elapsed * .08;
+        camera.position.set(player.x + Math.cos(a) * 30, 18, player.z + Math.sin(a) * 30);
+        camera.lookAt(player.x, 2, player.z);
+        camPos.copy(camera.position);
     }
-    const desiredFacing = state.finished ? 0 : shopping ? Math.PI : moving < 0 ? -Math.PI / 2 : moving > 0 ? Math.PI / 2 : facing;
-    facing += Math.atan2(Math.sin(desiredFacing - facing), Math.cos(desiredFacing - facing)) * (1 - Math.exp(-dt * 7));
-    if (moving) gait += dt * 6.2;
-    characters.update({
-        dt,
-        time: elapsed,
-        gait,
-        moving: !!moving,
-        facing,
-        shopping,
-        delivery: state.busy,
-        finished: state.finished,
-        watchRabbit: encounterActive
-    });
-    if (state.finished) {
-        family.position.copy(picnic.position);
-        family.rotation.y = 0;
-    }
-    rabbit.position.set(-2.5 + (rabbitSeen ? Math.min(4, encounterTime) * .8 : 0), rabbitSeen ? Math.abs(Math.sin(elapsed * 8)) * .3 : 0, pathZ(-2.5) + 2.5 + (rabbitSeen ? Math.min(4, encounterTime) : 0));
-    if (rabbitSeen) encounterTime = Math.min(4, encounterTime + dt);
-    camTarget.set(x - 4.5, pathHeight(x) + (innerWidth < 650 ? 4 : 3), pathZ(x - 4.5) + 2);
-    lookTarget.set(x + 1, .8 + pathHeight(x), pathZ(x));
-    if (walking && (shopping || Math.abs(x - stationX) < 3.2)) {
-        camTarget.set(stationX + 2.6, 2.5, stationZ + (innerWidth < 650 ? 6.5 : 5));
-        lookTarget.set(stationX, 1.5, stationZ + .6);
-    }
-    if (encounterActive) {
-        camTarget.set(x + 5, 5.5, pathZ(x) + 9);
-        lookTarget.set(-2.9, .65, pathZ(-2.5) + 1);
-    }
-    if (!shop.open && !notebook.open && !ending.open) {
-        const zoomInput = Number(pressed.has('arrowdown') || held.has('out')) - Number(pressed.has('arrowup') || held.has('in'));
-        zoomDistance = THREE.MathUtils.clamp(zoomDistance + zoomInput * dt * .45, .6, 1.6);
-    }
-    camTarget.sub(lookTarget).multiplyScalar(zoomDistance).add(lookTarget);
-    const firstPersonActive = walking && Math.abs(x - stationX) >= 3.2 && firstPerson && !shopping && !state.finished && !encounterActive && chapterId !== 'camp';
-    if (walking && !firstPersonActive && !shopping && !state.finished && !encounterActive && chapterId !== 'camp' && Math.abs(x - stationX) >= 3.2) {
-        camTarget.sub(lookTarget);
-        const orbit = new THREE.Spherical().setFromVector3(camTarget);
-        orbit.theta += viewYaw;
-        orbit.phi = THREE.MathUtils.clamp(orbit.phi - viewPitch, .2, Math.PI / 2 - .05);
-        camTarget.setFromSpherical(orbit).add(lookTarget);
-    }
-    if (firstPersonActive) {
-        const bob = moving ? Math.sin(gait * 2) * .035 : 0;
-        camTarget.set(x - .35, 1.7 + pathHeight(x) + bob, pathZ(x) - .7);
-        lookTarget.set(x + 5 * Math.cos(viewYaw), 1.65 + pathHeight(x) + viewPitch * 4, pathZ(x) + 5 * Math.sin(viewYaw));
-    }
-    if (!walking) {
-        const cx = scenery.car.position.x;
-        family.position.set(journey.phase === 'home' ? -35 : journey.phase === 'boarding' ? -35 + Math.min(1, journey.time / 2) * 3 : -10, 0, journey.phase === 'home' ? 4.2 - Math.min(1, journey.time / 2) * 1.2 : 0);
-        if (journey.phase === 'boarding') characters.update({
-            dt,
-            time: elapsed,
-            gait: elapsed * 6,
-            moving: true,
-            facing: Math.PI / 2
-        });
-        camTarget.set(cx - 6, 3.2, -7);
-        lookTarget.set(cx, 1, 0);
-        if (journey.phase === 'driving' || journey.phase === 'entrance') {
-            camTarget.set(cx - 5, 3.2, scenery.car.position.z - 5);
-            lookTarget.set(cx + 3, 1, scenery.car.position.z);
+    sun.position.set(player.x + 160, 230, player.z + 110);
+    sun.target.position.set(player.x, 0, player.z);
+    sky.position.copy(camera.position);
+    if (playing) {
+        hudTimer -= dt;
+        updateHUD(dt);
+        if ($('#map-dialog').open && hudTimer <= 0) {
+            hudTimer = .5;
+            renderMap();
         }
-    }
-    family.visible = journey.phase !== 'driving' && !(journey.phase === 'boarding' && journey.time > 1.8) && !firstPersonActive;
-    if (chapterId === 'camp' && walking) {
-        camTarget.set(1, 2.4, -1);
-        lookTarget.set(4, 1, 4.4);
-        family.visible = true;
-    }
-    if (state.finished) {
-        camTarget.set(25.5, 5.1, picnic.position.z + 6);
-        lookTarget.copy(picnic.position).add(new THREE.Vector3(0, .6, 0));
-    }
-    if (['approaching', 'ready', 'approved'].includes(payment.phase)) {
-        const reader = new THREE.Vector3(.67, 1.7, .68);
-        machine.localToWorld(reader);
-        lookTarget.copy(reader);
-        camTarget.copy(reader).add(new THREE.Vector3(.8, .35, 1.8));
-    }
-    camera.position.lerp(camTarget, 1 - Math.exp(-dt * 2.8));
-    look.lerp(lookTarget, 1 - Math.exp(-dt * 3));
-    camera.lookAt(look);
-    document.body.classList.toggle('cinematic', shopping || encounterActive);
-    const near = Math.abs(x - stationX) < 2.5;
-    // Project the prompt from the reader into screen space; it follows the machine.
-    camera.updateMatrixWorld();
-    machine.updateMatrixWorld(true);
-    const promptPoint = machine.localToWorld(new THREE.Vector3(.55, 2.15, .9)).project(camera);
-    const promptVisible = walking && near && !shop.open && !notebook.open && !ending.open && !state.busy && !state.finished && promptPoint.z > -1 && promptPoint.z < 1;
-    $('#interact').hidden = !promptVisible;
-    if (promptVisible) {
-        $('#interact').style.left = `${THREE.MathUtils.clamp((promptPoint.x * .5 + .5) * innerWidth, 85, innerWidth - 85)}px`;
-        $('#interact').style.top = `${THREE.MathUtils.clamp((-.5 * promptPoint.y + .5) * innerHeight, 85, innerHeight - 100)}px`;
-    }
-    $('#machine-note').hidden = !promptVisible;
-    document.body.classList.toggle('near-machine', promptVisible);
-    celebrate.hidden = !state.finished;
-    $('#progress').style.width = `${Math.min(100, (state.basket.some(p => p.type === 'drink') ? 30 : 0) + (state.basket.some(p => p.type === 'snack') ? 30 : 0) + (state.finished ? 40 : Math.max(0, (x - 11) / 11) * 35))}%`;
-    syncHUD();
-    $('#speech').hidden = !walking || Boolean(chapterId) || shop.open || notebook.open || ending.open;
-    $('#speech').textContent = state.finished ? (state.recycled ? 'بچه: جنگل رو تمیز گذاشتیم؛ چه روز خوبی!' : 'بچه: رسیدیم نوک قله؛ روی فرش کنار هم نشستیم.')
-        : payment.phase !== 'idle' ? $('#payment-result').textContent
-            : deliveryTime > 0 ? 'پدر: محصول در حال تحویل است؛ کمی صبر کن.'
-                : near ? (readyForPicnic(state) ? 'پدر: خرید کامل شد؛ حالا به سمت قله برویم.' : 'پدر: این هم دستگاه؛ با E نوشیدنی و خوراکی انتخاب کن.')
-                    : x > 20 && !readyForPicnic(state) ? 'پدر: هنوز نوشیدنی و خوراکی نداریم؛ به دستگاه برگردیم.'
-                        : x > 16 ? 'پدر: مسیر قله را ادامه بده؛ فرش بالای کوه آماده است.'
-                            : x > 11 ? 'بچه: از مسیر جنگل به سمت بالای کوه می‌ریم.'
-                                : x > 2.7 && story.done.includes('camp') ? 'بچه: دوستان گفتند دستگاه کمی جلوتره؛ بریم خرید کنیم.'
-                                    : x > -2.2 ? 'پدر: از روی پل عبور کنیم و مسیر جنگل را ادامه بدهیم.'
-                                        : 'بچه: از ورودی جنگل به سمت مسیر پیاده‌روی بریم.';
-    if (!shop.open && !notebook.open && !ending.open && x > 21 && storyReady(story) && readyForPicnic(state) && !state.busy && !state.finished) finish();
-    if (payment.phase !== 'idle') {
-        paymentTime += dt;
-        if (payment.phase === 'approaching' && paymentTime > 1.2) {
-            payment.phase = 'ready';
-            $('#swipe-card').disabled = false;
-            $('#cancel-payment').hidden = false;
-            $('#payment-result').textContent = 'دکمهٔ «کشیدن کارت» یا کلید C را بزن.';
-        }
-        if (payment.phase === 'approved') {
-            bankCard.position.set(.92 - Math.min(paymentTime, 1) * .35, 1.86 - Math.min(paymentTime, 1) * .32, .78);
-            if (paymentTime > 1.35) {
-                const product = payment.product;
-                payment = createPayment();
-                $('#payment-panel').hidden = true;
-                bankCard.visible = false;
-                deliver(product);
-            }
-        }
-    }
-    if (deliveryTime > 0) {
-        deliveryTime = Math.max(0, deliveryTime - dt);
-        const t = 3.4 - deliveryTime;
-        const slotIndex = (activeProduct?.channel ?? 22) - 1;
-        const start = new THREE.Vector3(-.65 + (slotIndex % 10) * .115, .965 + (5 - Math.floor(slotIndex / 10)) * .275, .76);
-        machine.localToWorld(start);
-        const slot = new THREE.Vector3(-.13, .35, .86);
-        machine.localToWorld(slot);
-        const hand = new THREE.Vector3(.5, .65, -.15);
-        family.localToWorld(hand);
-        if (t < 1.1) delivery.position.lerpVectors(start, slot, t / 1.1);
-        else if (t < 1.8) {
-            delivery.position.copy(slot);
-        } else delivery.position.lerpVectors(slot, hand, Math.min(1, (t - 1.8) / 1.3));
-        flap.rotation.x = t > 1 && t < 2.6 ? -1 : 0;
-        if (!deliveryTime) {
-            state.busy = false;
-            delivery.visible = false;
-            flap.rotation.x = 0;
-            tone(980, .18);
-            syncHUD();
-        }
-    }
-    lostPaper.visible = !story.done.includes('paper');
-    lostPaper.rotation.y = Math.sin(elapsed) * .15;
-    fishes.forEach((fish, i) => fish.position.z = Math.sin(elapsed * .8 + i) * .8);
-    trees.forEach((tree, i) => {
-        tree.rotation.z = Math.sin(elapsed * .65 + i) * .012;
-    });
-    butterfly.position.set(x + 1.6 + Math.sin(elapsed) * .5, 2 + Math.sin(elapsed * 1.4) * .4, pathZ(x) + 1.8);
-    wings.forEach((wing, i) => wing.rotation.z = Math.sin(elapsed * 15) * (i ? 1 : -1) * .7);
-    if (soundEnabled && elapsed > nextBird) {
-        tone(1500 + Math.random() * 900, .2, .018);
-        nextBird = elapsed + 3 + Math.random() * 4;
     }
     renderer.render(scene, camera);
 }
 
+// ?debug exposes live game state in the console for development and automated checks.
+if (new URLSearchParams(location.search).has('debug')) window.game = {
+    get state() {
+        return state;
+    }, get player() {
+        return player;
+    }, get car() {
+        return car;
+    }, get mode() {
+        return mode;
+    }, get payment() {
+        return payment;
+    }, get elapsed() {
+        return elapsed;
+    }, stations
+};
+reset();
+resize();
 $('#loading').remove();
-syncHUD();
 requestAnimationFrame(frame);

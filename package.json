@@ -1,8 +1,7 @@
 {
   "name": "game",
   "version": "1.0.0",
-  "description": "A Persian 3D forest walk and vending-machine game",
-  "main": "index.js",
+  "description": "A Persian third-person 3D city game: find Robot Market vending machines across real Mashhad streets",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
