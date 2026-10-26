@@ -1,0 +1,93 @@
+# Gitea Actions. While .gitea/workflows exists Gitea ignores .github/workflows (GitHub Pages only).
+#
+# Every push and pull request: install, test and build.
+# Push to main: then deploy to the server over SSH and start it with docker compose.
+#
+# Repository settings → Actions → Secrets:
+#   DEPLOY_HOST          server address (deploy is skipped while this is empty)
+#   DEPLOY_SSH_KEY       private key whose public key is in the server user's ~/.ssh/authorized_keys
+#   DEPLOY_USER          SSH user, default root; it must be able to run docker
+#   DEPLOY_PORT          SSH port, default 22
+#   DEPLOY_KNOWN_HOSTS   optional output of `ssh-keyscan <host>`; otherwise the host key is scanned on each run
+# Repository settings → Actions → Variables (optional):
+#   DEPLOY_PATH          directory on the server, default vending-machine-game (in the user's home)
+#   SITE_ADDRESS         domains served with HTTPS, default "robotmarkets.ir, www.robotmarkets.ir"
+#   HEALTH_URL           URL checked after deploy, e.g. https://robotmarkets.ir/
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Deploys run one at a time, in push order.
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: node:22-bookworm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Test
+        run: node --test tests/*.test.js
+      - name: Build
+        run: npm run build
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    container:
+      image: node:22-bookworm
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      SITE_ADDRESS: ${{ vars.SITE_ADDRESS }}
+      HEALTH_URL: ${{ vars.HEALTH_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to the server
+        run: |
+          if [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_SSH_KEY" ]; then
+            echo "DEPLOY_HOST / DEPLOY_SSH_KEY secrets are not set: skipping deploy."
+            exit 0
+          fi
+          port="${DEPLOY_PORT:-22}"
+          target="${DEPLOY_USER:-root}@${DEPLOY_HOST}"
+          dir="${DEPLOY_PATH:-vending-machine-game}"
+          site="${SITE_ADDRESS:-robotmarkets.ir, www.robotmarkets.ir}"
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "$port" "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          fi
+          # Ship the checked-out sources (no git history) and rebuild/restart the container there.
+          tar czf - --exclude=./.git --exclude=./node_modules --exclude=./dist . \
+            | ssh -i ~/.ssh/deploy_key -p "$port" "$target" \
+              "mkdir -p '$dir' && tar xzf - -C '$dir' && cd '$dir' && SITE_ADDRESS='$site' docker compose up -d --build --remove-orphans && docker image prune -f"
+
+      - name: Check the site
+        if: env.HEALTH_URL != '' && env.DEPLOY_HOST != ''
+        run: |
+          for attempt in $(seq 1 20); do
+            if curl -fsS -o /dev/null "$HEALTH_URL"; then
+              echo "Site is up: $HEALTH_URL"
+              exit 0
+            fi
+            sleep 6
+          done
+          echo "Site did not answer at $HEALTH_URL" >&2
+          exit 1

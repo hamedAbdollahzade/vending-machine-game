@@ -108,6 +108,31 @@ docker compose logs -f
    ssh user@server 'cd ~/game && gunzip -c robot-market-game.tar.gz | docker load && docker compose up -d --no-build'
    ```
 
+## CI/CD روی Gitea
+
+مخزن اصلی `ssh://git@git.my-rm.com:2222/Hamed/vending-machine-game.git` با نام `origin` است. GitHub با نام `github` باقی مانده. گردش‌کار [.gitea/workflows/ci-cd.yml](.gitea/workflows/ci-cd.yml) با هر push خودش اجرا می‌شود:
+
+- **هر push و pull request:** نصب، تست‌ها و build
+- **push به `main`:** بعد از قبولی تست‌ها، کد از راه SSH به سرور فرستاده می‌شود و `docker compose up -d --build` اجرا می‌شود.
+
+**راه‌اندازی یک‌باره:**
+1. در سرور، Docker و Docker Compose نصب باشد و کاربر SSH بتواند `docker` اجرا کند (عضو گروه `docker` یا root).
+2. یک کلید SSH مخصوص انتشار بسازید و کلید عمومی را به `~/.ssh/authorized_keys` سرور اضافه کنید:
+   ```sh
+   ssh-keygen -t ed25519 -N '' -f deploy_key -C gitea-deploy
+   ssh-copy-id -i deploy_key.pub user@server
+   ```
+3. در Gitea، بخش Settings → Actions → Secrets مخزن، این‌ها را تعریف کنید:
+   - `DEPLOY_HOST`: آدرس سرور
+   - `DEPLOY_SSH_KEY`: محتوای فایل `deploy_key`
+   - در صورت نیاز: `DEPLOY_USER` (پیش‌فرض root)، `DEPLOY_PORT` (پیش‌فرض ۲۲) و `DEPLOY_KNOWN_HOSTS` (خروجی `ssh-keyscan server`)
+4. اختیاری، در بخش Variables:
+   - `DEPLOY_PATH`: پوشهٔ روی سرور
+   - `SITE_ADDRESS`: دامنه‌ها
+   - `HEALTH_URL`: مثلاً `https://robotmarkets.ir/`، تا بعد از انتشار بالا آمدن سایت چک شود
+
+تا وقتی `DEPLOY_HOST` تعریف نشده، مرحلهٔ انتشار رد می‌شود و فقط تست و build اجرا می‌شوند.
+
 ## ساخت دوبارهٔ دادهٔ نقشه
 
 `src/data/mellat.json` و `src/data/iran.json` از خروجی خام OpenStreetMap (Overpass API) و Natural Earth ساخته می‌شوند. کوئری‌ها در ابتدای اسکریپت آمده‌اند:
