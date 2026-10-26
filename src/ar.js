@@ -51,12 +51,28 @@ export function createArView(video) {
         if (!event.absolute && compassOffset != null) alpha += compassOffset;
         orientation = {alpha, beta: event.beta, gamma: event.gamma};
     };
+    let sensing = false;
     return {
+        // Camera picture on (AR) or off (the 3D world fills the screen).
         get active() {
             return Boolean(stream);
         },
         get hasOrientation() {
             return Boolean(orientation);
+        },
+        // Phone orientation, used by the first-person view with or without the camera picture.
+        startSensors() {
+            if (sensing) return;
+            sensing = true;
+            window.addEventListener('deviceorientationabsolute', onAbsolute);
+            window.addEventListener('deviceorientation', onOrientation);
+        },
+        stopSensors() {
+            sensing = false;
+            orientation = null;
+            absoluteSeen = false;
+            window.removeEventListener('deviceorientationabsolute', onAbsolute);
+            window.removeEventListener('deviceorientation', onOrientation);
         },
         // Opens the rear camera. Resolves to null on success or to a message explaining the failure.
         async start() {
@@ -71,37 +87,29 @@ export function createArView(video) {
             video.srcObject = stream;
             video.hidden = false;
             await video.play().catch(() => {});
-            window.addEventListener('deviceorientationabsolute', onAbsolute);
-            window.addEventListener('deviceorientation', onOrientation);
+            this.startSensors();
             return null;
         },
+        // Closes the camera picture; the sensors keep running for the first-person view.
         stop() {
             stream?.getTracks().forEach(track => track.stop());
             stream = null;
-            orientation = null;
-            absoluteSeen = false;
             video.srcObject = null;
             video.hidden = true;
-            window.removeEventListener('deviceorientationabsolute', onAbsolute);
-            window.removeEventListener('deviceorientation', onOrientation);
         },
-        // Points the 3D camera like the phone. `smoothing` (per second) trades lag for steadiness.
+        // Points the 3D camera like the phone. With the camera picture on, the field of view matches it.
+        // `smoothing` (per second) trades lag for steadiness. Returns false without orientation data.
         update(camera, dt, smoothing = 8) {
-            const screenAspect = innerWidth / innerHeight, videoAspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 4 / 3;
-            const fov = coverFov(videoAspect, screenAspect);
+            const fov = stream ? coverFov(video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 4 / 3, innerWidth / innerHeight) : 62;
             if (Math.abs(camera.fov - fov) > .1) {
                 camera.fov = fov;
                 camera.updateProjectionMatrix();
             }
-            if (!orientation) return;
+            if (!orientation) return false;
             const angle = screen.orientation?.angle ?? window.orientation ?? 0;
             orientationQuaternion(target, orientation.alpha, orientation.beta, orientation.gamma, angle);
             camera.quaternion.slerp(target, 1 - Math.exp(-dt * smoothing));
-        },
-        // Compass bearing (degrees from north) the camera is looking along.
-        heading(camera) {
-            const dir = camera.getWorldDirection(new THREE.Vector3());
-            return (Math.atan2(dir.x, -dir.z) * 180 / Math.PI + 360) % 360;
+            return true;
         }
     };
 }

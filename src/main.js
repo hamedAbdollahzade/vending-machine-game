@@ -279,10 +279,11 @@ canvas.addEventListener('wheel', e => {
 
 function look(dx, dy, k) {
     // In AR view the phone's orientation aims the camera; dragging only helps when there is no sensor.
-    if (arMode) {
+    if (real.on) {
         if (arView.hasOrientation) return;
         cam.yaw -= dx * k;
         cam.arPitch = THREE.MathUtils.clamp((cam.arPitch ?? 0) - dy * k * .8, -1.2, 1.2);
+        cam.lastMouse = elapsed;
         return;
     }
     cam.yaw -= dx * k;
@@ -491,6 +492,12 @@ function cancel() {
 }
 
 $('#swipe').onclick = swipe;
+// On phones the prompt itself is the button: tap it to buy, swipe the card, or get in/out of the car.
+$('#prompt').onclick = () => {
+    if (payment.phase === 'ready') swipe();
+    else if (nearStation()) interact();
+    else toggleCar();
+};
 $('#cancel-payment').onclick = cancel;
 $('#shop-close').onclick = () => $('#shop').close();
 
@@ -906,10 +913,16 @@ function setRealMode(on) {
     $('#gps-toggle').classList.toggle('on', on);
     $('#gps-status').hidden = !on;
     $('#ar-toggle').hidden = $('#stable-toggle').hidden = !on;
+    // Real-world mode is first person: the player is where the phone is and sees what it faces.
+    document.body.classList.toggle('real', on);
     if (!on) {
         setArMode(false);
+        arView.stopSensors();
         return;
     }
+    arView.startSensors();
+    cam.arPitch = 0;
+    cam.yaw = Math.atan2(-Math.cos(player.heading), Math.sin(player.heading));
     if (mode === 'drive') toggleCar();
     mode = 'walk';
     real.stop = startTracking({
@@ -923,13 +936,14 @@ function setRealMode(on) {
         stabilizer: real.stabilizer = createStabilizer()
     });
     real.stabilizer.stable = stableMode;
-    say('father', 'حالت دنیای واقعی روشن شد. هر جا ما بریم، روی نقشه هم همون‌جا هستیم.');
+    say('father', 'حالت دنیای واقعی روشن شد؛ از چشم خودمون می‌بینیم و هر جا راه بریم، توی بازی هم همون‌جاییم.');
     setArMode(true);
 }
 
-// ---------- Camera AR view ----------
-// In real-world mode the phone camera is the background; the city model is hidden and only the
-// machines, their reach circles, the route and the robot are drawn over the real street.
+// ---------- First-person real-world view ----------
+// The view stands at the GPS position at eye height and turns with the phone. With the camera
+// picture on (AR) the city model is hidden and only the machines, their reach circles, the route
+// and the robot are drawn over the real street; with it off, the 3D city is shown first person.
 const arView = createArView($('#camera'));
 let arMode = false, stableMode = true;
 const hiddenInAr = () => [sky, city.group, factory.group, traffic.group, carModel.group, parkGate];
@@ -938,7 +952,7 @@ async function setArMode(on) {
     if (on && !arMode) {
         const problem = await arView.start();
         if (problem) {
-            say('father', `${problem} فعلاً روی نقشه بازی می‌کنیم.`);
+            say('father', `${problem} فعلاً شهر سه‌بعدی رو از چشم خودمون می‌بینیم.`);
             return;
         }
         if (!real.on) {
@@ -946,9 +960,8 @@ async function setArMode(on) {
             return;
         }
         say('robot', 'دوربین روشن شد! گوشی رو صاف جلوی خودت بگیر؛ ستون نورانی طلایی جای دستگاهه.', 'excited');
-        cam.arPitch = 0;
         setTimeout(() => {
-            if (arMode && !arView.hasOrientation) say('father', 'حسگر جهت گوشی جواب نمی‌ده؛ برای چرخیدن، صفحه رو با انگشت بکش.');
+            if (real.on && !arView.hasOrientation) say('father', 'حسگر جهت گوشی جواب نمی‌ده؛ برای چرخیدن، صفحه رو با انگشت بکش.');
         }, 3000);
     } else if (!on && arMode) arView.stop();
     else return;
@@ -957,10 +970,6 @@ async function setArMode(on) {
     scene.fog = on ? null : fog;
     document.body.classList.toggle('ar', on);
     $('#ar-toggle').classList.toggle('on', on);
-    if (!on) {
-        camera.fov = 62;
-        camera.updateProjectionMatrix();
-    }
 }
 
 $('#ar-toggle').onclick = () => setArMode(!arMode);
@@ -1301,7 +1310,7 @@ function frame() {
     if (mode === 'walk' && engine && soundOn) engine.g.gain.setTargetAtTime(0, audio.currentTime, .2);
     updateSubtitles(dt);
 
-    family.group.visible = mode === 'walk' && !arMode;
+    family.group.visible = mode === 'walk' && !real.on;
     family.group.position.set(player.x, 0, player.z);
     family.group.rotation.y = player.heading;
     family.update({dt, time: elapsed, gait: player.gait, moving: player.speed > .4, shopping: state.busy || payment.phase !== 'idle', delivery: deliveryTimer > 0});
@@ -1316,13 +1325,25 @@ function frame() {
     updateReachCircles();
     if (routeMesh) routeMaterial.opacity = .55 + Math.sin(elapsed * 4) * .15;
 
-    if (playing && arMode) {
-        // The phone is the camera: at the player's GPS position, eye height, pointing like the phone.
-        camera.position.set(player.x, 1.5, player.z);
-        arView.update(camera, dt, stableMode ? 5 : 10);
-        if (!arView.hasOrientation) camera.rotation.set(cam.arPitch ?? 0, cam.yaw, 0, 'YXZ');
+    if (playing && real.on) {
+        // First person: the phone is the camera, at the player's GPS position and eye height.
+        camera.position.set(player.x, 1.6, player.z);
+        if (!arView.update(camera, dt, stableMode ? 5 : 10)) {
+            // No orientation sensor: face the compass or walking direction, or wherever the player drags.
+            if (real.heading != null && elapsed - cam.lastMouse > 2) {
+                const want = Math.atan2(-Math.cos(player.heading), Math.sin(player.heading));
+                cam.yaw += Math.atan2(Math.sin(want - cam.yaw), Math.cos(want - cam.yaw)) * Math.min(1, dt * 3);
+            }
+            camera.rotation.set(cam.arPitch ?? 0, cam.yaw, 0, 'YXZ');
+        }
         camPos.copy(camera.position);
-    } else if (playing) updateCamera(dt);
+    } else if (playing) {
+        if (camera.fov !== 62) {
+            camera.fov = 62;
+            camera.updateProjectionMatrix();
+        }
+        updateCamera(dt);
+    }
     else {
         const a = elapsed * .08;
         camera.position.set(player.x + Math.cos(a) * 30, 18, player.z + Math.sin(a) * 30);

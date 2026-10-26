@@ -317,3 +317,39 @@ body.ar { background: #000; }
 body.ar #crosshair { display: none; }
 #ar-toggle[hidden], #stable-toggle[hidden] { display: none; }
 #ar-toggle.on, #stable-toggle.on { background: var(--teal); color: #04201b; border-color: var(--teal); }
+
+/* ---------- Real-world first person, and notifications in the middle on phones ---------- */
+body.real #crosshair, body.real #stick { display: none; }
+#prompt { cursor: pointer; }
+@media (max-width: 760px), (max-height: 520px) {
+    #banner { top: 24%; padding: 10px; }
+    #banner strong { font-size: 18px; }
+    #awards { top: 36%; }
+    #subtitle {
+        top: 50%; bottom: auto; transform: translate(-50%, -50%); width: min(92vw, 520px);
+        font-size: 15px; background: rgba(0, 0, 0, .7); border-radius: 10px;
+    }
+    #prompt { top: 64%; bottom: auto; font-size: 16px; padding: 12px 20px; border-radius: 10px; white-space: normal; text-align: center; max-width: 90vw; }
+    #gps-status {
+        position: fixed; top: 76px; left: 50%; transform: translateX(-50%); width: max-content; max-width: 92vw;
+        padding: 4px 12px; background: var(--panel-solid); border: 1px solid var(--line); border-radius: 999px; text-align: center;
+    }
+    #payment { bottom: auto; top: 50%; transform: translate(50%, -50%); }
+}
+/* Phone layout: one scrollable toolbar row, stats above it, compact rank bar above the compass,
+   and no car or run buttons while the GPS moves the player. */
+body.real .touch-buttons [data-key='f'], body.real .touch-buttons [data-key='shift'] { display: none; }
+@media (max-width: 760px) {
+    #rank { top: 4px; padding: 2px 8px; font-size: 11px; }
+    #rank .bar { height: 3px; margin-top: 2px; }
+    #compass { top: 36px; }
+    /* Between the mission banner and the dialogue, clear of the minimap and mission list. */
+    #gps-status { top: 42%; }
+    #toolbar {
+        left: 8px; right: 8px; bottom: 8px; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    #toolbar button { flex: 0 0 auto; white-space: nowrap; }
+    #status { bottom: 52px; }
+    #touch { bottom: 150px; }
+}
