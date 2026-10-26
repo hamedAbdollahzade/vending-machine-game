@@ -84,10 +84,15 @@ jobs:
             --tag "$IMAGE" .
           docker push "$IMAGE"
 
-          # Show the package under this repository's Packages tab.
-          curl --fail-with-body --silent --show-error --request POST \
+          # Show the package under this repository's Packages tab. Gitea answers 400 when the package
+          # is already linked (every run after the first), and the image is published either way.
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --request POST \
             --header "Authorization: token $REGISTRY_TOKEN" \
-            "https://$REGISTRY/api/v1/packages/$OWNER/container/${REPO,,}/-/link/$REPO"
+            "https://$REGISTRY/api/v1/packages/$OWNER/container/${REPO,,}/-/link/$REPO")"
+          case "$status" in
+            201) echo "Linked the package to $REPO" ;;
+            *) echo "Package link request returned HTTP $status (already linked is normal); continuing" ;;
+          esac
 
           echo "image=$IMAGE" >> "$GITEA_OUTPUT"
           echo "Published and linked: $IMAGE"
