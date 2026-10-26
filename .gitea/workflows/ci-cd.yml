@@ -1,9 +1,13 @@
 # Gitea Actions. While .gitea/workflows exists Gitea ignores .github/workflows (GitHub Pages only).
 #
 # Every push and pull request: install, test and build.
-# Push to main: then deploy to the server over SSH and start it with docker compose.
+# Push to main: build the Docker image, push it to the Gitea registry, then have the server pull it.
+# The server holds no source code, only deploy/docker-compose.yml and a .env naming the image.
 #
 # Repository settings → Actions → Secrets:
+#   REGISTRY_USERNAME    Gitea user that publishes images
+#   REGISTRY_TOKEN       its personal access token with package Read and Write
+#                        (the built-in GITEA_TOKEN cannot publish packages)
 #   DEPLOY_HOST          server address (deploy is skipped while this is empty)
 #   DEPLOY_SSH_KEY       private key whose public key is in the server user's ~/.ssh/authorized_keys
 #   DEPLOY_USER          SSH user, default root; it must be able to run docker
@@ -12,8 +16,7 @@
 # Repository settings → Actions → Variables (optional):
 #   NPM_REGISTRY         npm mirror used by the runner and the server's Docker build when
 #                        registry.npmjs.org is unreachable, e.g. from servers in Iran
-#   DEPLOY_PATH          directory on the server, default vending-machine-game (in the user's home)
-#   SITE_ADDRESS         domains served with HTTPS, default "robotmarkets.ir, www.robotmarkets.ir"
+#   DEPLOY_PATH          directory on the server, default /opt/vending-machine-game
 #   HEALTH_URL           URL checked after deploy, e.g. https://robotmarkets.ir/
 name: CI/CD
 
@@ -49,11 +52,56 @@ jobs:
       - name: Build
         run: npm run build
 
-  deploy:
+  publish:
     needs: test
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build, push and link the image
+        id: push
+        shell: bash
+        env:
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          SOURCE_REPOSITORY: ${{ gitea.repository }}
+          COMMIT_SHA: ${{ gitea.sha }}
+          RUN_ID: ${{ gitea.run_id }}
+        run: |
+          set -euo pipefail
+          REGISTRY='git.my-rm.com'
+          OWNER="${SOURCE_REPOSITORY%%/*}"
+          REPO="${SOURCE_REPOSITORY#*/}"
+          IMAGE="$REGISTRY/${OWNER,,}/${REPO,,}:build-$(date -u +%Y%m%d-%H%M%S)-${RUN_ID}-${COMMIT_SHA:0:7}"
+
+          # Keep this job's registry credentials away from the host's own logins.
+          DOCKER_CONFIG="$(mktemp -d)"
+          export DOCKER_CONFIG
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+
+          printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username "$REGISTRY_USERNAME" --password-stdin
+          docker build \
+            --build-arg "NPM_REGISTRY=$NPM_CONFIG_REGISTRY" \
+            --label "org.opencontainers.image.source=https://$REGISTRY/$SOURCE_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$COMMIT_SHA" \
+            --tag "$IMAGE" .
+          docker push "$IMAGE"
+
+          # Show the package under this repository's Packages tab.
+          curl --fail-with-body --silent --show-error --request POST \
+            --header "Authorization: token $REGISTRY_TOKEN" \
+            "https://$REGISTRY/api/v1/packages/$OWNER/container/${REPO,,}/-/link/$REPO"
+
+          echo "image=$IMAGE" >> "$GITEA_OUTPUT"
+          echo "Published and linked: $IMAGE"
+
+  deploy:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     container:
       image: node:22-bookworm
     env:
@@ -63,8 +111,8 @@ jobs:
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
       DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
-      SITE_ADDRESS: ${{ vars.SITE_ADDRESS }}
       HEALTH_URL: ${{ vars.HEALTH_URL }}
+      IMAGE: ${{ needs.publish.outputs.image }}
     steps:
       - uses: actions/checkout@v4
       - name: Deploy to the server
@@ -75,8 +123,7 @@ jobs:
           fi
           port="${DEPLOY_PORT:-22}"
           target="${DEPLOY_USER:-root}@${DEPLOY_HOST}"
-          dir="${DEPLOY_PATH:-vending-machine-game}"
-          site="${SITE_ADDRESS:-robotmarkets.ir, www.robotmarkets.ir}"
+          dir="${DEPLOY_PATH:-/opt/vending-machine-game}"
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
           if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
@@ -84,10 +131,12 @@ jobs:
           else
             ssh-keyscan -p "$port" "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
           fi
-          # Ship the checked-out sources (no git history) and rebuild/restart the container there.
-          tar czf - --exclude=./.git --exclude=./node_modules --exclude=./dist . \
-            | ssh -i ~/.ssh/deploy_key -p "$port" "$target" \
-              "mkdir -p '$dir' && tar xzf - -C '$dir' && cd '$dir' && SITE_ADDRESS='$site' NPM_REGISTRY='$NPM_CONFIG_REGISTRY' docker compose up -d --build --remove-orphans && docker image prune -f"
+          # Only the compose file goes to the server; the app itself comes from the registry image.
+          # The server user must already be logged in to git.my-rm.com (docker login, package Read token).
+          ssh_opts="-i $HOME/.ssh/deploy_key -p $port"
+          ssh $ssh_opts "$target" "mkdir -p '$dir'"
+          scp -i ~/.ssh/deploy_key -P "$port" deploy/docker-compose.yml "$target:$dir/docker-compose.yml"
+          ssh $ssh_opts "$target" "cd '$dir' && cp -f .env .env.previous 2>/dev/null; printf 'IMAGE=%s\n' '$IMAGE' > .env && docker compose pull && docker compose up -d --remove-orphans && docker image prune -f"
 
       - name: Check the site
         if: env.HEALTH_URL != '' && env.DEPLOY_HOST != ''
