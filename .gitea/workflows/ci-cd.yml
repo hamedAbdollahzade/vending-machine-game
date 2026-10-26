@@ -10,6 +10,8 @@
 #   DEPLOY_PORT          SSH port, default 22
 #   DEPLOY_KNOWN_HOSTS   optional output of `ssh-keyscan <host>`; otherwise the host key is scanned on each run
 # Repository settings → Actions → Variables (optional):
+#   NPM_REGISTRY         npm mirror used by the runner and the server's Docker build when
+#                        registry.npmjs.org is unreachable, e.g. from servers in Iran
 #   DEPLOY_PATH          directory on the server, default vending-machine-game (in the user's home)
 #   SITE_ADDRESS         domains served with HTTPS, default "robotmarkets.ir, www.robotmarkets.ir"
 #   HEALTH_URL           URL checked after deploy, e.g. https://robotmarkets.ir/
@@ -26,9 +28,16 @@ concurrency:
   group: ci-cd-${{ github.ref }}
   cancel-in-progress: false
 
+# Fail within minutes instead of hanging when the registry is slow or blocked.
+env:
+  NPM_CONFIG_REGISTRY: ${{ vars.NPM_REGISTRY || 'https://registry.npmjs.org/' }}
+  NPM_CONFIG_FETCH_RETRIES: '3'
+  NPM_CONFIG_FETCH_TIMEOUT: '60000'
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     container:
       image: node:22-bookworm
     steps:
@@ -44,6 +53,7 @@ jobs:
     needs: test
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     container:
       image: node:22-bookworm
     env:
@@ -77,7 +87,7 @@ jobs:
           # Ship the checked-out sources (no git history) and rebuild/restart the container there.
           tar czf - --exclude=./.git --exclude=./node_modules --exclude=./dist . \
             | ssh -i ~/.ssh/deploy_key -p "$port" "$target" \
-              "mkdir -p '$dir' && tar xzf - -C '$dir' && cd '$dir' && SITE_ADDRESS='$site' docker compose up -d --build --remove-orphans && docker image prune -f"
+              "mkdir -p '$dir' && tar xzf - -C '$dir' && cd '$dir' && SITE_ADDRESS='$site' NPM_REGISTRY='$NPM_CONFIG_REGISTRY' docker compose up -d --build --remove-orphans && docker image prune -f"
 
       - name: Check the site
         if: env.HEALTH_URL != '' && env.DEPLOY_HOST != ''
