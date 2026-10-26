@@ -5,6 +5,8 @@ import {toLocal, toLatLon, bearing, ORIGIN} from '../src/geo.js';
 import {createCollisionWorld, resolveCircle, blocked, clearFraction} from '../src/collision.js';
 import {buildGraph, routeBetween, nearestSegment, buildSegmentIndex} from '../src/routing.js';
 import {createCar, stepCar} from '../src/vehicle.js';
+import {createTraffic} from '../src/traffic.js';
+import {Scene} from 'three';
 import {machines, machineById, FACTORY} from '../src/locations.js';
 
 const data = JSON.parse(readFileSync(new URL('../src/data/mellat.json', import.meta.url)));
@@ -50,4 +52,17 @@ test('Car accelerates, steers right with positive input and brakes', () => {
     assert.ok(car.z > 0, 'turning right while heading east moves south (+z)');
     for (let i = 0; i < 90; i++) stepCar(car, {throttle: -1}, 1 / 30);
     assert.ok(car.speed <= 0);
+});
+
+test('Traffic drives with the flow on one-way carriageways and stays inside them', () => {
+    const oneway = new Set(data.oneway);
+    assert.ok(data.roads.some((r, i) => data.names[r[1]]?.includes('چناران') && oneway.has(i)), 'Chenaran highway is one-way per carriageway');
+    const traffic = createTraffic(new Scene(), data, 28), around = {x: -10008, z: -15049};
+    for (let i = 0; i < 400; i++) traffic.update(1 / 30, [], around);
+    const active = traffic.cars.filter(c => c.road);
+    assert.ok(active.length > 10, `cars spawned near the player (${active.length})`);
+    for (const car of active.filter(c => c.road.oneway)) {
+        assert.equal(car.dir, 1);
+        assert.ok(Math.abs(car.lane) < car.road.width / 2, 'lane inside the carriageway');
+    }
 });

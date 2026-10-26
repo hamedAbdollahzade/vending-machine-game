@@ -65,7 +65,7 @@ const nameId = name => {
     }
     return nameIndex.get(name);
 };
-const roads = [], buildings = [], areas = [], labels = [];
+const roads = [], buildings = [], areas = [], labels = [], onewayRoads = [];
 const areaKinds = ['park', 'grass', 'forest', 'pitch', 'water', 'campus', 'industrial', 'farmland'];
 const areaKind = t => t.leisure === 'park' || t.leisure === 'garden' || t.landuse === 'park' || t.landuse === 'recreation_ground' ? 'park'
     : t.landuse === 'grass' ? 'grass'
@@ -104,13 +104,20 @@ for (const e of city) {
     // Motorways are drawn and routed like trunk roads.
     const highway = t.highway?.replace('_link', '').replace('motorway', 'trunk');
     if (e.type === 'way' && highway && roadTypes.includes(highway) && e.geometry?.length > 1) {
+        // One-way roads are stored pointing in their direction of travel; dual carriageways
+        // (each side its own way) are one-way, as are motorways and roundabouts by default.
+        const oneway = ['yes', 'true', '1', '-1'].includes(t.oneway) || (t.oneway !== 'no' && (t.highway.startsWith('motorway') || ['roundabout', 'circular'].includes(t.junction)));
+        const geometry = t.oneway === '-1' ? [...e.geometry].reverse() : e.geometry;
         // Whole ways come back from Overpass, so cut them where they leave the region.
         const inRegion = ({lat, lon}) => lat >= REGION.minLat && lat <= REGION.maxLat && lon >= REGION.minLon && lon <= REGION.maxLon;
         let run = [];
-        for (const point of [...e.geometry, null]) {
+        for (const point of [...geometry, null]) {
             if (point && inRegion(point)) run.push(point);
             else {
-                if (run.length > 1) roads.push([roadTypes.indexOf(highway), nameId(t.name), ...flat(run)]);
+                if (run.length > 1) {
+                    if (oneway) onewayRoads.push(roads.length);
+                    roads.push([roadTypes.indexOf(highway), nameId(t.name), ...flat(run)]);
+                }
                 run = [];
             }
         }
@@ -162,6 +169,8 @@ const city_ = {
     attribution: '© OpenStreetMap contributors',
     bounds: {minX: min.x, minZ: min.z, maxX: max.x, maxZ: max.z},
     roadTypes, areaKinds, names, roads, buildings, areas,
+    // Indices into `roads` of one-way roads, whose points run in the direction of travel.
+    oneway: onewayRoads,
     labels: [...new Map(labels.map(l => [l.name, l])).values()]
 };
 writeFileSync(new URL('../src/data/mellat.json', import.meta.url), JSON.stringify(city_));

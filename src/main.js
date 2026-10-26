@@ -966,7 +966,11 @@ function updateWalk(dt) {
     player.gait += dt * player.speed * 1.9;
 }
 
+// Collision log for ?debug runs; trimmed so it never grows without bound.
+const debugHits = [];
+
 function updateDrive(dt) {
+    if (debugHits.length > 200) debugHits.splice(0, 100);
     const throttle = THREE.MathUtils.clamp(axis(['w', 'arrowup'], ['s', 'arrowdown']) + stick.y, -1, 1);
     const steer = THREE.MathUtils.clamp(axis(['d', 'arrowright'], ['a', 'arrowleft']) + stick.x, -1, 1);
     stepCar(car, {throttle, steer, handbrake: keys.has(' ')}, dt);
@@ -975,19 +979,31 @@ function updateDrive(dt) {
         const cx = car.x + Math.cos(car.heading) * along, cz = car.z - Math.sin(car.heading) * along;
         const p = resolveCircle(collision, cx, cz, 1.05);
         if (p.hit) {
+            debugHits.push({kind: 'building', x: Math.round(cx), z: Math.round(cz), v: +car.speed.toFixed(1)});
             car.x += p.x - cx;
             car.z += p.z - cz;
             if (Math.abs(car.speed) > 4) tone(90, .2, .08, 'square');
             car.speed *= .35;
         }
     }
+    // Bumping a traffic car slows you down but never throws you backwards. If you stay pressed
+    // against one, it pulls away (respawns out of sight) so you can never get stuck behind it.
     for (const npc of traffic.cars) {
         const dx = car.x - npc.x, dz = car.z - npc.z, d = Math.hypot(dx, dz);
-        if (d < 3.6 && d > 0) {
-            car.x = npc.x + dx / d * 3.6;
-            car.z = npc.z + dz / d * 3.6;
-            if (Math.abs(car.speed) > 4) tone(110, .25, .08, 'square');
-            car.speed *= -.2;
+        if (d >= 3.4 || d === 0) {
+            if (npc.contact) npc.contact = 0;
+            continue;
+        }
+        debugHits.push({kind: 'traffic', x: Math.round(car.x), z: Math.round(car.z), v: +car.speed.toFixed(1), npcDir: npc.dir});
+        car.x = npc.x + dx / d * 3.4;
+        car.z = npc.z + dz / d * 3.4;
+        const towards = (Math.cos(car.heading) * -dx - Math.sin(car.heading) * -dz) * Math.sign(car.speed) > 0;
+        if (towards && Math.abs(car.speed) > 4) tone(110, .25, .08, 'square');
+        if (towards) car.speed *= .4;
+        npc.contact = (npc.contact ?? 0) + dt;
+        if (npc.contact > .8) {
+            npc.contact = 0;
+            traffic.remove(npc);
         }
     }
     const {minX, minZ, maxX, maxZ} = data.bounds;
@@ -1235,7 +1251,13 @@ if (new URLSearchParams(location.search).has('debug')) window.game = {
         return payment;
     }, get elapsed() {
         return elapsed;
-    }, stations, guideState, real, keys
+    }, get route() {
+        return route;
+    }, setWaypoint(id) {
+        waypoint = id;
+        route = null;
+        routeTimer = 0;
+    }, debugHits, nearestRoad: (x, z) => nearestSegment(segments, x, z, 40, s => s[4] <= 3), stations, guideState, real, keys, traffic
 };
 reset();
 resize();

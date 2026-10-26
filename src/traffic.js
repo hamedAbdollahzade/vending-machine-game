@@ -45,13 +45,19 @@ const COLORS = ['#e9e9e4', '#1d1f22', '#9aa3a8', '#d6c9a5', '#7e1f1d', '#2f4a6b'
 
 // Ambient cars on the main roads. They stay within a few hundred metres of the player: a car that
 // falls too far behind is moved to a road ahead or around them. Cars stop for anything in their lane.
+const WIDTH = [11, 10, 9, 8]; // trunk … tertiary, matching the road strips in city.js
+
 export function createTraffic(scene, data, count = 28) {
-    const roads = data.roads.filter(r => r[0] <= 3).map(r => {
+    const oneway = new Set(data.oneway ?? []);
+    const roads = data.roads.flatMap((r, index) => {
+        if (r[0] > 3) return [];
         const pts = [];
         for (let i = 2; i < r.length; i += 2) pts.push(new THREE.Vector2(r[i], r[i + 1]));
         const lengths = [0];
         for (let i = 1; i < pts.length; i++) lengths.push(lengths[i - 1] + pts[i].distanceTo(pts[i - 1]));
-        return {pts, lengths, total: lengths.at(-1), lanes: r[0] <= 1 ? 2 : 1};
+        const xs = pts.map(p => p.x), zs = pts.map(p => p.y);
+        return [{pts, lengths, total: lengths.at(-1), width: WIDTH[r[0]], oneway: oneway.has(index),
+            box: {x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs)}}];
     }).filter(r => r.total > 80);
     const sample = (road, d) => {
         let i = 1;
@@ -61,13 +67,25 @@ export function createTraffic(scene, data, count = 28) {
     };
     let seed = 7;
     const random = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+    // Roads whose bounding box comes within 600 m of the player, refreshed as they travel.
+    let nearby = [], nearbyAt = null;
+    const roadsNear = (x, z) => {
+        if (!nearbyAt || Math.hypot(x - nearbyAt.x, z - nearbyAt.z) > 150) {
+            nearbyAt = {x, z};
+            nearby = roads.filter(({box}) => x > box.x0 - 600 && x < box.x1 + 600 && z > box.z0 - 600 && z < box.z1 + 600);
+        }
+        return nearby;
+    };
     // Places a car on a random main-road point between 120 and 600 m from (x, z), if one exists.
     function respawn(car, x, z) {
-        for (let attempt = 0; attempt < 40; attempt++) {
-            const road = roads[Math.floor(random() * roads.length)], d = random() * road.total, p = sample(road, d);
+        const candidates = roadsNear(x, z);
+        for (let attempt = 0; attempt < 30 && candidates.length; attempt++) {
+            const road = candidates[Math.floor(random() * candidates.length)], d = random() * road.total, p = sample(road, d);
             const dist = Math.hypot(p.x - x, p.z - z);
             if (dist < 120 || dist > 600) continue;
-            Object.assign(car, {road, d, dir: random() < .5 ? 1 : -1, lane: 2.2 + (road.lanes > 1 && random() < .5 ? 3.2 : 0), speed: 9 + random() * 7});
+            // One-way carriageways: with the flow, in either of two lanes. Two-way roads: right-hand half.
+            const lane = road.oneway ? (random() < .5 ? -1 : 1) * road.width / 4 : road.width / 4;
+            Object.assign(car, {road, d, dir: road.oneway || random() < .5 ? 1 : -1, lane, speed: 9 + random() * 7});
             car.model.group.visible = true;
             return true;
         }
@@ -81,6 +99,13 @@ export function createTraffic(scene, data, count = 28) {
         model.group.visible = false;
         cars.push({model, road: null, d: 0, dir: 1, lane: 2.2, speed: 10, x: 1e9, z: 1e9});
     }
+    // Takes a car off the road; it respawns out of sight on a later frame.
+    function remove(car) {
+        car.road = null;
+        car.x = car.z = 1e9;
+        car.model.group.visible = false;
+    }
+
     let cursor = 0;
     function update(dt, obstacles, around) {
         // Re-home a couple of distant cars per frame, which keeps the cost per frame small.
@@ -99,6 +124,11 @@ export function createTraffic(scene, data, count = 28) {
             const speed = ahead ? 0 : car.speed;
             car.d += speed * car.dir * dt;
             if (car.d > car.road.total || car.d < 0) {
+                // At the end of a one-way road the car leaves; on a two-way road it turns back.
+                if (car.road.oneway) {
+                    remove(car);
+                    continue;
+                }
                 car.dir *= -1;
                 car.d = Math.max(0, Math.min(car.road.total, car.d));
             }
@@ -111,5 +141,5 @@ export function createTraffic(scene, data, count = 28) {
             for (const wheel of car.model.wheels) wheel.rotation.z -= speed * dt / .36;
         }
     }
-    return {cars, update};
+    return {cars, update, remove};
 }
