@@ -308,3 +308,12 @@ dialog header { display: flex; justify-content: space-between; align-items: star
 #real-intro p, #real-intro li { line-height: 1.9; font-size: 14px; }
 #real-intro ul { padding-inline-start: 18px; color: var(--dim); }
 #real-go { flex: 1; padding: 10px; border: 0; background: var(--gold); color: #1b1406; font-weight: 800; }
+
+/* ---------- Camera AR view ---------- */
+#camera { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; background: #000; }
+#camera[hidden] { display: none; }
+#world { z-index: 1; }
+body.ar { background: #000; }
+body.ar #crosshair { display: none; }
+#ar-toggle[hidden], #stable-toggle[hidden] { display: none; }
+#ar-toggle.on, #stable-toggle.on { background: var(--teal); color: #04201b; border-color: var(--teal); }

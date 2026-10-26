@@ -16,15 +16,44 @@ export function smoothFix(previous, fix) {
     return {x, z, accuracy, time: fix.time, speed: fix.speed ?? Math.hypot(x - previous.x, z - previous.z) / dt};
 }
 
-// How close counts as "at the machine": twice the GPS error, between 12 m (good outdoor fix) and 40 m.
-export const arrivalRadius = accuracy => Math.min(40, Math.max(12, accuracy * 2));
+// Stable mode on top of smoothFix, against phone GPS jitter:
+//  - a fix further from the estimate than both errors plus a brisk walk allows is a jump and is
+//    dropped (after three in a row it is accepted: the phone really moved, e.g. got in a car);
+//  - the shown position stays put until the estimate drifts beyond about half the GPS error,
+//    or the phone reports walking speed. Without stable mode every smoothed fix is shown.
+export function createStabilizer({maxSpeed = 3} = {}) {
+    let estimate = null, shown = null, rejected = 0;
+    return {
+        stable: true,
+        push(fix) {
+            if (estimate && this.stable && fix.time - estimate.time < 30000) {
+                const dt = Math.max(.001, (fix.time - estimate.time) / 1000);
+                const reach = estimate.accuracy + fix.accuracy + maxSpeed * dt * 1.5;
+                if (Math.hypot(fix.x - estimate.x, fix.z - estimate.z) > reach && fix.accuracy > estimate.accuracy / 2 && rejected < 3) {
+                    rejected++;
+                    return shown && {...shown};
+                }
+            }
+            rejected = 0;
+            estimate = smoothFix(estimate, fix);
+            const drift = shown ? Math.hypot(estimate.x - shown.x, estimate.z - shown.z) : Infinity;
+            if (!this.stable || drift > Math.max(3, estimate.accuracy / 2) || (fix.speed ?? 0) > .7) shown = {...estimate};
+            else shown = {...shown, accuracy: estimate.accuracy, time: estimate.time, speed: fix.speed ?? 0};
+            return {...shown};
+        }
+    };
+}
+
+// How close counts as "at the machine": 2.5× the GPS error, between 20 m (good outdoor fix) and 50 m,
+// so reaching the area around a machine is enough.
+export const arrivalRadius = accuracy => Math.min(50, Math.max(20, accuracy * 2.5));
 
 export const insideWorld = (bounds, x, z) => x > bounds.minX && x < bounds.maxX && z > bounds.minZ && z < bounds.maxZ;
 
 // Watches the phone's position and compass. Calls onFix({x, z, accuracy, speed, lat, lon}),
 // onHeading(radians in the game's heading convention), onError(message) for a real problem and
-// onStatus(message) while it is still searching.
-export function startTracking({onFix, onHeading, onError, onStatus = () => {}}) {
+// onStatus(message) while it is still searching. `stabilizer` filters the fixes (see above).
+export function startTracking({onFix, onHeading, onError, onStatus = () => {}, stabilizer = createStabilizer()}) {
     if (!('geolocation' in navigator)) {
         onError('این دستگاه موقعیت‌یابی (GPS) ندارد.');
         return () => {};
@@ -33,12 +62,12 @@ export function startTracking({onFix, onHeading, onError, onStatus = () => {}}) 
         onError('موقعیت‌یابی فقط روی HTTPS کار می‌کند؛ بازی را از نشانی https:// باز کنید.');
         return () => {};
     }
-    let estimate = null, fixes = 0;
+    let fixes = 0;
     const handle = position => {
         const {latitude: lat, longitude: lon, accuracy, speed} = position.coords, local = toLocal(lat, lon);
-        estimate = smoothFix(estimate, {...local, accuracy: Math.max(3, accuracy), speed: Number.isFinite(speed) ? speed : null, time: position.timestamp});
+        const shown = stabilizer.push({...local, accuracy: Math.max(3, accuracy), speed: Number.isFinite(speed) ? speed : null, time: position.timestamp});
         fixes++;
-        onFix({...estimate, lat, lon});
+        if (shown) onFix({...shown, lat, lon});
     };
     const fail = error => {
         if (error.code === error.PERMISSION_DENIED) onError('اجازهٔ دسترسی به موقعیت داده نشد. در تنظیمات مرورگر و گوشی، Location را برای این سایت مجاز کنید. (کد ۱)');

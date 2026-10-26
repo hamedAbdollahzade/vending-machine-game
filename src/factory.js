@@ -182,6 +182,7 @@ export function createFactory(scene) {
     const demo = toWorld(-8, 41.5), facing = {x: -normal.x, z: -normal.z};
     const car = toWorld(52, -6);
     return {
+        group,
         footprints,
         demo: {x: demo.x, z: demo.z, rot: Math.atan2(facing.x, facing.z)},
         car: {x: car.x, z: car.z, heading: Math.atan2(-axis.z, axis.x)},

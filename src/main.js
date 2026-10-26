@@ -4,7 +4,8 @@ import '@fontsource/vazirmatn/600.css';
 import '@fontsource/vazirmatn/800.css';
 import './style.css';
 import {setupPwa} from './pwa.js';
-import {startTracking, requestCompass, arrivalRadius, insideWorld, MAX_WALKING_SPEED} from './realworld.js';
+import {startTracking, requestCompass, arrivalRadius, insideWorld, createStabilizer, MAX_WALKING_SPEED} from './realworld.js';
+import {createArView} from './ar.js';
 import data from './data/mellat.json';
 import iran from './data/iran.json';
 import {createCity} from './city.js';
@@ -26,7 +27,8 @@ const $ = s => document.querySelector(s);
 const canvas = $('#world');
 let renderer;
 try {
-    renderer = new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: 'high-performance'});
+    // alpha: in camera AR view the phone's camera picture shows through where nothing is drawn.
+    renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true, powerPreference: 'high-performance'});
 } catch {
     $('#loading').textContent = 'مرورگر شما گرافیک سه‌بعدی (WebGL) را اجرا نمی‌کند. شتاب‌دهی گرافیکی را فعال کنید.';
     throw new Error('WebGL unavailable');
@@ -47,7 +49,8 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog('#d8cdb4', 220, 1500);
+const fog = new THREE.Fog('#d8cdb4', 220, 1500);
+scene.fog = fog;
 const camera = new THREE.PerspectiveCamera(62, 1, .3, 7000);
 
 // Morning sky over Mashhad: a gradient dome, warm haze at the horizon.
@@ -119,6 +122,25 @@ function placeStation(def, pos, rot) {
 
 const stationById = id => stations.find(s => s.def.id === id);
 for (const s of stations) if (s.def.test) s.model.group.visible = false;
+
+// In real-world mode a circle on the ground marks how close counts as "at the machine".
+for (const s of stations) {
+    s.reach = new THREE.Mesh(new THREE.RingGeometry(.96, 1, 96), new THREE.MeshBasicMaterial({color: '#3ee0c9', transparent: true, opacity: .55, depthWrite: false, fog: false, side: THREE.DoubleSide}));
+    s.reach.rotation.x = -Math.PI / 2;
+    s.reach.position.set(s.front.x, .08, s.front.z);
+    s.reach.visible = false;
+    scene.add(s.reach);
+}
+
+function updateReachCircles() {
+    const radius = reachRadius(), objective = real.on ? objectiveStation() : null;
+    for (const s of stations) {
+        s.reach.visible = real.on;
+        if (!real.on) continue;
+        s.reach.scale.setScalar(radius);
+        s.reach.material.color.set(s === objective ? '#f2c94c' : '#3ee0c9');
+    }
+}
 // GPS test points only take part while real-world mode is on.
 const activeStations = () => stations.filter(s => !s.def.test || real.on);
 // The closest active machine whose front is within `radius` of (x, z).
@@ -131,6 +153,7 @@ const traffic = createTraffic(scene, data, 28);
 const mapAssets = createMapAssets(data, [factory.label]);
 
 // Park gate sign at the first city machine.
+const parkGate = new THREE.Group();
 {
     const start = stationById(CITY_START), sign = document.createElement('canvas');
     sign.width = 512;
@@ -144,7 +167,7 @@ const mapAssets = createMapAssets(data, [factory.label]);
     c.fillText('بوستان ملت', 256, 86);
     const texture = new THREE.CanvasTexture(sign);
     texture.colorSpace = THREE.SRGBColorSpace;
-    const gate = new THREE.Group(), post = new THREE.MeshStandardMaterial({color: '#6b5a49'});
+    const gate = parkGate, post = new THREE.MeshStandardMaterial({color: '#6b5a49'});
     for (const side of [-1, 1]) {
         const p = new THREE.Mesh(new THREE.BoxGeometry(.3, 4, .3), post);
         p.position.set(side * 2.6, 2, 0);
@@ -255,6 +278,13 @@ canvas.addEventListener('wheel', e => {
 }, {passive: true});
 
 function look(dx, dy, k) {
+    // In AR view the phone's orientation aims the camera; dragging only helps when there is no sensor.
+    if (arMode) {
+        if (arView.hasOrientation) return;
+        cam.yaw -= dx * k;
+        cam.arPitch = THREE.MathUtils.clamp((cam.arPitch ?? 0) - dy * k * .8, -1.2, 1.2);
+        return;
+    }
     cam.yaw -= dx * k;
     cam.pitch = THREE.MathUtils.clamp(cam.pitch + dy * k * .8, -.15, 1.15);
     cam.lastMouse = elapsed;
@@ -866,7 +896,7 @@ $('#start-mission').onclick = startMission;
 // ---------- Real-world (GPS) mode ----------
 // The family mirrors the phone's position on the real map of Mashhad. Walking to a real place where
 // a machine stands lets the player buy there, with a bonus.
-const real = {on: false, fix: null, heading: null, error: null, waiting: null, stop: null};
+const real = {on: false, fix: null, heading: null, error: null, waiting: null, stop: null, stabilizer: createStabilizer()};
 
 function setRealMode(on) {
     if (on === real.on) return;
@@ -875,7 +905,11 @@ function setRealMode(on) {
     for (const s of stations) if (s.def.test) s.model.group.visible = on;
     $('#gps-toggle').classList.toggle('on', on);
     $('#gps-status').hidden = !on;
-    if (!on) return;
+    $('#ar-toggle').hidden = $('#stable-toggle').hidden = !on;
+    if (!on) {
+        setArMode(false);
+        return;
+    }
     if (mode === 'drive') toggleCar();
     mode = 'walk';
     real.stop = startTracking({
@@ -885,10 +919,57 @@ function setRealMode(on) {
         },
         onHeading: heading => real.heading = heading,
         onError: message => real.error = message,
-        onStatus: message => real.waiting = message
+        onStatus: message => real.waiting = message,
+        stabilizer: real.stabilizer = createStabilizer()
     });
+    real.stabilizer.stable = stableMode;
     say('father', 'حالت دنیای واقعی روشن شد. هر جا ما بریم، روی نقشه هم همون‌جا هستیم.');
+    setArMode(true);
 }
+
+// ---------- Camera AR view ----------
+// In real-world mode the phone camera is the background; the city model is hidden and only the
+// machines, their reach circles, the route and the robot are drawn over the real street.
+const arView = createArView($('#camera'));
+let arMode = false, stableMode = true;
+const hiddenInAr = () => [sky, city.group, factory.group, traffic.group, carModel.group, parkGate];
+
+async function setArMode(on) {
+    if (on && !arMode) {
+        const problem = await arView.start();
+        if (problem) {
+            say('father', `${problem} فعلاً روی نقشه بازی می‌کنیم.`);
+            return;
+        }
+        if (!real.on) {
+            arView.stop();
+            return;
+        }
+        say('robot', 'دوربین روشن شد! گوشی رو صاف جلوی خودت بگیر؛ ستون نورانی طلایی جای دستگاهه.', 'excited');
+        cam.arPitch = 0;
+        setTimeout(() => {
+            if (arMode && !arView.hasOrientation) say('father', 'حسگر جهت گوشی جواب نمی‌ده؛ برای چرخیدن، صفحه رو با انگشت بکش.');
+        }, 3000);
+    } else if (!on && arMode) arView.stop();
+    else return;
+    arMode = on;
+    for (const object of hiddenInAr()) object.visible = !on;
+    scene.fog = on ? null : fog;
+    document.body.classList.toggle('ar', on);
+    $('#ar-toggle').classList.toggle('on', on);
+    if (!on) {
+        camera.fov = 62;
+        camera.updateProjectionMatrix();
+    }
+}
+
+$('#ar-toggle').onclick = () => setArMode(!arMode);
+$('#stable-toggle').onclick = () => {
+    stableMode = !stableMode;
+    real.stabilizer.stable = stableMode;
+    $('#stable-toggle').classList.toggle('on', stableMode);
+    $('#stable-toggle').textContent = stableMode ? '🎯 پایدار: روشن' : '🎯 پایدار: خاموش';
+};
 
 // The safety notice comes first; permissions are requested from the tap on its button (iOS needs that).
 function askRealMode(thenStart) {
@@ -933,7 +1014,8 @@ function updateReal(dt) {
         player.z += dz / d * step;
     }
     const want = real.heading ?? (d > .5 ? Math.atan2(-dz, dx) : player.heading);
-    player.heading += Math.atan2(Math.sin(want - player.heading), Math.cos(want - player.heading)) * Math.min(1, dt * 5);
+    // Stable mode also calms the compass, which jitters near cars and metal.
+    player.heading += Math.atan2(Math.sin(want - player.heading), Math.cos(want - player.heading)) * Math.min(1, dt * (stableMode ? 2 : 5));
     player.gait += dt * player.speed * 1.9;
 }
 
@@ -1069,7 +1151,10 @@ function updateHUD(dt) {
     const pos = mode === 'drive' ? car : player;
     $('#clock').textContent = formatClock(state.minutes);
     if (mode === 'drive') $('#speed').textContent = fa(kmh(car));
-    const forward = {x: -Math.sin(cam.yaw), z: -Math.cos(cam.yaw)}, headingDeg = bearing(forward.x, forward.z);
+    // Where the camera actually looks: the orbit camera, or the phone itself in AR view.
+    const look3 = camera.getWorldDirection(new THREE.Vector3()), flat = Math.hypot(look3.x, look3.z);
+    const forward = flat > .05 ? {x: look3.x / flat, z: look3.z / flat} : {x: -Math.sin(cam.yaw), z: -Math.cos(cam.yaw)};
+    const headingDeg = bearing(forward.x, forward.z);
     const objective = objectiveStation();
     drawCompass(headingDeg, objective ? [{bearing: bearing(objective.x - pos.x, objective.z - pos.z), color: '#f2c94c'}] : []);
     drawMinimap(minimap, mapAssets, {
@@ -1216,7 +1301,7 @@ function frame() {
     if (mode === 'walk' && engine && soundOn) engine.g.gain.setTargetAtTime(0, audio.currentTime, .2);
     updateSubtitles(dt);
 
-    family.group.visible = mode === 'walk';
+    family.group.visible = mode === 'walk' && !arMode;
     family.group.position.set(player.x, 0, player.z);
     family.group.rotation.y = player.heading;
     family.update({dt, time: elapsed, gait: player.gait, moving: player.speed > .4, shopping: state.busy || payment.phase !== 'idle', delivery: deliveryTimer > 0});
@@ -1228,9 +1313,16 @@ function frame() {
         if (i >= 2) wheel.rotation.y = -car.steer;
     }
     for (const s of stations) s.model.ring.material.opacity = .35 + Math.sin(elapsed * 3) * .25;
+    updateReachCircles();
     if (routeMesh) routeMaterial.opacity = .55 + Math.sin(elapsed * 4) * .15;
 
-    if (playing) updateCamera(dt);
+    if (playing && arMode) {
+        // The phone is the camera: at the player's GPS position, eye height, pointing like the phone.
+        camera.position.set(player.x, 1.5, player.z);
+        arView.update(camera, dt, stableMode ? 5 : 10);
+        if (!arView.hasOrientation) camera.rotation.set(cam.arPitch ?? 0, cam.yaw, 0, 'YXZ');
+        camPos.copy(camera.position);
+    } else if (playing) updateCamera(dt);
     else {
         const a = elapsed * .08;
         camera.position.set(player.x + Math.cos(a) * 30, 18, player.z + Math.sin(a) * 30);
@@ -1272,7 +1364,9 @@ if (new URLSearchParams(location.search).has('debug')) window.game = {
         waypoint = id;
         route = null;
         routeTimer = 0;
-    }, debugHits, nearestRoad: (x, z) => nearestSegment(segments, x, z, 40, s => s[4] <= 3), stations, guideState, real, keys, traffic
+    }, get arMode() {
+        return arMode;
+    }, arView, setArMode, debugHits, nearestRoad: (x, z) => nearestSegment(segments, x, z, 40, s => s[4] <= 3), stations, guideState, real, keys, traffic
 };
 reset();
 resize();

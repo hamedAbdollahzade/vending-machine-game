@@ -92,10 +92,12 @@ export function createTraffic(scene, data, count = 28) {
         car.model.group.visible = false;
         return false;
     }
-    const cars = [];
+    // All traffic sits in one group so it can be hidden as a whole (camera AR view).
+    const group = new THREE.Group(), cars = [];
+    scene.add(group);
     for (let i = 0; i < count; i++) {
         const model = createCarModel(COLORS[i % COLORS.length]);
-        scene.add(model.group);
+        group.add(model.group);
         model.group.visible = false;
         cars.push({model, road: null, d: 0, dir: 1, lane: 2.2, speed: 10, x: 1e9, z: 1e9});
     }
@@ -141,5 +143,5 @@ export function createTraffic(scene, data, count = 28) {
             for (const wheel of car.model.wheels) wheel.rotation.z -= speed * dt / .36;
         }
     }
-    return {cars, update, remove};
+    return {group, cars, update, remove};
 }

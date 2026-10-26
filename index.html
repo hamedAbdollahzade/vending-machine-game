@@ -15,6 +15,7 @@
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 </head>
 <body>
+<video id="camera" playsinline muted autoplay hidden></video>
 <canvas id="world"></canvas>
 <div id="loading">در حال ساختن شهر مشهد…</div>
 
@@ -61,6 +62,8 @@
     <div id="rank"><b id="rank-name">تازه‌وارد</b><span id="xp">۰ XP</span><div class="bar"><i id="xp-bar"></i></div></div>
     <div id="toolbar">
         <button id="gps-toggle" type="button">📍 دنیای واقعی</button>
+        <button id="ar-toggle" type="button" hidden>📷 دوربین</button>
+        <button id="stable-toggle" type="button" class="on" hidden>🎯 پایدار: روشن</button>
         <button id="sound" type="button" aria-pressed="false">صدا: خاموش</button>
         <button id="quality" type="button">گرافیک</button>
         <button id="restart" type="button">شروع دوباره</button>
