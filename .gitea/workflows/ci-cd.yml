@@ -1,22 +1,16 @@
 # Gitea Actions. While .gitea/workflows exists Gitea ignores .github/workflows (GitHub Pages only).
 #
 # Every push and pull request: install, test and build.
-# Push to main: build the Docker image, push it to the Gitea registry, then have the server pull it.
-# The server holds no source code, only deploy/docker-compose.yml and a .env naming the image.
+# Push to main: build the Docker image, push it to the Gitea registry, then start it with
+# docker compose through the runner's Docker socket (the runner lives on the deployment server).
 #
 # Repository settings → Actions → Secrets:
 #   REGISTRY_USERNAME    Gitea user that publishes images
 #   REGISTRY_TOKEN       its personal access token with package Read and Write
 #                        (the built-in GITEA_TOKEN cannot publish packages)
-#   DEPLOY_HOST          server address (deploy is skipped while this is empty)
-#   DEPLOY_SSH_KEY       private key whose public key is in the server user's ~/.ssh/authorized_keys
-#   DEPLOY_USER          SSH user, default root; it must be able to run docker
-#   DEPLOY_PORT          SSH port, default 22
-#   DEPLOY_KNOWN_HOSTS   optional output of `ssh-keyscan <host>`; otherwise the host key is scanned on each run
 # Repository settings → Actions → Variables (optional):
 #   NPM_REGISTRY         npm mirror used by the runner and the server's Docker build when
 #                        registry.npmjs.org is unreachable, e.g. from servers in Iran
-#   DEPLOY_PATH          directory on the server, default /opt/vending-machine-game
 #   HEALTH_URL           URL checked after deploy, e.g. https://robotmarkets.ir/
 name: CI/CD
 
@@ -98,48 +92,37 @@ jobs:
           echo "image=$IMAGE" >> "$GITEA_OUTPUT"
           echo "Published and linked: $IMAGE"
 
+  # The runner shares the server's Docker daemon, so deploying is a local docker compose call:
+  # no SSH, and the daemon pulls with the credentials of this job's temporary docker login.
   deploy:
     needs: publish
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    container:
-      image: node:22-bookworm
-    env:
-      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
-      HEALTH_URL: ${{ vars.HEALTH_URL }}
-      IMAGE: ${{ needs.publish.outputs.image }}
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy to the server
+      - name: Deploy the published image
+        shell: bash
+        env:
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          IMAGE: ${{ needs.publish.outputs.image }}
         run: |
-          if [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_SSH_KEY" ]; then
-            echo "DEPLOY_HOST / DEPLOY_SSH_KEY secrets are not set: skipping deploy."
-            exit 0
-          fi
-          port="${DEPLOY_PORT:-22}"
-          target="${DEPLOY_USER:-root}@${DEPLOY_HOST}"
-          dir="${DEPLOY_PATH:-/opt/vending-machine-game}"
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
-          if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
-            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          else
-            ssh-keyscan -p "$port" "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
-          fi
-          # Only the compose file goes to the server; the app itself comes from the registry image.
-          # The server user must already be logged in to git.my-rm.com (docker login, package Read token).
-          ssh_opts="-i $HOME/.ssh/deploy_key -p $port"
-          ssh $ssh_opts "$target" "mkdir -p '$dir'"
-          scp -i ~/.ssh/deploy_key -P "$port" deploy/docker-compose.yml "$target:$dir/docker-compose.yml"
-          ssh $ssh_opts "$target" "cd '$dir' && cp -f .env .env.previous 2>/dev/null; printf 'IMAGE=%s\n' '$IMAGE' > .env && docker compose pull && docker compose up -d --remove-orphans && docker image prune -f"
+          set -euo pipefail
+          DOCKER_CONFIG="$(mktemp -d)"
+          export DOCKER_CONFIG
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+
+          printf '%s' "$REGISTRY_TOKEN" | docker login git.my-rm.com --username "$REGISTRY_USERNAME" --password-stdin
+          docker compose -p vending-machine-game -f deploy/docker-compose.yml pull
+          docker compose -p vending-machine-game -f deploy/docker-compose.yml up -d --remove-orphans
+          docker compose -p vending-machine-game -f deploy/docker-compose.yml ps
+          docker image prune -f
 
       - name: Check the site
-        if: env.HEALTH_URL != '' && env.DEPLOY_HOST != ''
+        if: vars.HEALTH_URL != ''
+        shell: bash
+        env:
+          HEALTH_URL: ${{ vars.HEALTH_URL }}
         run: |
           for attempt in $(seq 1 20); do
             if curl -fsS -o /dev/null "$HEALTH_URL"; then
