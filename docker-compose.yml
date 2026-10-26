@@ -1,0 +1,20 @@
+services:
+  game:
+    build: .
+    image: robot-market-game:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      # Point these domains' DNS A records at the server before the first start.
+      SITE_ADDRESS: ${SITE_ADDRESS:-robotmarkets.ir, www.robotmarkets.ir}
+    volumes:
+      # Keeps the HTTPS certificates across restarts and image updates.
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

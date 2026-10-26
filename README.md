@@ -80,6 +80,34 @@ node --test tests/*.test.js
 - `?quality=low` یا دکمهٔ «گرافیک» سایه‌ها را خاموش می‌کند (پیش‌فرض گوشی‌ها).
 - `?debug` وضعیت بازی را در `window.game` در دسترس می‌گذارد.
 
+## انتشار روی سرور با Docker
+
+تصویر Docker دو مرحله دارد: Node تست‌ها را اجرا و بازی را build می‌کند، و بعد Caddy فایل‌ها را سرو می‌کند. Caddy گواهی HTTPS را از Let's Encrypt خودکار می‌گیرد و تمدید می‌کند. HTTPS برای نصب روی گوشی و GPS ضروری است.
+
+**پیش‌نیاز:**
+- رکورد A دامنه‌های `robotmarkets.ir` و `www.robotmarkets.ir` به IP سرور اشاره کند.
+- پورت‌های ۸۰ و ۴۴۳ سرور باز و آزاد باشند.
+
+```sh
+git clone git@github.com:hamedAbdollahzade/vending-machine-game.git && cd vending-machine-game
+docker compose up -d --build
+docker compose logs -f
+```
+
+- **دامنهٔ دیگر:** `SITE_ADDRESS="example.ir, www.example.ir" docker compose up -d --build`
+- **به‌روزرسانی:** `git pull && docker compose up -d --build`. گواهی‌ها در volume `caddy_data` می‌مانند. بازی‌های نصب‌شده روی گوشی پیام نسخهٔ جدید را نشان می‌دهند.
+- **اگر روی سرور از قبل Nginx یا پروکسی دیگری روی ۸۰ و ۴۴۳ هست:** در `docker-compose.yml` پورت‌ها را به `"8080:80"` تغییر دهید و `SITE_ADDRESS=":80"` بگذارید. بعد دامنه را در همان پروکسی به `127.0.0.1:8080` بفرستید. در این حالت HTTPS با همان پروکسی است.
+
+**سرور داخل ایران:** Docker Hub و گاهی npm به IPهای ایران سرویس نمی‌دهند. دو راه وجود دارد:
+1. **mirror داخلی برای Docker Hub:** در `/etc/docker/daemon.json` یک mirror تعریف کنید، مثلاً `{"registry-mirrors": ["https://docker.arvancloud.ir"]}`، و بعد `sudo systemctl restart docker`.
+2. **ساخت روی کامپیوتر خودتان و انتقال تصویر آماده:**
+   ```sh
+   docker compose build
+   docker save robot-market-game:latest | gzip > robot-market-game.tar.gz
+   scp robot-market-game.tar.gz docker-compose.yml user@server:~/game/
+   ssh user@server 'cd ~/game && gunzip -c robot-market-game.tar.gz | docker load && docker compose up -d --no-build'
+   ```
+
 ## ساخت دوبارهٔ دادهٔ نقشه
 
 `src/data/mellat.json` و `src/data/iran.json` از خروجی خام OpenStreetMap (Overpass API) و Natural Earth ساخته می‌شوند. کوئری‌ها در ابتدای اسکریپت آمده‌اند:

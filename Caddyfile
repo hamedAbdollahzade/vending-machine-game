@@ -1,0 +1,26 @@
+# SITE_ADDRESS is the domain list, e.g. "robotmarkets.ir, www.robotmarkets.ir" (automatic HTTPS),
+# or ":80" for plain HTTP behind another proxy or for a local test.
+{$SITE_ADDRESS::80} {
+	root * /srv
+	encode zstd gzip
+
+	# Hashed build files never change; the page, service worker and manifest must always be revalidated
+	# so installed copies pick up new versions.
+	@hashed path /assets/*
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+	@fresh path / /index.html /sw.js /manifest.webmanifest
+	header @fresh Cache-Control "no-cache"
+	@manifest path /manifest.webmanifest
+	header @manifest Content-Type "application/manifest+json"
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		# Real-world mode needs location and the compass; the camera is reserved for the AR phase.
+		Permissions-Policy "geolocation=(self), camera=(self), accelerometer=(self), gyroscope=(self), magnetometer=(self)"
+		-Server
+	}
+
+	try_files {path} /index.html
+	file_server
+}
