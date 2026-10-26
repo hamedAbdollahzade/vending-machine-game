@@ -1,5 +1,8 @@
 import {CATEGORIES} from './locations.js';
 
+// The bonus for visiting every kind of place counts city locations, not the factory.
+const CITY_CATEGORIES = Object.keys(CATEGORIES).filter(c => c !== 'factory');
+
 export const POINTS = {purchase: 100, discovery: 250, combo: 150, allCategories: 500};
 
 export const RANKS = [
@@ -19,8 +22,8 @@ export function awardsFor(previous, record) {
     // Paid once per machine: the first time it has sold both a drink and a snack.
     const typesHere = new Set(here.map(p => p.type));
     if (typesHere.size === 1 && !typesHere.has(record.type)) awards.push({label: 'ترکیب نوشیدنی و خوراکی', points: POINTS.combo});
-    const categories = new Set(previous.map(p => p.category));
-    if (!categories.has(record.category) && categories.size === Object.keys(CATEGORIES).length - 1)
+    const categories = new Set(previous.map(p => p.category).filter(c => CITY_CATEGORIES.includes(c)));
+    if (CITY_CATEGORIES.includes(record.category) && !categories.has(record.category) && categories.size === CITY_CATEGORIES.length - 1)
         awards.push({label: 'همهٔ انواع مکان', points: POINTS.allCategories});
     return awards;
 }
@@ -36,7 +39,11 @@ const placesVisited = purchases => new Set(purchases.map(p => p.machineId)).size
 
 export const MISSIONS = [
     {
-        id: 'first', title: 'اولین خرید را از دستگاه بوستان ملت انجام بده', target: 'mellat-park', xp: 150, hetoman: 30,
+        id: 'factory', title: 'در سالن تولید از دستگاه نمونهٔ کارخانه خرید کن', target: 'factory', xp: 100, hetoman: 20,
+        done: ps => ps.some(p => p.machineId === 'factory')
+    },
+    {
+        id: 'first', title: 'با ماشین تا بوستان ملت برو و اولین خرید شهری را انجام بده', target: 'mellat-park', xp: 150, hetoman: 30,
         done: ps => ps.some(p => p.machineId === 'mellat-park')
     },
     {
@@ -56,8 +63,8 @@ export const MISSIONS = [
         done: ps => ps.some(p => p.machineId === 'mashhad-mall')
     },
     {
-        id: 'explorer', title: 'از ۵ مکان متفاوت خرید کن', target: null, xp: 400, hetoman: 80,
-        done: ps => placesVisited(ps) >= 5
+        id: 'explorer', title: 'از ۵ مکان متفاوت شهر خرید کن', target: null, xp: 400, hetoman: 80,
+        done: ps => placesVisited(ps.filter(p => p.category !== 'factory')) >= 5
     }
 ];
 

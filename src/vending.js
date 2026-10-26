@@ -1,13 +1,11 @@
 import * as THREE from 'three';
 import {catalog} from './game-state.js';
+import {textTexture} from './textures.js';
 
 const PRODUCT_COLORS = {juice: '#e5ae47', water: '#9fd3e6', milk: '#8a5a3c', tea: '#c7783a', lemonade: '#f0dc5a', biscuit: '#c9935a', chocolate: '#5a3524', nuts: '#b9884f', cake: '#e58fa6'};
 
-function label(text, sub, width = 512, height = 160) {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const c = canvas.getContext('2d');
+// Sign panel; the shared helper redraws it once the Persian web font has loaded.
+const label = (text, sub) => textTexture(512, 160, (c, width, height) => {
     c.fillStyle = '#0f2a2a';
     c.fillRect(0, 0, width, height);
     c.fillStyle = '#3ee0c9';
@@ -20,10 +18,7 @@ function label(text, sub, width = 512, height = 160) {
     c.fillStyle = '#9fe9da';
     c.font = '34px Vazirmatn, Tahoma, sans-serif';
     c.fillText(sub, width / 2, 126);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    return texture;
-}
+});
 
 // A Robot Market machine. Local +z is the front face; the group is placed facing the path.
 export function createVendingMachine(def) {
@@ -81,7 +76,7 @@ export function createVendingMachine(def) {
     card.visible = false;
 
     // Objective beacon: a tall column of light visible across the city, like a mission marker.
-    const beaconMaterial = new THREE.MeshBasicMaterial({color: '#3ee0c9', transparent: true, opacity: .22, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide});
+    const beaconMaterial = new THREE.MeshBasicMaterial({color: '#3ee0c9', transparent: true, opacity: .22, depthWrite: false, fog: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide});
     const beacon = new THREE.Mesh(new THREE.CylinderGeometry(.7, .7, 90, 16, 1, true), beaconMaterial);
     beacon.position.y = 45;
     group.add(beacon);

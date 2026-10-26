@@ -1,6 +1,7 @@
 // Robot Market machines in the playable Park Mellat area. Positions are path points taken from
 // the OpenStreetMap data (local metres, see geo.js); the machine is placed beside that path.
 export const CATEGORIES = {
+    factory: {label: 'کارخانه', icon: '🏭'},
     park: {label: 'پارک', icon: '🌳'},
     university: {label: 'دانشگاه', icon: '🎓'},
     school: {label: 'مدرسه', icon: '🏫'},
@@ -10,7 +11,23 @@ export const CATEGORIES = {
 
 const ALL_DAY = [7 * 60, 23 * 60];
 
+export const FACTORY = {
+    name: 'شرکت نگین سازان پیشگام رادمهر آتوسا',
+    tagline: 'تولیدکنندهٔ دستگاه‌های وندینگ روبات مارکت',
+    address: 'بزرگراه مشهد–چناران، خیابان کاله، کنار پارک علم و فناوری خراسان',
+    // Centre of the compound and the direction of its driveway (towards the gate on Kaleh Street).
+    center: {x: -10308.4, z: -14964.2},
+    axis: {x: Math.SQRT1_2, z: Math.SQRT1_2}
+};
+
 export const machines = [
+    {
+        id: 'factory', name: 'دستگاه نمونهٔ کارخانه', category: 'factory',
+        address: `${FACTORY.address}، سالن تولید`,
+        anchor: null, hours: [0, 24 * 60], priceFactor: .5,
+        products: ['water', 'juice', 'tea', 'biscuit', 'chocolate'],
+        note: 'دستگاه نمونهٔ خط تولید؛ نصف قیمت برای مهمان‌های کارخانه'
+    },
     {
         id: 'mellat-park', name: 'بوستان ملت', category: 'park',
         address: 'بزرگراه وکیل‌آباد، ورودی جنوبی بوستان ملت، نزدیک ایستگاه مترو پارک ملت',
@@ -68,6 +85,7 @@ export const lockedPlaces = [
     {name: 'حرم و مرکز شهر', note: 'خارج از محدودهٔ فعلی · به‌زودی'}
 ];
 
-export const START = {machineId: 'mellat-park', carAnchor: {x: -445.8, z: -275.7}};
+export const START = {machineId: 'factory'};
+export const CITY_START = 'mellat-park';
 
 export const machineById = id => machines.find(m => m.id === id) ?? null;

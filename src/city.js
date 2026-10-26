@@ -6,8 +6,8 @@ import {blocked, insidePolygon} from './collision.js';
 const WIDTH = {trunk: 11, primary: 10, secondary: 9, tertiary: 8, unclassified: 6.5, residential: 6, living_street: 5, service: 4, pedestrian: 4, footway: 2.4, cycleway: 2, path: 1.6, track: 3, steps: 2.2};
 const BUCKET = {trunk: 'major', primary: 'major', secondary: 'major', tertiary: 'minor', unclassified: 'minor', residential: 'minor', living_street: 'minor', service: 'minor', pedestrian: 'paved', footway: 'paved', cycleway: 'paved', steps: 'paved', path: 'dirt', track: 'dirt'};
 // Ground layers: height above the ground plane and polygon offset, so overlaps never flicker.
-const LAYER = {campus: [.01, 1], park: [.02, 2], grass: [.025, 3], forest: [.025, 3], pitch: [.03, 4], water: [.035, 5], sidewalk: [.04, 6], dirt: [.045, 7], paved: [.05, 8], minor: [.06, 9], major: [.07, 10]};
-const AREA_COLOR = {campus: '#d8ccb2', park: '#7a9a55', grass: '#8aa660', forest: '#5d7f47', pitch: '#5f9a58', water: '#4f93a8'};
+const LAYER = {industrial: [.006, 1], farmland: [.008, 1], campus: [.01, 1], park: [.02, 2], grass: [.025, 3], forest: [.025, 3], pitch: [.03, 4], water: [.035, 5], sidewalk: [.04, 6], dirt: [.045, 7], paved: [.05, 8], minor: [.06, 9], major: [.07, 10]};
+const AREA_COLOR = {campus: '#d8ccb2', park: '#7a9a55', grass: '#8aa660', forest: '#5d7f47', pitch: '#5f9a58', water: '#4f93a8', industrial: '#bdb6a6', farmland: '#a8a46e'};
 const BUILDING_COLORS = ['#dccbaa', '#e7dcc4', '#c9a585', '#bdb4a3', '#ece6da', '#d2b48f', '#b7957a'].map(c => new THREE.Color(c));
 
 function canvasTexture(width, height, draw, repeat = true) {
@@ -178,47 +178,58 @@ function signedArea(pts) {
     return a / 2;
 }
 
+// The world is split into 2 km chunks; each chunk's meshes are hidden when they are out of view range.
+const CHUNK = 2000, VIEW_RANGE = 2400;
+
 export function createCity(scene, data, {collision, segments}) {
     const tex = textures(), group = new THREE.Group();
     scene.add(group);
     const random = seeded(1405);
-    const {minX, minZ, maxX, maxZ} = data.bounds;
+    const chunked = [], buckets = new Map();
+    const bucket = (name, x, z, make) => {
+        const key = `${name}|${Math.floor(x / CHUNK)},${Math.floor(z / CHUNK)}`;
+        if (!buckets.has(key)) buckets.set(key, {name, out: make()});
+        return buckets.get(key).out;
+    };
+    const addChunked = mesh => {
+        mesh.geometry.computeBoundingSphere();
+        chunked.push(mesh);
+        group.add(mesh);
+        return mesh;
+    };
 
-    // Dusty urban ground, and a darker desert beyond the mapped area.
-    const desert = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), groundMaterial({color: '#b8a888'}, 0));
-    desert.rotation.x = -Math.PI / 2;
-    desert.position.y = -.02;
-    desert.receiveShadow = true;
-    group.add(desert);
-    const urban = {pos: [], idx: []};
-    flatPolygon(urban, [minX, minZ, maxX, minZ, maxX, maxZ, minX, maxZ], 0);
-    group.add(toMesh(urban, groundMaterial({color: '#c8bea8'}, 0)));
+    // Open ground that follows the camera, so the horizon never shows an edge.
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(14000, 14000), groundMaterial({color: '#c6baa0'}, 0));
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -.02;
+    ground.receiveShadow = true;
+    group.add(ground);
 
-    const areaBuffers = {};
     for (const area of data.areas) {
         const kind = data.areaKinds[area[0]];
-        areaBuffers[kind] ??= {pos: [], idx: []};
-        flatPolygon(areaBuffers[kind], area.slice(1), LAYER[kind][0]);
+        flatPolygon(bucket(`area:${kind}`, area[1], area[2], () => ({pos: [], idx: []})), area.slice(1), LAYER[kind][0]);
     }
-    for (const [kind, out] of Object.entries(areaBuffers)) group.add(toMesh(out, groundMaterial({color: AREA_COLOR[kind], roughness: kind === 'water' ? .25 : .95, metalness: kind === 'water' ? .2 : 0}, LAYER[kind][1])));
+    const areaMaterials = {};
+    for (const kind of data.areaKinds) areaMaterials[kind] = groundMaterial({color: AREA_COLOR[kind], roughness: kind === 'water' ? .25 : .95, metalness: kind === 'water' ? .2 : 0}, LAYER[kind][1]);
 
-    const roadBuffers = {};
-    const buffer = name => roadBuffers[name] ??= {pos: [], uv: [], idx: []};
-    for (const road of data.roads) {
-        const type = data.roadTypes[road[0]], bucket = BUCKET[type], pts = road.slice(2), width = WIDTH[type];
-        ribbon(buffer(bucket), pts, width, LAYER[bucket][0], bucket === 'major' ? 9 : 8);
-        if (road[0] <= DRIVABLE_MAX_TYPE) {
-            if (type !== 'service') ribbon(buffer('sidewalk'), pts, width + 4, LAYER.sidewalk[0], 6);
-            disc(buffer(bucket), pts[0], pts[1], width / 2, LAYER[bucket][0]);
-            disc(buffer(bucket), pts.at(-2), pts.at(-1), width / 2, LAYER[bucket][0]);
+    const road = (name, x, z) => bucket(`road:${name}`, x, z, () => ({pos: [], uv: [], idx: []}));
+    for (const r of data.roads) {
+        const type = data.roadTypes[r[0]], kind = BUCKET[type], pts = r.slice(2), width = WIDTH[type];
+        ribbon(road(kind, pts[0], pts[1]), pts, width, LAYER[kind][0], kind === 'major' ? 9 : 8);
+        if (r[0] <= DRIVABLE_MAX_TYPE) {
+            if (type !== 'service') ribbon(road('sidewalk', pts[0], pts[1]), pts, width + 4, LAYER.sidewalk[0], 6);
+            disc(road(kind, pts[0], pts[1]), pts[0], pts[1], width / 2, LAYER[kind][0]);
+            disc(road(kind, pts[0], pts[1]), pts.at(-2), pts.at(-1), width / 2, LAYER[kind][0]);
         }
     }
-    for (const [bucket, out] of Object.entries(roadBuffers)) group.add(toMesh(out, groundMaterial({map: tex[bucket]}, LAYER[bucket][1])));
+    const roadMaterials = {};
+    for (const kind of ['major', 'minor', 'paved', 'dirt', 'sidewalk']) roadMaterials[kind] = groundMaterial({map: tex[kind]}, LAYER[kind][1]);
 
     // Buildings: textured walls with one window per 3.6 m bay and 3.2 m storey, flat roofs.
-    const walls = {pos: [], uv: [], col: [], idx: []}, roofs = {pos: [], col: [], idx: []};
     const tanks = [], units = [];
     for (const building of data.buildings) {
+        const walls = bucket('walls', building[1], building[2], () => ({pos: [], uv: [], col: [], idx: []}));
+        const roofs = bucket('roofs', building[1], building[2], () => ({pos: [], col: [], idx: []}));
         const height = building[0];
         let pts = building.slice(1);
         if (signedArea(pts) > 0) {
@@ -247,34 +258,51 @@ export function createCity(scene, data, {collision, segments}) {
         cx /= pts.length / 2;
         cz /= pts.length / 2;
         if (insidePolygon(pts, cx, cz) && random() < .6) {
-            (random() < .5 ? tanks : units).push([cx + (random() - .5) * 2, height, cz + (random() - .5) * 2, random() * Math.PI]);
+            (random() < .5 ? tanks : units).push([cx + (random() - .5) * 2, height, random() * Math.PI, cz + (random() - .5) * 2, 0]);
         }
     }
-    const wallMesh = toMesh(walls, new THREE.MeshStandardMaterial({map: tex.walls, vertexColors: true, roughness: .85}), 'compute');
-    wallMesh.castShadow = true;
-    group.add(wallMesh);
-    const roofMesh = toMesh(roofs, new THREE.MeshStandardMaterial({vertexColors: true, roughness: .9}));
-    roofMesh.castShadow = true;
-    group.add(roofMesh);
+    const wallMaterial = new THREE.MeshStandardMaterial({map: tex.walls, vertexColors: true, roughness: .85});
+    const roofMaterial = new THREE.MeshStandardMaterial({vertexColors: true, roughness: .9});
+    for (const {name, out} of buckets.values()) {
+        const [kind, sub] = name.split(':');
+        const mesh = addChunked(kind === 'area' ? toMesh(out, areaMaterials[sub])
+            : kind === 'road' ? toMesh(out, roadMaterials[sub])
+                : kind === 'walls' ? toMesh(out, wallMaterial, 'compute') : toMesh(out, roofMaterial));
+        mesh.castShadow = kind === 'walls' || kind === 'roofs';
+    }
     const dummy = new THREE.Object3D();
+    // One instanced mesh per chunk, so small props are culled with the rest of their chunk.
+    // Each item is an array whose first entry is x and second-to-last entry is z.
     const instanced = (geometry, material, items, place) => {
-        const mesh = new THREE.InstancedMesh(geometry, material, Math.max(1, items.length));
-        mesh.count = items.length;
+        const byChunk = new Map();
         items.forEach((item, i) => {
-            place(item);
-            dummy.updateMatrix();
-            mesh.setMatrixAt(i, dummy.matrix);
+            const key = `${Math.floor(item[0] / CHUNK)},${Math.floor(item.at(-2) / CHUNK)}`;
+            if (!byChunk.has(key)) byChunk.set(key, []);
+            byChunk.get(key).push([item, i]);
         });
-        mesh.castShadow = mesh.receiveShadow = true;
-        group.add(mesh);
-        return mesh;
+        const meshes = [];
+        for (const list of byChunk.values()) {
+            const mesh = new THREE.InstancedMesh(geometry, material, list.length);
+            list.forEach(([item], i) => {
+                place(item);
+                dummy.updateMatrix();
+                mesh.setMatrixAt(i, dummy.matrix);
+            });
+            mesh.castShadow = mesh.receiveShadow = true;
+            mesh.computeBoundingSphere();
+            mesh.userData.items = list.map(([, i]) => i);
+            chunked.push(mesh);
+            group.add(mesh);
+            meshes.push(mesh);
+        }
+        return meshes;
     };
-    instanced(new THREE.CylinderGeometry(.55, .55, 1.1, 10), new THREE.MeshStandardMaterial({color: '#d8d8d2', metalness: .4, roughness: .4}), tanks, ([x, y, z]) => {
+    instanced(new THREE.CylinderGeometry(.55, .55, 1.1, 10), new THREE.MeshStandardMaterial({color: '#d8d8d2', metalness: .4, roughness: .4}), tanks, ([x, y, , z]) => {
         dummy.position.set(x, y + .55, z);
         dummy.rotation.set(0, 0, 0);
         dummy.scale.setScalar(1);
     });
-    instanced(new THREE.BoxGeometry(1, .8, .9), new THREE.MeshStandardMaterial({color: '#a9aaa4', roughness: .6}), units, ([x, y, z, r]) => {
+    instanced(new THREE.BoxGeometry(1, .8, .9), new THREE.MeshStandardMaterial({color: '#a9aaa4', roughness: .6}), units, ([x, y, r, z]) => {
         dummy.position.set(x, y + .4, z);
         dummy.rotation.set(0, r, 0);
         dummy.scale.setScalar(1);
@@ -296,7 +324,7 @@ export function createCity(scene, data, {collision, segments}) {
         }
         for (let x = ax; x < bx; x += step) for (let z = az; z < bz; z += step) {
             const tx = x + (random() - .5) * step * .8, tz = z + (random() - .5) * step * .8;
-            if (insidePolygon(pts, tx, tz) && freeSpot(tx, tz)) trees.push([tx, tz, .8 + random() * .6]);
+            if (insidePolygon(pts, tx, tz) && freeSpot(tx, tz)) trees.push([tx, .8 + random() * .6, tz, 0]);
         }
     }
     for (const road of data.roads) {
@@ -307,23 +335,22 @@ export function createCity(scene, data, {collision, segments}) {
             const ax = road[i - 2], az = road[i - 1], dx = road[i] - ax, dz = road[i + 1] - az, len = Math.hypot(dx, dz);
             for (let d = random() * 12; d < len; d += 12) for (const side of [-1, 1]) {
                 const tx = ax + dx / len * d - dz / len * offset * side, tz = az + dz / len * d + dx / len * offset * side;
-                if (!blocked(collision, tx, tz) && !nearestSegment(segments, tx, tz, WIDTH[type] / 2 + 1.5, s => s[4] <= DRIVABLE_MAX_TYPE)) trees.push([tx, tz, .7 + random() * .4]);
+                if (!blocked(collision, tx, tz) && !nearestSegment(segments, tx, tz, WIDTH[type] / 2 + 1.5, s => s[4] <= DRIVABLE_MAX_TYPE)) trees.push([tx, .7 + random() * .4, tz, 0]);
             }
         }
     }
-    trees.length = Math.min(trees.length, 7000);
-    instanced(new THREE.CylinderGeometry(.14, .22, 2.6, 5, 1, true), new THREE.MeshStandardMaterial({color: '#6a5039', roughness: .9}), trees, ([x, z, s]) => {
+    instanced(new THREE.CylinderGeometry(.14, .22, 2.6, 5, 1, true), new THREE.MeshStandardMaterial({color: '#6a5039', roughness: .9}), trees, ([x, s, z]) => {
         dummy.position.set(x, 1.3 * s, z);
         dummy.rotation.set(0, 0, 0);
         dummy.scale.setScalar(s);
     });
-    const crowns = instanced(new THREE.IcosahedronGeometry(1.7, 0), new THREE.MeshStandardMaterial({color: '#ffffff', roughness: .85, flatShading: true}), trees, ([x, z, s]) => {
+    const crowns = instanced(new THREE.IcosahedronGeometry(1.7, 0), new THREE.MeshStandardMaterial({color: '#ffffff', roughness: .85, flatShading: true}), trees, ([x, s, z]) => {
         dummy.position.set(x, 3.4 * s, z);
         dummy.rotation.set(0, x * 13 % 6, 0);
         dummy.scale.set(s, s * (1 + (x * 7 % 1) * .3), s);
     });
     const crownColors = ['#4d7a3e', '#5f8a45', '#3f6b3a', '#6f9150'].map(c => new THREE.Color(c));
-    trees.forEach((_, i) => crowns.setColorAt(i, crownColors[i % crownColors.length]));
+    for (const mesh of crowns) mesh.userData.items.forEach((tree, i) => mesh.setColorAt(i, crownColors[tree % crownColors.length]));
 
     // Metro station entrances with the Mashhad Urban Railway "M" sign.
     const signTexture = canvasTexture(128, 128, (c, w, h) => {
@@ -383,6 +410,21 @@ export function createCity(scene, data, {collision, segments}) {
     ridgeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(ridgePos, 3));
     ridgeGeometry.setAttribute('color', new THREE.Float32BufferAttribute(ridgeCol, 3));
     ridgeGeometry.setIndex(ridgeIdx);
-    group.add(new THREE.Mesh(ridgeGeometry, new THREE.MeshBasicMaterial({vertexColors: true, fog: false, side: THREE.DoubleSide})));
-    return {group};
+    const ridge = new THREE.Mesh(ridgeGeometry, new THREE.MeshBasicMaterial({vertexColors: true, fog: false, side: THREE.DoubleSide}));
+    group.add(ridge);
+    let lastCheck = null;
+    return {
+        group,
+        // Keeps the ground and horizon around the camera and shows only chunks within range.
+        update(camera) {
+            ground.position.set(camera.x, -.02, camera.z);
+            ridge.position.set(camera.x, 0, camera.z);
+            if (lastCheck && Math.hypot(camera.x - lastCheck.x, camera.z - lastCheck.z) < 60) return;
+            lastCheck = {x: camera.x, z: camera.z};
+            for (const mesh of chunked) {
+                const sphere = mesh.boundingSphere ?? mesh.geometry.boundingSphere;
+                mesh.visible = Math.hypot(sphere.center.x - camera.x, sphere.center.z - camera.z) - sphere.radius < VIEW_RANGE;
+            }
+        }
+    };
 }

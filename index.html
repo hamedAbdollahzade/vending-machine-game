@@ -5,9 +5,14 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
     <meta name="theme-color" content="#0d1412">
     <title>عملیات مشهد | روبات مارکت</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap" rel="stylesheet">
+    <meta name="description" content="از کارخانهٔ روبات مارکت تا بوستان ملت: دستگاه‌های وندینگ را در مشهد پیدا کن و امتیاز بگیر.">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="روبات مارکت">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" type="image/png" href="./icons/favicon-64.png">
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 </head>
 <body>
 <canvas id="world"></canvas>
@@ -17,11 +22,16 @@
 <section id="briefing">
     <div class="brief-map"><canvas id="iran"></canvas></div>
     <div class="brief-panel">
+        <img class="brief-robot" src="./robot/front.webp" alt="روبات راهنمای روبات مارکت" width="136" height="223">
         <small class="tag">عملیات ۰۱ · خراسان رضوی</small>
         <h1>عملیات مشهد</h1>
         <p class="sub">روبات مارکت · شکار دستگاه‌های وندینگ</p>
         <pre id="brief-text" aria-live="polite"></pre>
         <button id="start-mission" type="button">شروع عملیات</button>
+        <div class="brief-actions">
+            <button id="real-mode" type="button" class="ghost">📍 بازی در دنیای واقعی (GPS)</button>
+            <button id="install" type="button" class="ghost" hidden>⬇ نصب بازی روی گوشی</button>
+        </div>
         <p class="keys">حرکت: W A S D · دویدن: Shift · دوربین: ماوس · سوار و پیاده شدن: F · خرید: E · نقشه: M</p>
     </div>
 </section>
@@ -33,14 +43,14 @@
         <canvas id="minimap" width="220" height="220"></canvas>
         <span class="map-hint">نقشه · M</span>
     </button>
-    <div id="location"><span id="street">مشهد</span><small id="mode-label">پیاده</small></div>
+    <div id="location"><span id="street">مشهد</span><small id="mode-label">پیاده</small><small id="gps-status" hidden></small></div>
     <aside id="objectives">
         <h2>مأموریت‌ها</h2>
         <ol id="mission-list"></ol>
     </aside>
     <div id="waypoint" hidden><i></i><b id="waypoint-name"></b><span id="waypoint-distance"></span></div>
     <div id="prompt" hidden></div>
-    <div id="subtitle" hidden><b id="subtitle-speaker"></b><span id="subtitle-text"></span></div>
+    <div id="subtitle" hidden><img id="subtitle-face" alt="" hidden><b id="subtitle-speaker"></b><span id="subtitle-text"></span></div>
     <div id="awards" aria-live="polite"></div>
     <div id="banner" hidden></div>
     <div id="status">
@@ -50,6 +60,7 @@
     </div>
     <div id="rank"><b id="rank-name">تازه‌وارد</b><span id="xp">۰ XP</span><div class="bar"><i id="xp-bar"></i></div></div>
     <div id="toolbar">
+        <button id="gps-toggle" type="button">📍 دنیای واقعی</button>
         <button id="sound" type="button" aria-pressed="false">صدا: خاموش</button>
         <button id="quality" type="button">گرافیک</button>
         <button id="restart" type="button">شروع دوباره</button>
@@ -80,7 +91,7 @@
 <dialog id="map-dialog">
     <header>
         <div class="tabs" role="tablist">
-            <button type="button" role="tab" data-tab="city" aria-selected="true">مشهد · بوستان ملت</button>
+            <button type="button" role="tab" data-tab="city" aria-selected="true">مشهد</button>
             <button type="button" role="tab" data-tab="iran" aria-selected="false">ایران</button>
         </div>
         <button type="button" class="close" id="map-close" aria-label="بستن">✕</button>
@@ -118,6 +129,34 @@
     <div id="products"></div>
     <p class="rate">۱۰ هتومان = ۱۰۰٬۰۰۰ ریال · مبالغ نمایشی‌اند و پرداخت واقعی انجام نمی‌شود.</p>
 </dialog>
+
+<dialog id="real-intro">
+    <img src="./robot/serious.webp" alt="" width="72" height="68">
+    <h2>بازی در دنیای واقعی</h2>
+    <p>با روشن کردن این حالت، موقعیت گوشی شما (GPS) روی نقشهٔ بازی نمایش داده می‌شود. وقتی واقعاً به محل یک دستگاه روبات مارکت برسید، می‌توانید خرید کنید و ۲۰۰ امتیاز اضافه بگیرید.</p>
+    <ul>
+        <li>هنگام راه رفتن به خیابان و ماشین‌ها نگاه کنید، نه به صفحه.</li>
+        <li>بچه‌ها فقط همراه یک بزرگ‌تر بازی کنند.</li>
+        <li>هنگام رانندگی از این حالت استفاده نکنید؛ در سرعت بالا خرید غیرفعال می‌شود.</li>
+        <li>موقعیت شما فقط روی همین گوشی می‌ماند و جایی ارسال نمی‌شود.</li>
+    </ul>
+    <div class="actions">
+        <button type="button" id="real-go">قبول دارم، شروع کن</button>
+        <button type="button" id="real-cancel" class="ghost">انصراف</button>
+    </div>
+</dialog>
+
+<dialog id="ios-install">
+    <h2>نصب روی آیفون</h2>
+    <ol>
+        <li>در Safari دکمهٔ <b>Share</b> (مربع با فلش رو به بالا) را بزنید.</li>
+        <li>گزینهٔ <b>Add to Home Screen</b> را انتخاب کنید.</li>
+        <li>روبات مارکت مثل یک اپ روی صفحهٔ اصلی گوشی شما قرار می‌گیرد و آفلاین هم اجرا می‌شود.</li>
+    </ol>
+    <button type="button" id="ios-close">متوجه شدم</button>
+</dialog>
+
+<div id="update-toast" hidden>نسخهٔ جدید بازی آماده است <button type="button" id="update-reload">به‌روزرسانی</button></div>
 
 <dialog id="end">
     <small id="end-tag">پایان عملیات</small>

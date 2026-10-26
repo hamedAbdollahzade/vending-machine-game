@@ -1,16 +1,22 @@
 import * as THREE from 'three';
+import '@fontsource/vazirmatn/400.css';
+import '@fontsource/vazirmatn/600.css';
+import '@fontsource/vazirmatn/800.css';
 import './style.css';
+import {setupPwa} from './pwa.js';
+import {startTracking, requestCompass, arrivalRadius, insideWorld, MAX_WALKING_SPEED} from './realworld.js';
 import data from './data/mellat.json';
 import iran from './data/iran.json';
 import {createCity} from './city.js';
 import {createCollisionWorld, addPolygon, resolveCircle, clearFraction} from './collision.js';
 import {buildGraph, routeBetween, buildSegmentIndex, nearestSegment, DRIVABLE_MAX_TYPE} from './routing.js';
-import {machines, CATEGORIES, START, lockedPlaces} from './locations.js';
+import {machines, CATEGORIES, START, CITY_START, FACTORY, lockedPlaces} from './locations.js';
 import {createState, catalog, priceAt, isOpen, purchaseBlocker, formatHetoman, formatClock, fa, canAffordAnything} from './game-state.js';
 import {createPayment, beginPayment, readyPayment, swipePayment, cancelPayment} from './payment.js';
 import {awardsFor, rankFor, completeMissions, activeMission, MISSIONS} from './scoring.js';
 import {createFamily} from './characters.js';
 import {createVendingMachine} from './vending.js';
+import {createFactory} from './factory.js';
 import {createCar, stepCar, kmh} from './vehicle.js';
 import {createCarModel, createTraffic} from './traffic.js';
 import {createMapAssets, drawMinimap, drawFullMap, drawIran} from './map-render.js';
@@ -42,7 +48,7 @@ renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog('#d8cdb4', 220, 1500);
-const camera = new THREE.PerspectiveCamera(62, 1, .3, 6000);
+const camera = new THREE.PerspectiveCamera(62, 1, .3, 7000);
 
 // Morning sky over Mashhad: a gradient dome, warm haze at the horizon.
 const sky = new THREE.Mesh(new THREE.SphereGeometry(5000, 32, 16), new THREE.ShaderMaterial({
@@ -69,8 +75,14 @@ const ROAD_HALF_WIDTH = [5.5, 5, 4.5, 4, 3.2, 3, 2.5, 2];
 
 const rotateLocal = (lx, lz, rot) => ({x: lx * Math.cos(rot) + lz * Math.sin(rot), z: -lx * Math.sin(rot) + lz * Math.cos(rot)});
 
-// Machines stand beside their path point, on whichever side is free, facing the path.
+// The game starts inside the vending-machine factory on the Mashhad–Chenaran road.
+const factory = createFactory(scene);
+factory.footprints.forEach(f => addPolygon(collision, f));
+
+// City machines stand beside their path point, on whichever side is free, facing the path;
+// the factory's demo machine has a fixed place inside the production hall.
 const stations = machines.map(def => {
+    if (!def.anchor) return placeStation(def, factory.demo, factory.demo.rot);
     const seg = nearestSegment(segments, def.anchor.x, def.anchor.z, 40) ?? {dx: 1, dz: 0, type: 9};
     const len = Math.hypot(seg.dx, seg.dz) || 1, nx = -seg.dz / len, nz = seg.dx / len;
     const off = (seg.type <= DRIVABLE_MAX_TYPE ? ROAD_HALF_WIDTH[seg.type] : 1.2) + 2.4;
@@ -83,7 +95,11 @@ const stations = machines.map(def => {
         }
     }
     pos ??= {x: def.anchor.x + nx * off, z: def.anchor.z + nz * off};
-    const model = createVendingMachine(def), rot = Math.atan2(def.anchor.x - pos.x, def.anchor.z - pos.z);
+    return placeStation(def, pos, Math.atan2(def.anchor.x - pos.x, def.anchor.z - pos.z));
+});
+
+function placeStation(def, pos, rot) {
+    const model = createVendingMachine(def);
     model.group.position.set(pos.x, 0, pos.z);
     model.group.rotation.y = rot;
     scene.add(model.group);
@@ -93,16 +109,17 @@ const stations = machines.map(def => {
     }));
     const front = rotateLocal(0, 1.9, rot);
     return {def, model, x: pos.x, z: pos.z, rot, front: {x: pos.x + front.x, z: pos.z + front.z}};
-});
+}
+
 const stationById = id => stations.find(s => s.def.id === id);
 
-createCity(scene, data, {collision, segments});
-const traffic = createTraffic(scene, data, 34);
-const mapAssets = createMapAssets(data);
+const city = createCity(scene, data, {collision, segments});
+const traffic = createTraffic(scene, data, 28);
+const mapAssets = createMapAssets(data, [factory.label]);
 
-// Park gate sign at the start, so the first view says where you are.
+// Park gate sign at the first city machine.
 {
-    const start = stationById(START.machineId), sign = document.createElement('canvas');
+    const start = stationById(CITY_START), sign = document.createElement('canvas');
     sign.width = 512;
     sign.height = 128;
     const c = sign.getContext('2d');
@@ -133,19 +150,18 @@ const mapAssets = createMapAssets(data);
 // ---------- Actors ----------
 const family = createFamily();
 scene.add(family.group);
+// The Robot Market guide lives inside the machines and comes out when the family arrives.
+const guide = createFamily({robot: true});
+guide.group.visible = false;
+scene.add(guide.group);
 const carModel = createCarModel('#f2f2ee');
 scene.add(carModel.group);
 
 let state, payment, player, car, mode, cam, waypoint, route, routeTimer, deliveryTimer, ended;
 const keys = new Set();
 
-function spawnCar() {
-    const seg = nearestSegment(segments, START.carAnchor.x, START.carAnchor.z, 60, s => s[4] <= DRIVABLE_MAX_TYPE);
-    const len = Math.hypot(seg.dx, seg.dz) || 1, heading = Math.atan2(-seg.dz / len, seg.dx / len);
-    // Park on the right-hand kerb of the lane.
-    const right = {x: Math.sin(heading), z: Math.cos(heading)};
-    return createCar(seg.x + right.x * 1.2, seg.z + right.z * 1.2, heading);
-}
+// The family car waits in the factory yard, pointing at the gate.
+const spawnCar = () => createCar(factory.car.x, factory.car.z, factory.car.heading);
 
 function reset() {
     state = createState();
@@ -162,7 +178,8 @@ function reset() {
     routeTimer = 0;
     deliveryTimer = 0;
     ended = false;
-    hints = {near: false, closed: false, car: false};
+    hints = {closed: false, car: false};
+    Object.assign(guideState, {station: null, t: 0, greeted: new Set(), arrived: 0});
     $('#payment').hidden = true;
     for (const s of stations) {
         s.model.delivery.visible = s.model.card.visible = false;
@@ -269,9 +286,10 @@ const axis = (pos, neg) => Number(pos.some(k => keys.has(k))) - Number(neg.some(
 const SPEAKERS = {robot: 'روبات', father: 'پدر', child: 'بچه'};
 let lines = [], lineTimer = 0, talking = false;
 
-function say(speaker, text, seconds = Math.max(2.6, text.length * .06)) {
+// `face` picks the robot's expression portrait (public/robot/<face>.webp).
+function say(speaker, text, face = 'happy', seconds = Math.max(2.6, text.length * .06)) {
     if (lines.some(l => l.text === text)) return;
-    lines.push({speaker, text, seconds});
+    lines.push({speaker, text, face, seconds});
 }
 
 function updateSubtitles(dt) {
@@ -284,6 +302,8 @@ function updateSubtitles(dt) {
     $('#subtitle-speaker').textContent = `${SPEAKERS[next.speaker]}:`;
     $('#subtitle-speaker').className = next.speaker;
     $('#subtitle-text').textContent = next.text;
+    $('#subtitle-face').hidden = next.speaker !== 'robot';
+    if (next.speaker === 'robot') $('#subtitle-face').src = `./robot/${next.face}.webp`;
     lineTimer = next.seconds;
 }
 
@@ -327,12 +347,16 @@ $('#sound').onclick = async () => {
 // ---------- Car ----------
 function toggleCar() {
     if (payment.phase !== 'idle' || state.busy) return;
+    if (real.on) {
+        say('father', 'توی حالت دنیای واقعی پیاده راه می‌ریم؛ ماشین مجازی لازم نیست.');
+        return;
+    }
     if (mode === 'walk') {
         if (Math.hypot(car.x - player.x, car.z - player.z) > 4.5) return;
         mode = 'drive';
         cam.distance = Math.max(cam.distance, 8);
         tone(320, .2, .05, 'square');
-        say('robot', 'کمربندها بسته؟ مسیر طلایی روی زمین راهنمای شماست.');
+        say('father', 'کمربندها رو ببندیم! مسیر طلایی روی زمین راه رو نشون می‌ده.');
     } else {
         if (Math.abs(car.speed) > 3) {
             say('father', 'اول ماشین را نگه دار، بعد پیاده می‌شویم.');
@@ -351,15 +375,21 @@ function toggleCar() {
 }
 
 // ---------- Machines, shop and payment ----------
-const nearStation = () => mode === 'walk' ? stations.find(s => Math.hypot(s.front.x - player.x, s.front.z - player.z) < 3.4) : null;
-const hoursText = m => `${formatClock(m.hours[0])} تا ${formatClock(m.hours[1])}`;
+// In real-world mode "at the machine" is a GPS radius, because the fix itself is off by metres.
+const reachRadius = () => real.on && real.fix ? arrivalRadius(real.fix.accuracy) : 3.4;
+const nearStation = () => mode === 'walk' ? stations.find(s => Math.hypot(s.front.x - player.x, s.front.z - player.z) < reachRadius()) : null;
+const hoursText = m => m.hours[1] - m.hours[0] >= 24 * 60 ? 'شبانه‌روزی' : `${formatClock(m.hours[0])} تا ${formatClock(m.hours[1])}`;
 let shopStation = null;
 
 function interact() {
     const station = nearStation();
     if (!station || state.busy || payment.phase !== 'idle' || ended) return;
+    if (real.on && (real.fix?.speed ?? 0) > MAX_WALKING_SPEED) {
+        say('father', 'داریم سریع حرکت می‌کنیم؛ اول بایستیم، بعد خرید کنیم.');
+        return;
+    }
     if (!isOpen(station.def, state.minutes)) {
-        say('robot', `این دستگاه الان بسته است. ساعت کاری: ${hoursText(station.def)}.`);
+        say(guideOut() ? 'robot' : 'father', `این دستگاه الان بسته است. ساعت کاری: ${hoursText(station.def)}.`, 'serious');
         return;
     }
     shopStation = station;
@@ -464,6 +494,7 @@ function updateDelivery(dt) {
 
 function reward(record, product) {
     const awards = awardsFor(state.purchases.slice(0, -1), record), rankBefore = rankFor(state.xp).index;
+    if (real.on) awards.push({label: 'خرید در دنیای واقعی', points: 200});
     const total = awards.reduce((s, a) => s + a.points, 0);
     state.xp += total;
     $('#awards').replaceChildren(
@@ -489,7 +520,7 @@ function reward(record, product) {
     if (next) {
         waypoint = null;
         route = null;
-        setTimeout(() => say('robot', `مأموریت بعدی: ${next.title}`), 1500);
+        setTimeout(() => say(guideOut() ? 'robot' : 'father', `مأموریت بعدی: ${next.title}`, 'wink'), 1500);
     }
     refreshHUD();
     checkEnd();
@@ -592,7 +623,10 @@ function updateRoute(dt) {
     routeTarget = target;
     routeMode = mode;
     routeFrom = {x: pos.x, z: pos.z};
-    route = routeBetween(mode === 'drive' ? driveGraph : walkGraph, pos.x, pos.z, target.front.x, target.front.z);
+    // Close targets are reached directly; the street network would detour out of buildings.
+    const direct = Math.hypot(target.front.x - pos.x, target.front.z - pos.z);
+    route = direct < 60 ? {points: [{x: pos.x, z: pos.z}, {x: target.front.x, z: target.front.z}], length: direct}
+        : routeBetween(mode === 'drive' ? driveGraph : walkGraph, pos.x, pos.z, target.front.x, target.front.z);
     rebuildRouteMesh();
 }
 
@@ -734,7 +768,7 @@ $('#route-button').onclick = () => {
     routeTimer = 0;
     updateRoute(0);
     const s = stationById(selected);
-    say('robot', `مسیر تا ${s.def.name} مشخص شد؛ ${route ? formatDistance(route.length) : ''}. دنبال خط طلایی بیا.`);
+    say('father', `مسیر تا ${s.def.name} رو گذاشتم؛ ${route ? formatDistance(route.length) : ''}. دنبال خط طلایی بریم.`);
     selectMachine(selected);
 };
 
@@ -785,7 +819,7 @@ mapCanvas.addEventListener('pointerup', e => {
 });
 mapCanvas.addEventListener('wheel', e => {
     e.preventDefault();
-    mapView.mpp = THREE.MathUtils.clamp(mapView.mpp * (e.deltaY > 0 ? 1.15 : 1 / 1.15), .35, 7);
+    mapView.mpp = THREE.MathUtils.clamp(mapView.mpp * (e.deltaY > 0 ? 1.15 : 1 / 1.15), .35, 30);
     renderMap();
 }, {passive: false});
 
@@ -797,23 +831,96 @@ const CITIES = [
     {name: 'زاهدان', lat: 29.50, lon: 60.86}, {name: 'کرمانشاه', lat: 34.31, lon: 47.07}, {name: 'بندرعباس', lat: 27.18, lon: 56.27}
 ];
 const BRIEF = [
-    'موقعیت: مشهد، بوستان ملت، بزرگراه وکیل‌آباد',
-    'تیم: پدر، فرزند و روبات راهنمای روبات مارکت',
-    'هدف: دستگاه‌های روبات مارکت را در پارک، مدرسه، دانشگاه، ایستگاه مترو و مرکز خرید پیدا کنید و از آن‌ها خرید کنید.',
+    `نقطهٔ شروع: ${FACTORY.name}، بزرگراه مشهد–چناران`,
+    'تیم: پدر و فرزند · روبات راهنما در دستگاه‌ها منتظر شماست',
+    'هدف: از کارخانه تا بوستان ملت و دانشگاه فردوسی (حدود ۲۰ کیلومتر) بروید و دستگاه‌های روبات مارکت را در پارک، مدرسه، دانشگاه، ایستگاه مترو و مرکز خرید پیدا کنید.',
     'هر خرید امتیاز دارد؛ کشف مکان تازه و ترکیب نوشیدنی و خوراکی امتیاز بیشتری دارد.',
     'بودجه: ۵۰۰ هتومان · مأموریت‌ها پاداش نقدی دارند.',
     'رفت‌وآمد: پیاده یا با ماشین. نقشهٔ گوشهٔ صفحه را بزنید تا آدرس دستگاه‌ها را ببینید.'
 ].join('\n');
 let briefChars = 0;
 
-$('#start-mission').onclick = () => {
+function startMission() {
     $('#briefing').hidden = true;
     $('#hud').hidden = false;
-    say('robot', 'سلام! من روبات راهنمای روبات مارکت هستم. اولین دستگاه همین‌جا، کنار ورودی بوستان ملته.');
-    say('child', 'بابا، بریم اولین خریدمون رو بکنیم!');
-    say('robot', 'نزدیک دستگاه برو و E را بزن. نقشه هم گوشهٔ صفحه است؛ با M بازش کن.');
-    if (!isTouch) canvas.requestPointerLock?.()?.catch?.(() => {});
-};
+    say('child', 'بابا، اینجا همون کارخونه‌ایه که دستگاه‌های روبات مارکت رو می‌سازه؟');
+    say('father', 'آره! بیا جلوی دستگاه نمونه وایسیم ببینیم چی می‌شه.');
+    if (!isTouch && !real.on) canvas.requestPointerLock?.()?.catch?.(() => {});
+}
+
+$('#start-mission').onclick = startMission;
+
+// ---------- Real-world (GPS) mode ----------
+// The family mirrors the phone's position on the real map of Mashhad. Walking to a real place where
+// a machine stands lets the player buy there, with a bonus.
+const real = {on: false, fix: null, heading: null, error: null, stop: null};
+
+function setRealMode(on) {
+    if (on === real.on) return;
+    real.stop?.();
+    Object.assign(real, {on, fix: null, heading: null, error: null, stop: null});
+    $('#gps-toggle').classList.toggle('on', on);
+    $('#gps-status').hidden = !on;
+    if (!on) return;
+    if (mode === 'drive') toggleCar();
+    mode = 'walk';
+    real.stop = startTracking({
+        onFix: fix => {
+            real.fix = fix;
+            real.error = null;
+        },
+        onHeading: heading => real.heading = heading,
+        onError: message => real.error = message
+    });
+    say('father', 'حالت دنیای واقعی روشن شد. هر جا ما بریم، روی نقشه هم همون‌جا هستیم.');
+}
+
+// The safety notice comes first; permissions are requested from the tap on its button (iOS needs that).
+function askRealMode(thenStart) {
+    if (real.on) {
+        setRealMode(false);
+        return;
+    }
+    $('#real-intro').showModal();
+    $('#real-go').onclick = async () => {
+        $('#real-intro').close();
+        await requestCompass();
+        setRealMode(true);
+        if (thenStart) startMission();
+    };
+}
+
+$('#real-mode').onclick = () => askRealMode(true);
+$('#gps-toggle').onclick = () => askRealMode(false);
+$('#real-cancel').onclick = () => $('#real-intro').close();
+
+function updateReal(dt) {
+    const status = $('#gps-status');
+    if (real.error) status.textContent = `⚠ ${real.error}`;
+    else if (!real.fix) status.textContent = '📍 در حال یافتن موقعیت…';
+    else if (!insideWorld(data.bounds, real.fix.x, real.fix.z)) {
+        const nearest = Math.min(...stations.map(s => Math.hypot(s.x - real.fix.x, s.z - real.fix.z)));
+        status.textContent = `📍 خارج از محدودهٔ بازی · ${formatDistance(nearest)} تا نزدیک‌ترین دستگاه`;
+    } else status.textContent = `📍 GPS ±${fa(Math.round(real.fix.accuracy))} متر${real.fix.speed > MAX_WALKING_SPEED ? ' · حرکت سریع' : ''}`;
+    if (!real.fix || !insideWorld(data.bounds, real.fix.x, real.fix.z)) {
+        player.speed = 0;
+        return;
+    }
+    // Walk the avatar towards the (building-free) GPS point instead of teleporting it.
+    const target = resolveCircle(collision, real.fix.x, real.fix.z, 1);
+    const dx = target.x - player.x, dz = target.z - player.z, d = Math.hypot(dx, dz);
+    if (d > 150) Object.assign(player, {x: target.x, z: target.z});
+    const speed = d > .5 ? Math.min(8, Math.max(1.2, d * 1.5)) : 0;
+    player.speed += (speed - player.speed) * Math.min(1, dt * 6);
+    if (d > .5) {
+        const step = Math.min(d, player.speed * dt);
+        player.x += dx / d * step;
+        player.z += dz / d * step;
+    }
+    const want = real.heading ?? (d > .5 ? Math.atan2(-dz, dx) : player.heading);
+    player.heading += Math.atan2(Math.sin(want - player.heading), Math.cos(want - player.heading)) * Math.min(1, dt * 5);
+    player.gait += dt * player.speed * 1.9;
+}
 
 // ---------- Loop ----------
 const camPos = new THREE.Vector3(), camTarget = new THREE.Vector3(), lookAt = new THREE.Vector3();
@@ -936,7 +1043,7 @@ function updateHUD(dt) {
     drawCompass(headingDeg, objective ? [{bearing: bearing(objective.x - pos.x, objective.z - pos.z), color: '#f2c94c'}] : []);
     drawMinimap(minimap, mapAssets, {
         size: 220, x: pos.x, z: pos.z, heading: mode === 'drive' ? car.heading : player.heading, camForward: forward,
-        radius: mode === 'drive' ? 420 : 200, markers: markers(), route: route?.points
+        radius: mode === 'drive' ? 650 : 200, markers: markers(), route: route?.points
     });
     // Objective marker above the machine, clamped to the screen edge when off-screen.
     const wp = $('#waypoint');
@@ -949,7 +1056,7 @@ function updateHUD(dt) {
             sy = innerHeight - 60;
         }
         $('#waypoint').style.left = `${THREE.MathUtils.clamp(sx, 60, innerWidth - 60)}px`;
-        $('#waypoint').style.top = `${THREE.MathUtils.clamp(sy, 90, innerHeight - 60)}px`;
+        $('#waypoint').style.top = `${THREE.MathUtils.clamp(sy, 90, innerHeight - 130)}px`;
         $('#waypoint-name').textContent = objective.def.name;
         $('#waypoint-distance').textContent = formatDistance(d);
         wp.hidden = d < 6;
@@ -963,20 +1070,73 @@ function updateHUD(dt) {
     if (streetTimer <= 0) {
         streetTimer = .6;
         const street = nearestSegment(segments, pos.x, pos.z, 35, s => s[5] >= 0);
-        $('#street').textContent = street ? `مشهد · ${data.names[street.name]}` : 'مشهد · محدودهٔ بوستان ملت';
+        const inFactory = Math.hypot(pos.x - FACTORY.center.x, pos.z - FACTORY.center.z) < 130;
+        $('#street').textContent = inFactory ? `کارخانهٔ ${FACTORY.name}` : street ? `مشهد · ${data.names[street.name]}` : 'حومهٔ مشهد';
     }
     updatePrompt();
 }
 
-let hints = {near: false, closed: false, car: false};
+let hints = {closed: false, car: false};
+
+// ---------- Robot guide ----------
+// When the family walks up to a machine the robot pops out of it, greets them and explains what to
+// do; when they leave it goes back inside. It is never a walking companion.
+const guideState = {station: null, t: 0, greeted: new Set(), arrived: 0};
+const guideOut = () => guideState.t >= 1;
+const easeOutBack = t => 1 + 2.2 * (t - 1) ** 3 + 1.2 * (t - 1) ** 2;
+
+function greet(station) {
+    const def = station.def, first = !guideState.greeted.has(def.id);
+    guideState.greeted.add(def.id);
+    if (def.id === 'factory' && first) {
+        say('robot', 'سلام! من روبات راهنمای روبات مارکتم؛ همین الان از خط تولید اومدم بیرون!', 'excited');
+        say('robot', `به ${FACTORY.name} خوش اومدین. همهٔ دستگاه‌های شهر همین‌جا ساخته می‌شن.`, 'happy');
+        say('robot', 'اول از همین دستگاه نمونه یه چیزی بخرین؛ کلید E رو بزنین.', 'wink');
+        say('robot', 'بعد ماشینتون تو حیاطه. با F سوار شین و برین بوستان ملت؛ من توی همهٔ دستگاه‌ها منتظرتونم!', 'love');
+        return;
+    }
+    if (!isOpen(def, state.minutes)) {
+        say('robot', `سلام! متأسفم، این دستگاه الان بسته است. ساعت کاری: ${hoursText(def)}.`, 'serious');
+        return;
+    }
+    if (first) {
+        say('robot', `سلام دوباره! به دستگاه ${def.name} خوش اومدین.`, 'excited');
+        say('robot', `${def.note}. برای خرید E رو بزنین.`, 'happy');
+    } else say('robot', 'باز هم خوش اومدین! برای خرید E رو بزنین.', 'wink');
+}
+
+function updateGuide(dt) {
+    const near = mode === 'walk' ? stations.find(s => Math.hypot(s.front.x - player.x, s.front.z - player.z) < Math.max(9, reachRadius())) : null;
+    // The robot only moves to another machine after it has gone back into the previous one.
+    if (near && !guideState.station) guideState.station = near;
+    const s = guideState.station, wasOut = guideOut();
+    if (!s) return;
+    guideState.t = THREE.MathUtils.clamp(guideState.t + (near === s ? dt : -dt) / 1.1, 0, 1);
+    if (guideOut() && !wasOut) {
+        guideState.arrived = elapsed;
+        greet(s);
+        tone(990, .15);
+        tone(1320, .2);
+    }
+    if (wasOut && near !== s) say('robot', 'خداحافظ! مسیر طلایی رو دنبال کنین.', 'happy');
+    if (!guideState.t) {
+        guideState.station = null;
+        guide.group.visible = false;
+        return;
+    }
+    // From inside the machine front out to its left side (the card reader is on the right).
+    const e = easeOutBack(guideState.t), from = {x: -.2, y: .9, z: .2}, to = {x: -1.7, y: 0, z: 1.3};
+    const local = rotateLocal(from.x + (to.x - from.x) * e, from.z + (to.z - from.z) * e, s.rot);
+    guide.group.visible = true;
+    guide.group.position.set(s.x + local.x, from.y + (to.y - from.y) * e, s.z + local.z);
+    guide.group.scale.setScalar(.15 + .85 * Math.min(1, e));
+    // Face the family (the rig looks along its local +X).
+    guide.group.rotation.y = Math.atan2(-(player.z - guide.group.position.z), player.x - guide.group.position.x);
+    if (!state.busy && payment.phase === 'idle') s.model.flap.rotation.x = guideState.t < 1 ? -1 : 0;
+    guide.update({dt, time: elapsed, gait: 0, moving: false, talking, wave: elapsed - guideState.arrived < 2.5 || !guideOut(), point: talking && guideOut()});
+}
 
 function updateHints() {
-    const station = nearStation();
-    if (station && !hints.near && isOpen(station.def, state.minutes)) {
-        hints.near = true;
-        say('robot', `رسیدیم به دستگاه ${station.def.name}. برای خرید E را بزن.`);
-    }
-    if (!station) hints.near = false;
     const target = objectiveStation();
     if (target && !isOpen(target.def, state.minutes) && !hints.closed) {
         hints.closed = true;
@@ -984,7 +1144,7 @@ function updateHints() {
     }
     if (route && route.length > 900 && mode === 'walk' && !hints.car) {
         hints.car = true;
-        say('father', 'راه طولانیه؛ بهتره با ماشین بریم. ماشین کنار ایستگاه مترو پارکه.');
+        say('father', 'راه طولانیه؛ بهتره با ماشین بریم.');
     }
 }
 
@@ -1010,14 +1170,16 @@ function frame() {
     if (!paused) {
         for (let i = 0; i < steps; i++) {
             state.minutes += step * 10 / 60;
-            if (mode === 'drive') updateDrive(step);
+            if (real.on) updateReal(step);
+            else if (mode === 'drive') updateDrive(step);
             else updateWalk(step);
             updatePayment(step);
             updateDelivery(step);
-            traffic.update(step, [{x: player.x, z: player.z}, {x: car.x, z: car.z}]);
+            traffic.update(step, [{x: player.x, z: player.z}, {x: car.x, z: car.z}], player);
         }
         updateRoute(dt);
         updateHints();
+        updateGuide(dt);
         if (Math.floor(elapsed * 2) !== Math.floor((elapsed - dt) * 2)) checkEnd();
     } else if (engine && soundOn) engine.g.gain.setTargetAtTime(0, audio.currentTime, .1);
     if (mode === 'walk' && engine && soundOn) engine.g.gain.setTargetAtTime(0, audio.currentTime, .2);
@@ -1026,7 +1188,8 @@ function frame() {
     family.group.visible = mode === 'walk';
     family.group.position.set(player.x, 0, player.z);
     family.group.rotation.y = player.heading;
-    family.update({dt, time: elapsed, gait: player.gait, moving: player.speed > .4, shopping: state.busy || payment.phase !== 'idle', delivery: deliveryTimer > 0, talking});
+    family.update({dt, time: elapsed, gait: player.gait, moving: player.speed > .4, shopping: state.busy || payment.phase !== 'idle', delivery: deliveryTimer > 0});
+    factory.update(elapsed);
     carModel.group.position.set(car.x, 0, car.z);
     carModel.group.rotation.y = car.heading;
     for (const [i, wheel] of carModel.wheels.entries()) {
@@ -1046,6 +1209,7 @@ function frame() {
     sun.position.set(player.x + 160, 230, player.z + 110);
     sun.target.position.set(player.x, 0, player.z);
     sky.position.copy(camera.position);
+    city.update(camera.position);
     if (playing) {
         hudTimer -= dt;
         updateHUD(dt);
@@ -1071,9 +1235,10 @@ if (new URLSearchParams(location.search).has('debug')) window.game = {
         return payment;
     }, get elapsed() {
         return elapsed;
-    }, stations
+    }, stations, guideState, real, keys
 };
 reset();
 resize();
+setupPwa();
 $('#loading').remove();
 requestAnimationFrame(frame);

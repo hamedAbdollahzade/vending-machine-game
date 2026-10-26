@@ -1,5 +1,5 @@
 // Arcade car physics. Heading h faces world direction (cos h, 0, -sin h), matching Three's rotation.y.
-export const CAR = {maxSpeed: 22, maxReverse: 6, accel: 7, brake: 14, drag: 1.6, maxSteer: .55, wheelBase: 2.7, radius: 1.6};
+export const CAR = {maxSpeed: 33, maxReverse: 6, accel: 7, brake: 14, drag: 1.6, maxSteer: .55, wheelBase: 2.7, radius: 1.6};
 
 export function createCar(x, z, heading = 0) {
     return {x, z, heading, speed: 0, steer: 0};

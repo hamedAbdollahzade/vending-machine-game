@@ -5,7 +5,7 @@ import {toLocal, toLatLon, bearing, ORIGIN} from '../src/geo.js';
 import {createCollisionWorld, resolveCircle, blocked, clearFraction} from '../src/collision.js';
 import {buildGraph, routeBetween, nearestSegment, buildSegmentIndex} from '../src/routing.js';
 import {createCar, stepCar} from '../src/vehicle.js';
-import {machines} from '../src/locations.js';
+import {machines, machineById, FACTORY} from '../src/locations.js';
 
 const data = JSON.parse(readFileSync(new URL('../src/data/mellat.json', import.meta.url)));
 
@@ -27,10 +27,12 @@ test('Circles are pushed out of footprints and segments stop at walls', () => {
     assert.ok(Math.abs(clearFraction(world, -10, 5, 10, 5) - .5) < .06);
 });
 
-test('Real map: every machine is reachable on foot and by car from the start', () => {
+test('Real map: the factory connects by car to the city, and every city machine is reachable', () => {
     const walk = buildGraph(data.roads), drive = buildGraph(data.roads, {drivable: true});
-    const start = machines[0].anchor;
-    for (const m of machines) {
+    const toCity = routeBetween(drive, FACTORY.center.x, FACTORY.center.z, -445.8, -275.7);
+    assert.ok(toCity && toCity.length > 18000 && toCity.length < 23000, `factory → Park Mellat is ~20 km (${toCity?.length})`);
+    const start = machineById('mellat-park').anchor;
+    for (const m of machines.filter(m => m.anchor)) {
         const onFoot = routeBetween(walk, start.x, start.z, m.anchor.x, m.anchor.z);
         assert.ok(onFoot, `walk route to ${m.id}`);
         assert.ok(onFoot.length >= Math.hypot(m.anchor.x - start.x, m.anchor.z - start.z) - 1);

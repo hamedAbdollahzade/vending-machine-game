@@ -1,0 +1,20 @@
+{
+  "name": "عملیات مشهد · روبات مارکت",
+  "short_name": "روبات مارکت",
+  "description": "از کارخانهٔ نگین سازان پیشگام رادمهر آتوسا تا بوستان ملت: دستگاه‌های وندینگ روبات مارکت را در مشهد پیدا کن و امتیاز بگیر.",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#0d1412",
+  "theme_color": "#0d1412",
+  "categories": ["games", "education"],
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

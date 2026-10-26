@@ -1,26 +1,41 @@
 // Converts raw OpenStreetMap and Natural Earth exports into the compact files in src/data.
 //
 // Usage:
-//   node scripts/build-map-data.mjs <city-osm.json> <poi-osm.json> <ne_10m_admin_1_states_provinces.geojson>
+//   node scripts/build-map-data.mjs --osm <file>… --poi <poi-osm.json> --provinces <ne_10m_admin_1_states_provinces.geojson>
 //
-// The OSM files are Overpass API responses (send a User-Agent header):
-//   city: [out:json][bbox:36.300,59.512,36.330,59.566];(way["highway"];way["building"];
-//         way["leisure"~"park|garden|pitch"];way["landuse"~"grass|forest|park|recreation_ground"];
-//         way["natural"~"water|wood"];way["amenity"~"school|university|college"];
-//         relation["amenity"="university"];relation["leisure"="park"];node["amenity"="school"];);out geom;
-//   poi:  nwr["railway"="station"](36.28,59.48,36.36,59.60);nwr["amenity"="university"](...);out center tags;
+// Each --osm file is an Overpass API response with `out geom` (send a User-Agent header); elements
+// that appear in several files are merged. The playable world is built from four extracts:
+//   city zone:    [bbox:36.300,59.512,36.330,59.566];(way["highway"];way["building"];way["leisure"~"park|garden|pitch"];
+//                 way["landuse"~"grass|forest|park|recreation_ground"];way["natural"~"water|wood"];
+//                 way["amenity"~"school|university|college"];relation["amenity"="university"];relation["leisure"="park"];node["amenity"="school"];)
+//   factory zone: [bbox:36.4430,59.4140,36.4580,59.4340];(way["highway"];way["building"];way["leisure"~"park|garden|pitch"];way["landuse"];
+//                 way["natural"~"water|wood"];way["amenity"];relation["leisure"="park"];)
+//   corridor:     the same feature types within ~250 m of the factory → Park Mellat driving route (around:250,<route lat,lon list>)
+//   main roads:   [bbox:36.298,59.405,36.462,59.572];way["highway"~"^(trunk|primary|secondary|tertiary|motorway)(_link)?$"];
+//   poi:          nwr["railway"="station"](36.28,59.48,36.36,59.60);nwr["amenity"="university"](…);out center tags;
 // Map data © OpenStreetMap contributors (ODbL). Province outlines: Natural Earth (public domain).
 import {readFileSync, writeFileSync} from 'node:fs';
 import {ORIGIN, toLocal} from '../src/geo.js';
 
-const [cityPath, poiPath, provincesPath] = process.argv.slice(2);
-if (!cityPath || !poiPath || !provincesPath) {
-    console.error('usage: node scripts/build-map-data.mjs <city-osm.json> <poi-osm.json> <provinces.geojson>');
+const args = {osm: []};
+for (let i = 2, key = null; i < process.argv.length; i++) {
+    if (process.argv[i].startsWith('--')) key = process.argv[i].slice(2);
+    else if (key === 'osm') args.osm.push(process.argv[i]);
+    else args[key] = process.argv[i];
+}
+if (!args.osm.length || !args.poi || !args.provinces) {
+    console.error('usage: node scripts/build-map-data.mjs --osm <file>… --poi <poi-osm.json> --provinces <provinces.geojson>');
     process.exit(1);
 }
+// Points of interest are kept only inside the detailed city zone.
 const BBOX = {minLat: 36.300, maxLat: 36.330, minLon: 59.512, maxLon: 59.566};
-const city = JSON.parse(readFileSync(cityPath, 'utf8')).elements;
-const poi = JSON.parse(readFileSync(poiPath, 'utf8')).elements;
+// The playable region: from the factory on the Chenaran road to Park Mellat and Ferdowsi University.
+const REGION = {minLat: 36.298, maxLat: 36.462, minLon: 59.405, maxLon: 59.572};
+const merged = new Map();
+for (const file of args.osm) for (const e of JSON.parse(readFileSync(file, 'utf8')).elements) merged.set(`${e.type}/${e.id}`, e);
+const city = [...merged.values()];
+const poi = JSON.parse(readFileSync(args.poi, 'utf8')).elements;
+const provincesPath = args.provinces;
 const r1 = v => Math.round(v * 10) / 10;
 const flat = geometry => geometry.flatMap(({lat, lon}) => {
     const {x, z} = toLocal(lat, lon);
@@ -51,13 +66,15 @@ const nameId = name => {
     return nameIndex.get(name);
 };
 const roads = [], buildings = [], areas = [], labels = [];
-const areaKinds = ['park', 'grass', 'forest', 'pitch', 'water', 'campus'];
+const areaKinds = ['park', 'grass', 'forest', 'pitch', 'water', 'campus', 'industrial', 'farmland'];
 const areaKind = t => t.leisure === 'park' || t.leisure === 'garden' || t.landuse === 'park' || t.landuse === 'recreation_ground' ? 'park'
     : t.landuse === 'grass' ? 'grass'
         : t.landuse === 'forest' || t.natural === 'wood' ? 'forest'
             : t.leisure === 'pitch' ? 'pitch'
                 : t.natural === 'water' ? 'water'
-                    : ['school', 'university', 'college'].includes(t.amenity) ? 'campus' : null;
+                    : ['school', 'university', 'college'].includes(t.amenity) ? 'campus'
+                        : t.landuse === 'industrial' ? 'industrial'
+                            : t.landuse === 'farmland' ? 'farmland' : null;
 
 // Joins a relation's outer member ways end to end into closed rings.
 function joinRings(members) {
@@ -84,8 +101,19 @@ function joinRings(members) {
 
 for (const e of city) {
     const t = e.tags ?? {};
-    if (e.type === 'way' && t.highway && roadTypes.includes(t.highway.replace('_link', '')) && e.geometry?.length > 1) {
-        roads.push([roadTypes.indexOf(t.highway.replace('_link', '')), nameId(t.name), ...flat(e.geometry)]);
+    // Motorways are drawn and routed like trunk roads.
+    const highway = t.highway?.replace('_link', '').replace('motorway', 'trunk');
+    if (e.type === 'way' && highway && roadTypes.includes(highway) && e.geometry?.length > 1) {
+        // Whole ways come back from Overpass, so cut them where they leave the region.
+        const inRegion = ({lat, lon}) => lat >= REGION.minLat && lat <= REGION.maxLat && lon >= REGION.minLon && lon <= REGION.maxLon;
+        let run = [];
+        for (const point of [...e.geometry, null]) {
+            if (point && inRegion(point)) run.push(point);
+            else {
+                if (run.length > 1) roads.push([roadTypes.indexOf(highway), nameId(t.name), ...flat(run)]);
+                run = [];
+            }
+        }
     } else if (e.type === 'way' && t.building && e.geometry?.length > 3) {
         const levels = Number.parseFloat(t['building:levels']), height = Number.parseFloat(t.height);
         const h = Number.isFinite(height) ? height : Number.isFinite(levels) ? levels * 3.2 : (2 + Math.floor(hash(e.id) * 4)) * 3.2;
@@ -95,9 +123,9 @@ for (const e of city) {
     } else if (e.type === 'relation' && areaKind(t)) {
         for (const r of joinRings(e.members ?? [])) areas.push([areaKinds.indexOf(areaKind(t)), ...ring(r)]);
     }
-    if (t.name && (t.amenity === 'school' || t.amenity === 'university' || t.leisure === 'park')) {
+    if (t.name && (t.amenity === 'school' || t.amenity === 'university' || t.leisure === 'park' || t.landuse === 'industrial')) {
         const c = e.type === 'node' ? e : e.bounds ? {lat: (e.bounds.minlat + e.bounds.maxlat) / 2, lon: (e.bounds.minlon + e.bounds.maxlon) / 2} : null;
-        if (c) labels.push({name: t.name, kind: t.amenity ?? 'park', ...roundPoint(toLocal(c.lat, c.lon))});
+        if (c) labels.push({name: t.name, kind: t.landuse === 'industrial' ? 'industrial' : t.amenity ?? 'park', ...roundPoint(toLocal(c.lat, c.lon))});
     }
 }
 for (const e of poi) {
@@ -120,8 +148,15 @@ const polygonArea = pts => {
     return Math.abs(a / 2);
 };
 areas.sort((a, b) => polygonArea(b.slice(1)) - polygonArea(a.slice(1)));
-const corner = (lat, lon) => roundPoint(toLocal(lat, lon));
-const min = corner(BBOX.maxLat, BBOX.minLon), max = corner(BBOX.minLat, BBOX.maxLon);
+// The world spans every road we kept, plus a margin.
+let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+for (const road of roads) for (let i = 2; i < road.length; i += 2) {
+    minX = Math.min(minX, road[i]);
+    maxX = Math.max(maxX, road[i]);
+    minZ = Math.min(minZ, road[i + 1]);
+    maxZ = Math.max(maxZ, road[i + 1]);
+}
+const min = {x: Math.floor(minX - 200), z: Math.floor(minZ - 200)}, max = {x: Math.ceil(maxX + 200), z: Math.ceil(maxZ + 200)};
 const city_ = {
     origin: ORIGIN,
     attribution: '© OpenStreetMap contributors',

@@ -16,6 +16,7 @@ test('Discovery, combo and all-category bonuses are paid once', () => {
     assert.equal(total(buy(park, 'juice')), POINTS.purchase, 'same type: no combo');
     assert.equal(total(buy(park, 'cake')), POINTS.purchase + POINTS.combo);
     assert.equal(total(buy(park, 'water')), POINTS.purchase, 'combo only once');
+    buy(machineById('factory'), 'water');
     buy(machineById('school-rahil'), 'water');
     buy(machineById('ferdowsi-university'), 'water');
     buy(machineById('azadi-metro'), 'water');
@@ -29,11 +30,12 @@ test('Ranks and missions advance with progress', () => {
     assert.equal(rankFor(RANKS[1].xp).index, 1);
     assert.equal(rankFor(1e6).progress, 1);
     const state = createState();
-    assert.equal(activeMission(state).id, 'first');
+    assert.equal(activeMission(state).id, 'factory');
+    purchase(state, machineById('factory'), 'water');
+    assert.deepEqual(completeMissions(state).map(m => m.id), ['factory']);
+    assert.equal(state.balance, 500 - 8 + 20, 'factory sells at half price');
     purchase(state, machineById('mellat-park'), 'water');
-    const done = completeMissions(state);
-    assert.deepEqual(done.map(m => m.id), ['first']);
-    assert.equal(state.balance, 500 - 15 + 30);
+    assert.deepEqual(completeMissions(state).map(m => m.id), ['first']);
     assert.deepEqual(completeMissions(state), [], 'rewards are not repeated');
     assert.equal(activeMission(state).id, 'school');
 });
