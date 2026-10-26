@@ -12,7 +12,7 @@ function stripes(c, w, h, base, line, every) {
 }
 
 /**
- * The Negin Sazan Pishgam Radmehr Atousa compound: production hall (where the game starts),
+ * The Robot Market factory compound: production hall (where the game starts),
  * office, fenced yard and gate. Layout uses a local frame: u runs along the driveway towards the
  * gate, v across it. Returns world-space collision footprints and key positions.
  */

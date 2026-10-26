@@ -15,8 +15,8 @@ test('GPS fixes blend by accuracy and a stale estimate is replaced', () => {
 });
 
 test('Arrival radius widens with poor GPS and bounds check the world', () => {
-    assert.equal(arrivalRadius(5), 20);
-    assert.equal(arrivalRadius(20), 30);
+    assert.equal(arrivalRadius(4), 12);
+    assert.equal(arrivalRadius(10), 20);
     assert.equal(arrivalRadius(100), 40);
     const bounds = {minX: -10, minZ: -10, maxX: 10, maxZ: 10};
     assert.ok(insideWorld(bounds, 0, 0));

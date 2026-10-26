@@ -1,7 +1,7 @@
 import {CATEGORIES} from './locations.js';
 
 // The bonus for visiting every kind of place counts city locations, not the factory.
-const CITY_CATEGORIES = Object.keys(CATEGORIES).filter(c => c !== 'factory');
+const CITY_CATEGORIES = Object.keys(CATEGORIES).filter(c => c !== 'factory' && c !== 'test');
 
 export const POINTS = {purchase: 100, discovery: 250, combo: 150, allCategories: 500};
 
@@ -64,7 +64,7 @@ export const MISSIONS = [
     },
     {
         id: 'explorer', title: 'از ۵ مکان متفاوت شهر خرید کن', target: null, xp: 400, hetoman: 80,
-        done: ps => placesVisited(ps.filter(p => p.category !== 'factory')) >= 5
+        done: ps => placesVisited(ps.filter(p => CITY_CATEGORIES.includes(p.category))) >= 5
     }
 ];
 

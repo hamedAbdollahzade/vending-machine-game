@@ -16,26 +16,39 @@ export function smoothFix(previous, fix) {
     return {x, z, accuracy, time: fix.time, speed: fix.speed ?? Math.hypot(x - previous.x, z - previous.z) / dt};
 }
 
-// How close counts as "at the machine": never tighter than 20 m, wider when GPS is poor.
-export const arrivalRadius = accuracy => Math.min(40, Math.max(20, accuracy * 1.5));
+// How close counts as "at the machine": twice the GPS error, between 12 m (good outdoor fix) and 40 m.
+export const arrivalRadius = accuracy => Math.min(40, Math.max(12, accuracy * 2));
 
 export const insideWorld = (bounds, x, z) => x > bounds.minX && x < bounds.maxX && z > bounds.minZ && z < bounds.maxZ;
 
 // Watches the phone's position and compass. Calls onFix({x, z, accuracy, speed, lat, lon}),
-// onHeading(radians in the game's heading convention) and onError(message).
-export function startTracking({onFix, onHeading, onError}) {
+// onHeading(radians in the game's heading convention), onError(message) for a real problem and
+// onStatus(message) while it is still searching.
+export function startTracking({onFix, onHeading, onError, onStatus = () => {}}) {
     if (!('geolocation' in navigator)) {
         onError('این دستگاه موقعیت‌یابی (GPS) ندارد.');
         return () => {};
     }
-    let estimate = null;
-    const watch = navigator.geolocation.watchPosition(position => {
+    if (!window.isSecureContext) {
+        onError('موقعیت‌یابی فقط روی HTTPS کار می‌کند؛ بازی را از نشانی https:// باز کنید.');
+        return () => {};
+    }
+    let estimate = null, fixes = 0;
+    const handle = position => {
         const {latitude: lat, longitude: lon, accuracy, speed} = position.coords, local = toLocal(lat, lon);
         estimate = smoothFix(estimate, {...local, accuracy: Math.max(3, accuracy), speed: Number.isFinite(speed) ? speed : null, time: position.timestamp});
+        fixes++;
         onFix({...estimate, lat, lon});
-    }, error => onError(error.code === error.PERMISSION_DENIED ? 'اجازهٔ دسترسی به موقعیت داده نشد. از تنظیمات مرورگر اجازه بدهید.' : 'موقعیت پیدا نشد؛ به فضای باز بروید.'), {
-        enableHighAccuracy: true, maximumAge: 2000, timeout: 20000
-    });
+    };
+    const fail = error => {
+        if (error.code === error.PERMISSION_DENIED) onError('اجازهٔ دسترسی به موقعیت داده نشد. در تنظیمات مرورگر و گوشی، Location را برای این سایت مجاز کنید. (کد ۱)');
+        else if (error.code === error.POSITION_UNAVAILABLE) onError('موقعیت در دسترس نیست. Location (GPS) گوشی را روشن کنید؛ روی کامپیوتر معمولاً موقعیت‌یابی کار نمی‌کند. (کد ۲)');
+        // A timeout only means no fix yet; the watch keeps trying, so it is a status, not an error.
+        else if (!fixes) onStatus('هنوز سیگنال GPS نرسیده… در فضای باز و کنار پنجره سریع‌تر پیدا می‌شود. (کد ۳)');
+    };
+    // A quick coarse fix from Wi-Fi or the mobile network shows the player at once; GPS refines it.
+    navigator.geolocation.getCurrentPosition(handle, () => {}, {enableHighAccuracy: false, maximumAge: 60000, timeout: 15000});
+    const watch = navigator.geolocation.watchPosition(handle, fail, {enableHighAccuracy: true, maximumAge: 3000, timeout: 30000});
     // Compass: iOS reports webkitCompassHeading; Android reports absolute alpha (counter-clockwise).
     const orientation = event => {
         const compass = event.webkitCompassHeading ?? (event.absolute && event.alpha != null ? 360 - event.alpha : null);

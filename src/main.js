@@ -20,7 +20,7 @@ import {createFactory} from './factory.js';
 import {createCar, stepCar, kmh} from './vehicle.js';
 import {createCarModel, createTraffic} from './traffic.js';
 import {createMapAssets, drawMinimap, drawFullMap, drawIran} from './map-render.js';
-import {bearing, formatDistance} from './geo.js';
+import {bearing, formatDistance, toLocal} from './geo.js';
 
 const $ = s => document.querySelector(s);
 const canvas = $('#world');
@@ -82,6 +82,12 @@ factory.footprints.forEach(f => addPolygon(collision, f));
 // City machines stand beside their path point, on whichever side is free, facing the path;
 // the factory's demo machine has a fixed place inside the production hall.
 const stations = machines.map(def => {
+    if (def.spot) {
+        // Test points: the given coordinate is where the player stands; the machine faces the factory.
+        const front = toLocal(def.spot.lat, def.spot.lon);
+        const dx = FACTORY.center.x - front.x, dz = FACTORY.center.z - front.z, len = Math.hypot(dx, dz) || 1;
+        return placeStation(def, {x: front.x - dx / len * 1.9, z: front.z - dz / len * 1.9}, Math.atan2(dx, dz));
+    }
     if (!def.anchor) return placeStation(def, factory.demo, factory.demo.rot);
     const seg = nearestSegment(segments, def.anchor.x, def.anchor.z, 40) ?? {dx: 1, dz: 0, type: 9};
     const len = Math.hypot(seg.dx, seg.dz) || 1, nx = -seg.dz / len, nz = seg.dx / len;
@@ -112,6 +118,13 @@ function placeStation(def, pos, rot) {
 }
 
 const stationById = id => stations.find(s => s.def.id === id);
+for (const s of stations) if (s.def.test) s.model.group.visible = false;
+// GPS test points only take part while real-world mode is on.
+const activeStations = () => stations.filter(s => !s.def.test || real.on);
+// The closest active machine whose front is within `radius` of (x, z).
+const closestStation = (x, z, radius) => activeStations()
+    .map(s => ({s, d: Math.hypot(s.front.x - x, s.front.z - z)}))
+    .filter(({d}) => d < radius).sort((a, b) => a.d - b.d)[0]?.s ?? null;
 
 const city = createCity(scene, data, {collision, segments});
 const traffic = createTraffic(scene, data, 28);
@@ -377,7 +390,7 @@ function toggleCar() {
 // ---------- Machines, shop and payment ----------
 // In real-world mode "at the machine" is a GPS radius, because the fix itself is off by metres.
 const reachRadius = () => real.on && real.fix ? arrivalRadius(real.fix.accuracy) : 3.4;
-const nearStation = () => mode === 'walk' ? stations.find(s => Math.hypot(s.front.x - player.x, s.front.z - player.z) < reachRadius()) : null;
+const nearStation = () => mode === 'walk' ? closestStation(player.x, player.z, reachRadius()) : null;
 const hoursText = m => m.hours[1] - m.hours[0] >= 24 * 60 ? 'شبانه‌روزی' : `${formatClock(m.hours[0])} تا ${formatClock(m.hours[1])}`;
 let shopStation = null;
 
@@ -570,7 +583,7 @@ const objectiveStation = () => {
     if (mission?.target) return stationById(mission.target);
     // Open-ended missions point to the nearest place not bought from yet.
     const visited = new Set(state.purchases.map(p => p.machineId));
-    return stations.filter(s => !visited.has(s.def.id)).sort((a, b) => Math.hypot(a.x - player.x, a.z - player.z) - Math.hypot(b.x - player.x, b.z - player.z))[0] ?? null;
+    return activeStations().filter(s => !visited.has(s.def.id)).sort((a, b) => Math.hypot(a.x - player.x, a.z - player.z) - Math.hypot(b.x - player.x, b.z - player.z))[0] ?? null;
 };
 
 // The gold route ribbon on the ground, rebuilt when the route changes.
@@ -701,7 +714,7 @@ const mapView = {cx: 0, cz: 0, mpp: 2}, mapCanvas = $('#fullmap'), iranCanvas = 
 let selected = null, mapTab = 'city';
 const markers = () => {
     const visited = new Set(state.purchases.map(p => p.machineId)), objective = objectiveStation();
-    return stations.map(s => ({id: s.def.id, x: s.x, z: s.z, visited: visited.has(s.def.id), open: isOpen(s.def, state.minutes), objective: s === objective}));
+    return activeStations().map(s => ({id: s.def.id, x: s.x, z: s.z, visited: visited.has(s.def.id), open: isOpen(s.def, state.minutes), objective: s === objective}));
 };
 
 function sizeCanvas(c) {
@@ -726,7 +739,7 @@ function renderMap() {
 
 function renderMachineList() {
     const pos = mode === 'drive' ? car : player, visited = new Set(state.purchases.map(p => p.machineId));
-    const items = stations.map(s => {
+    const items = activeStations().map(s => {
         const li = document.createElement('li'), b = document.createElement('button'), open = isOpen(s.def, state.minutes);
         b.type = 'button';
         b.className = s.def.id === selected ? 'selected' : '';
@@ -812,7 +825,7 @@ mapCanvas.addEventListener('pointerup', e => {
     if (mapDrag && mapDrag.moved < 6) {
         const r = mapCanvas.getBoundingClientRect();
         const wx = mapView.cx + (e.clientX - r.left - r.width / 2) * mapView.mpp, wz = mapView.cz + (e.clientY - r.top - r.height / 2) * mapView.mpp;
-        const hit = stations.find(s => Math.hypot(s.x - wx, s.z - wz) < 14 * mapView.mpp);
+        const hit = activeStations().find(s => Math.hypot(s.x - wx, s.z - wz) < 14 * mapView.mpp);
         if (hit) selectMachine(hit.def.id);
     }
     mapDrag = null;
@@ -853,12 +866,13 @@ $('#start-mission').onclick = startMission;
 // ---------- Real-world (GPS) mode ----------
 // The family mirrors the phone's position on the real map of Mashhad. Walking to a real place where
 // a machine stands lets the player buy there, with a bonus.
-const real = {on: false, fix: null, heading: null, error: null, stop: null};
+const real = {on: false, fix: null, heading: null, error: null, waiting: null, stop: null};
 
 function setRealMode(on) {
     if (on === real.on) return;
     real.stop?.();
-    Object.assign(real, {on, fix: null, heading: null, error: null, stop: null});
+    Object.assign(real, {on, fix: null, heading: null, error: null, waiting: null, stop: null});
+    for (const s of stations) if (s.def.test) s.model.group.visible = on;
     $('#gps-toggle').classList.toggle('on', on);
     $('#gps-status').hidden = !on;
     if (!on) return;
@@ -870,7 +884,8 @@ function setRealMode(on) {
             real.error = null;
         },
         onHeading: heading => real.heading = heading,
-        onError: message => real.error = message
+        onError: message => real.error = message,
+        onStatus: message => real.waiting = message
     });
     say('father', 'حالت دنیای واقعی روشن شد. هر جا ما بریم، روی نقشه هم همون‌جا هستیم.');
 }
@@ -897,9 +912,9 @@ $('#real-cancel').onclick = () => $('#real-intro').close();
 function updateReal(dt) {
     const status = $('#gps-status');
     if (real.error) status.textContent = `⚠ ${real.error}`;
-    else if (!real.fix) status.textContent = '📍 در حال یافتن موقعیت…';
+    else if (!real.fix) status.textContent = `📍 ${real.waiting ?? 'در حال یافتن موقعیت…'}`;
     else if (!insideWorld(data.bounds, real.fix.x, real.fix.z)) {
-        const nearest = Math.min(...stations.map(s => Math.hypot(s.x - real.fix.x, s.z - real.fix.z)));
+        const nearest = Math.min(...activeStations().map(s => Math.hypot(s.x - real.fix.x, s.z - real.fix.z)));
         status.textContent = `📍 خارج از محدودهٔ بازی · ${formatDistance(nearest)} تا نزدیک‌ترین دستگاه`;
     } else status.textContent = `📍 GPS ±${fa(Math.round(real.fix.accuracy))} متر${real.fix.speed > MAX_WALKING_SPEED ? ' · حرکت سریع' : ''}`;
     if (!real.fix || !insideWorld(data.bounds, real.fix.x, real.fix.z)) {
@@ -1122,7 +1137,7 @@ function greet(station) {
 }
 
 function updateGuide(dt) {
-    const near = mode === 'walk' ? stations.find(s => Math.hypot(s.front.x - player.x, s.front.z - player.z) < Math.max(9, reachRadius())) : null;
+    const near = mode === 'walk' ? closestStation(player.x, player.z, Math.max(9, reachRadius())) : null;
     // The robot only moves to another machine after it has gone back into the previous one.
     if (near && !guideState.station) guideState.station = near;
     const s = guideState.station, wasOut = guideOut();

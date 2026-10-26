@@ -6,14 +6,15 @@ export const CATEGORIES = {
     university: {label: 'دانشگاه', icon: '🎓'},
     school: {label: 'مدرسه', icon: '🏫'},
     metro: {label: 'ایستگاه مترو', icon: 'Ⓜ'},
-    mall: {label: 'مرکز خرید', icon: '🛍'}
+    mall: {label: 'مرکز خرید', icon: '🛍'},
+    test: {label: 'نقطهٔ آزمایشی GPS', icon: '🧪'}
 };
 
 const ALL_DAY = [7 * 60, 23 * 60];
 
 export const FACTORY = {
-    name: 'شرکت نگین سازان پیشگام رادمهر آتوسا',
-    tagline: 'تولیدکنندهٔ دستگاه‌های وندینگ روبات مارکت',
+    name: 'شرکت روبات مارکت',
+    tagline: 'سازندهٔ دستگاه‌های وندینگ هوشمند',
     address: 'بزرگراه مشهد–چناران، خیابان کاله، کنار پارک علم و فناوری خراسان',
     // Centre of the compound and the direction of its driveway (towards the gate on Kaleh Street).
     center: {x: -10308.4, z: -14964.2},
@@ -78,6 +79,17 @@ export const machines = [
         note: 'بیشترین تنوع محصول؛ قیمت کمی بالاتر'
     }
 ];
+
+// GPS test points at real coordinates beside the factory, for checking real-world mode on a phone.
+// They exist only while real-world mode is on; `spot` is where the player stands to buy.
+const testPoint = (n, lat, lon) => ({
+    id: `test-${n}`, name: `نقطهٔ آزمایشی ${['۱', '۲', '۳'][n - 1]}`, category: 'test', test: true,
+    address: `کنار کارخانهٔ روبات مارکت · ${lat.toFixed(6)}, ${lon.toFixed(6)}`,
+    anchor: null, spot: {lat, lon}, hours: [0, 24 * 60], priceFactor: .5,
+    products: ['water', 'biscuit'],
+    note: 'برای آزمایش حالت دنیای واقعی: با گوشی تا اینجا راه بروید'
+});
+machines.push(testPoint(1, 36.450276, 59.423431), testPoint(2, 36.450172, 59.423209), testPoint(3, 36.449976, 59.422866));
 
 // Shown on the map as the next area to unlock.
 export const lockedPlaces = [
