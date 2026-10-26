@@ -1,0 +1,17 @@
+# Server deployment: runs the prebuilt image from the Gitea registry behind Nginx Proxy Manager.
+# NPM terminates HTTPS and forwards to http://vending-machine-game:80 on the frontend_proxy network.
+# IMAGE is set in .env next to this file (CI writes it on every deploy).
+services:
+  game:
+    image: ${IMAGE:?set IMAGE in .env}
+    container_name: vending-machine-game
+    restart: unless-stopped
+    environment:
+      # Plain HTTP inside the network; no host ports are published.
+      SITE_ADDRESS: ":80"
+    networks:
+      - frontend_proxy
+
+networks:
+  frontend_proxy:
+    external: true
