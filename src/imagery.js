@@ -1,3 +1,4 @@
+import { loadTileUrl } from './services/worldService.js';
 import * as THREE from 'three';
 import { toLocal } from './geo.js';
 
@@ -41,13 +42,23 @@ export function createImagery(
   }));
   let loads = 0;
 
-  function show(level, tile) {
+  async function show(level, tile) {
     if (tile.mesh || tile.loading || loads >= 6) return;
     tile.loading = true;
     loads++;
+    let tileUrl;
+    try {
+      tileUrl = await loadTileUrl(`${baseUrl}${level.z}/${tile.x}/${tile.y}.jpg`);
+    } catch {
+      loads--;
+      tile.loading = false;
+      tile.failed = true;
+      return;
+    }
     loader.load(
-      `${baseUrl}${level.z}/${tile.x}/${tile.y}.jpg`,
+      tileUrl,
       (texture) => {
+        URL.revokeObjectURL(tileUrl);
         loads--;
         tile.loading = false;
         texture.colorSpace = THREE.SRGBColorSpace;
@@ -78,6 +89,7 @@ export function createImagery(
       },
       undefined,
       () => {
+        URL.revokeObjectURL(tileUrl);
         loads--;
         tile.loading = false;
         tile.failed = true;

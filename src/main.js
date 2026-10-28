@@ -1,3 +1,4 @@
+import { loadWorldFiles } from './services/worldService.js';
 import * as THREE from 'three';
 import '@fontsource/vazirmatn/400.css';
 import '@fontsource/vazirmatn/600.css';
@@ -131,14 +132,7 @@ scene.add(sun, sun.target);
 // ---------- World data ----------
 // Microsoft's building footprints and the satellite tile list are downloaded files, not bundled code.
 // The game still runs without them (OSM buildings and drawn roads).
-const loadFile = (path, read) =>
-  fetch(path)
-    .then((r) => (r.ok ? r[read]() : null))
-    .catch(() => null);
-const [buildingsFile, imageryIndex] = await Promise.all([
-  loadFile('./data/buildings.bin', 'arrayBuffer'),
-  loadFile('./imagery/index.json', 'json'),
-]);
+const [buildingsFile, imageryIndex] = await loadWorldFiles();
 // Footprints reaching into the factory compound are left out: the game's own buildings stand there.
 const inFactory = (x, z) => {
   const dx = x - FACTORY.center.x,
