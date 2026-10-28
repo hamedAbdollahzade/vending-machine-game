@@ -1,4 +1,4 @@
-import { CATEGORIES } from './locations.js';
+import { CATEGORIES } from '../../constants/locations.js';
 
 // The bonus for visiting every kind of place counts city locations, not the factory.
 const CITY_CATEGORIES = Object.keys(CATEGORIES).filter((c) => c !== 'factory' && c !== 'test');

@@ -1,4 +1,4 @@
-import { toLocal } from './geo.js';
+import { toLocal } from '../../utils/geo.js';
 
 // Real-world mode: the family follows the phone's GPS position. Phone GPS in a city is off by
 // 5–20 m and jumps around, so fixes are blended by their accuracy and arrival uses a wide radius.

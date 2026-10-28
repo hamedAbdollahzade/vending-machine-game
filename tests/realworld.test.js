@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { smoothFix, arrivalRadius, insideWorld, createStabilizer } from '../src/realworld.js';
+import {
+  smoothFix,
+  arrivalRadius,
+  insideWorld,
+  createStabilizer,
+} from '../src/game/device/realworld.js';
 
 test('GPS fixes blend by accuracy and a stale estimate is replaced', () => {
   const first = smoothFix(null, { x: 0, z: 0, accuracy: 10, time: 0 });
@@ -47,7 +52,7 @@ test('Stable mode holds still through jitter, drops jumps and follows real walki
 
 test('AR camera faces north/west with the phone held upright, and the FOV fits the screen', async () => {
   const { Quaternion, Vector3 } = await import('three');
-  const { orientationQuaternion, coverFov } = await import('../src/ar.js');
+  const { orientationQuaternion, coverFov } = await import('../src/game/device/ar.js');
   const look = (alpha, beta = 90, gamma = 0, angle = 0) =>
     new Vector3(0, 0, -1).applyQuaternion(
       orientationQuaternion(new Quaternion(), alpha, beta, gamma, angle),

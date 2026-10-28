@@ -6,15 +6,15 @@ import {
   priceAt,
   canAffordAnything,
   formatClock,
-} from '../src/game-state.js';
+} from '../src/game/economy/gameState.js';
 import {
   createPayment,
   beginPayment,
   readyPayment,
   swipePayment,
   cancelPayment,
-} from '../src/payment.js';
-import { machineById, machines } from '../src/locations.js';
+} from '../src/game/economy/payment.js';
+import { machineById, machines } from '../src/constants/locations.js';
 
 const park = machineById('mellat-park'),
   school = machineById('school-rahil'),

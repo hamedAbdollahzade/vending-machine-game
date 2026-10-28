@@ -2,7 +2,8 @@ import axios from 'axios';
 
 /** Shared HTTP client; data paths resolve below the deployment directory. */
 export const apiClient = axios.create({
-  baseURL: typeof document === 'undefined' ? 'http://localhost/' : document.baseURI,
+  baseURL:
+    typeof document === 'undefined' ? 'http://localhost/' : new URL('./', document.baseURI).href,
   timeout: 15000,
 });
 apiClient.interceptors.response.use(

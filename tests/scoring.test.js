@@ -7,9 +7,9 @@ import {
   activeMission,
   POINTS,
   RANKS,
-} from '../src/scoring.js';
-import { createState, purchase } from '../src/game-state.js';
-import { machineById } from '../src/locations.js';
+} from '../src/game/economy/scoring.js';
+import { createState, purchase } from '../src/game/economy/gameState.js';
+import { machineById } from '../src/constants/locations.js';
 
 const total = (awards) => awards.reduce((s, a) => s + a.points, 0);
 

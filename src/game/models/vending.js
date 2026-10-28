@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { catalog } from './game-state.js';
+import { catalog } from '../economy/gameState.js';
 import { textTexture } from './textures.js';
 
 const PRODUCT_COLORS = {

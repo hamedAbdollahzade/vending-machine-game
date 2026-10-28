@@ -17,9 +17,9 @@
 import {createReadStream, readFileSync, writeFileSync, mkdirSync} from 'node:fs';
 import {createGunzip} from 'node:zlib';
 import {createInterface} from 'node:readline';
-import {toLocal} from '../src/geo.js';
-import {FACTORY} from '../src/locations.js';
-import {createCollisionWorld, blocked} from '../src/collision.js';
+import {toLocal} from '../src/utils/geo.js';
+import {FACTORY} from '../src/constants/locations.js';
+import {createCollisionWorld, blocked} from '../src/game/world/collision.js';
 
 const [source] = process.argv.slice(2);
 if (!source) {

@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { createVendingMachine } from './vending.js';
-import { createCarModel } from './traffic.js';
-import { createPickup, createTruck } from './car-models.js';
+import { createCarModel } from '../systems/traffic.js';
+import { createPickup, createTruck } from './carModels.js';
 import { createPerson, createCrew, nameTag } from './staff.js';
-import { FACTORY } from './locations.js';
+import { FACTORY } from '../../constants/locations.js';
 import { textTexture } from './textures.js';
 
 function stripes(c, w, h, base, line, every) {
@@ -201,8 +201,7 @@ export function createFactory(scene) {
   const steel = mat('#59646b', { metalness: 0.5 }),
     teal = mat('#0b8f88', { metalness: 0.3, roughness: 0.4 });
   const yellow = mat('#f2c94c', { roughness: 0.5 }),
-    darkSteel = mat('#3d4549', { metalness: 0.5 }),
-    silver = mat('#c4ccd0', { metalness: 0.8, roughness: 0.3 });
+    darkSteel = mat('#3d4549', { metalness: 0.5 });
   const lamp = new THREE.MeshBasicMaterial({ color: '#fffbe8' });
   const animated = [];
 
@@ -247,7 +246,6 @@ export function createFactory(scene) {
     c.fillStyle = '#f2c94c';
     c.fillText('ROBOT MARKET · VENDING MACHINES', w / 2, 270);
   });
-  const signMaterial = new THREE.MeshBasicMaterial({ map: nameSign, side: THREE.DoubleSide });
   // Two faces, so the name also reads correctly from inside the yard.
   const frontSign = new THREE.MeshBasicMaterial({ map: nameSign });
   for (const side of [1, -1]) {

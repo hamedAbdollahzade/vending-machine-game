@@ -1,4 +1,4 @@
-import { purchase, purchaseBlocker } from './game-state.js';
+import { purchase, purchaseBlocker } from './gameState.js';
 
 // idle → approaching (camera moves to the reader) → ready → approved (card swiped, charged once).
 export function createPayment() {

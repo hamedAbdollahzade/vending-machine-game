@@ -196,12 +196,11 @@ export function createFamily({ robot: robotOnly = false } = {}) {
       1.59 * scale,
       0,
     ]);
-    const seam = shape(
-      torso,
-      new THREE.BoxGeometry(0.014 * scale, 0.5 * scale, 0.014 * scale),
-      mat('#bda77f'),
-      [0, 1.2 * scale, 0.19 * scale],
-    );
+    shape(torso, new THREE.BoxGeometry(0.014 * scale, 0.5 * scale, 0.014 * scale), mat('#bda77f'), [
+      0,
+      1.2 * scale,
+      0.19 * scale,
+    ]);
     for (const side of [-1, 1]) {
       const collar = shape(
         torso,
@@ -374,7 +373,7 @@ export function createFamily({ robot: robotOnly = false } = {}) {
       );
     // With characters facing +X, father's left and child's right hands meet.
     const contact = new THREE.Vector3(0, 1.06, 0);
-    actors.forEach((actor, index) =>
+    actors.forEach((actor) =>
       actor.arms.forEach((arm, i) => {
         const side = i === 0 ? -1 : 1,
           inside = actor === father ? side === -1 : actor === child && side === 1;

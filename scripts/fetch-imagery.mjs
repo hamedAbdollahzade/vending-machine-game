@@ -10,9 +10,9 @@
 // Imagery: Esri, Maxar, Earthstar Geographics, and the GIS User Community. Commercial use and
 // hosting copies require a suitable Esri licence; check Esri's terms for your use.
 import {readFileSync, writeFileSync, mkdirSync, existsSync} from 'node:fs';
-import {toLatLon} from '../src/geo.js';
-import {buildGraph, routeBetween} from '../src/routing.js';
-import {FACTORY, machineById} from '../src/locations.js';
+import {toLatLon} from '../src/utils/geo.js';
+import {buildGraph, routeBetween} from '../src/game/world/routing.js';
+import {FACTORY, machineById} from '../src/constants/locations.js';
 
 const URL_TEMPLATE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 const OUT = new URL('../public/imagery/', import.meta.url);

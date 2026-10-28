@@ -1,13 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { toLocal, toLatLon, bearing, ORIGIN } from '../src/geo.js';
-import { createCollisionWorld, resolveCircle, blocked, clearFraction } from '../src/collision.js';
-import { buildGraph, routeBetween, nearestSegment, buildSegmentIndex } from '../src/routing.js';
-import { createCar, stepCar } from '../src/vehicle.js';
-import { createTraffic } from '../src/traffic.js';
+import { toLocal, toLatLon, bearing, ORIGIN } from '../src/utils/geo.js';
+import {
+  createCollisionWorld,
+  resolveCircle,
+  blocked,
+  clearFraction,
+} from '../src/game/world/collision.js';
+import {
+  buildGraph,
+  routeBetween,
+  nearestSegment,
+  buildSegmentIndex,
+} from '../src/game/world/routing.js';
+import { createCar, stepCar } from '../src/game/systems/vehicle.js';
+import { createTraffic } from '../src/game/systems/traffic.js';
 import { Scene } from 'three';
-import { machines, machineById, FACTORY } from '../src/locations.js';
+import { machines, machineById, FACTORY } from '../src/constants/locations.js';
 
 const data = JSON.parse(readFileSync(new URL('../src/data/mellat.json', import.meta.url)));
 
@@ -80,7 +90,7 @@ test('Traffic drives with the flow on one-way carriageways and stays inside them
 });
 
 test('Microsoft buildings decode into the world, stay clear of the factory and leave machines reachable', async () => {
-  const { decodeBuildings } = await import('../src/buildings-data.js');
+  const { decodeBuildings } = await import('../src/game/world/buildingsData.js');
   const file = readFileSync(new URL('../public/data/buildings.bin', import.meta.url));
   const buildings = decodeBuildings(
     file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength),
@@ -106,7 +116,7 @@ test('Microsoft buildings decode into the world, stay clear of the factory and l
 });
 
 test('Satellite tiles land where the map is: a tile over Park Mellat covers the park', async () => {
-  const { tileCorners } = await import('../src/imagery.js');
+  const { tileCorners } = await import('../src/game/world/imagery.js');
   const index = JSON.parse(readFileSync(new URL('../public/imagery/index.json', import.meta.url)));
   assert.ok(index[17].length > 100 && index[15].length > 100);
   const park = toLocal(36.32092, 59.53744),

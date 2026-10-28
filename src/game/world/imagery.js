@@ -1,6 +1,6 @@
-import { loadTileUrl } from './services/worldService.js';
+import { loadTileUrl } from '../../services/worldService.js';
 import * as THREE from 'three';
-import { toLocal } from './geo.js';
+import { toLocal } from '../../utils/geo.js';
 
 // Satellite ground: Esri World Imagery tiles (public/imagery, see scripts/fetch-imagery.mjs) laid on
 // the ground as textured quads. Detailed zoom-17 tiles load near the camera, zoom-15 tiles further
@@ -41,6 +41,8 @@ export function createImagery(
     }),
   }));
   let loads = 0;
+  let disposed = false;
+  const controller = new AbortController();
 
   async function show(level, tile) {
     if (tile.mesh || tile.loading || loads >= 6) return;
@@ -48,7 +50,10 @@ export function createImagery(
     loads++;
     let tileUrl;
     try {
-      tileUrl = await loadTileUrl(`${baseUrl}${level.z}/${tile.x}/${tile.y}.jpg`);
+      tileUrl = await loadTileUrl(
+        `${baseUrl}${level.z}/${tile.x}/${tile.y}.jpg`,
+        controller.signal,
+      );
     } catch {
       loads--;
       tile.loading = false;
@@ -61,6 +66,10 @@ export function createImagery(
         URL.revokeObjectURL(tileUrl);
         loads--;
         tile.loading = false;
+        if (disposed) {
+          texture.dispose();
+          return;
+        }
         texture.colorSpace = THREE.SRGBColorSpace;
         // Sharp at the low angles a driver sees the road from.
         texture.anisotropy = anisotropy;
@@ -109,6 +118,11 @@ export function createImagery(
   let last = null;
   return {
     group,
+    dispose() {
+      disposed = true;
+      controller.abort();
+      for (const level of levels) for (const tile of level.tiles) hide(tile);
+    },
     available: levels.some((level) => level.tiles.length),
     // Loads tiles in range of (x, z), nearest first, and releases ones well out of range.
     update(x, z) {

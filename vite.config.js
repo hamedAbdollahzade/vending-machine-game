@@ -1,3 +1,5 @@
+import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import { readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -63,7 +65,8 @@ self.addEventListener('fetch', event => {
 export default defineConfig({
   // Relative assets also load under a GitHub Pages repository path.
   base: './',
-  plugins: [offlineServiceWorker()],
+  resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  plugins: [react(), offlineServiceWorker()],
   // Top-level await loads the building and imagery files before the world is built.
   build: { target: 'es2022' },
   server: {

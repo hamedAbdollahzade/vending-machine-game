@@ -15,7 +15,7 @@
 //   poi:          nwr["railway"="station"](36.28,59.48,36.36,59.60);nwr["amenity"="university"](…);out center tags;
 // Map data © OpenStreetMap contributors (ODbL). Province outlines: Natural Earth (public domain).
 import {readFileSync, writeFileSync} from 'node:fs';
-import {ORIGIN, toLocal} from '../src/geo.js';
+import {ORIGIN, toLocal} from '../src/utils/geo.js';
 
 const args = {osm: []};
 for (let i = 2, key = null; i < process.argv.length; i++) {
