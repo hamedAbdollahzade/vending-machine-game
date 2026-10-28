@@ -178,10 +178,13 @@ function signedArea(pts) {
     return a / 2;
 }
 
-// The world is split into 2 km chunks; each chunk's meshes are hidden when they are out of view range.
-const CHUNK = 2000, VIEW_RANGE = 2400;
+// The world is split into 2 km chunks (buildings: 500 m blocks); meshes out of view range are hidden.
+const CHUNK = 2000, BLOCK = 500;
 
-export function createCity(scene, data, {collision, segments}) {
+// With satellite imagery the photo shows the real roads and land, so the drawn roads and areas are
+// left out; `extraBuildings` are footprints beyond OSM (Microsoft's, see buildings-data.js).
+export function createCity(scene, data, {collision, segments, extraBuildings = [], satellite = false, lowQuality = false}) {
+    const VIEW_RANGE = lowQuality ? 1500 : 2400;
     const tex = textures(), group = new THREE.Group();
     scene.add(group);
     const random = seeded(1405);
@@ -205,7 +208,7 @@ export function createCity(scene, data, {collision, segments}) {
     ground.receiveShadow = true;
     group.add(ground);
 
-    for (const area of data.areas) {
+    for (const area of satellite ? [] : data.areas) {
         const kind = data.areaKinds[area[0]];
         flatPolygon(bucket(`area:${kind}`, area[1], area[2], () => ({pos: [], idx: []})), area.slice(1), LAYER[kind][0]);
     }
@@ -213,7 +216,7 @@ export function createCity(scene, data, {collision, segments}) {
     for (const kind of data.areaKinds) areaMaterials[kind] = groundMaterial({color: AREA_COLOR[kind], roughness: kind === 'water' ? .25 : .95, metalness: kind === 'water' ? .2 : 0}, LAYER[kind][1]);
 
     const road = (name, x, z) => bucket(`road:${name}`, x, z, () => ({pos: [], uv: [], idx: []}));
-    for (const r of data.roads) {
+    for (const r of satellite ? [] : data.roads) {
         const type = data.roadTypes[r[0]], kind = BUCKET[type], pts = r.slice(2), width = WIDTH[type];
         ribbon(road(kind, pts[0], pts[1]), pts, width, LAYER[kind][0], kind === 'major' ? 9 : 8);
         if (r[0] <= DRIVABLE_MAX_TYPE) {
@@ -225,31 +228,58 @@ export function createCity(scene, data, {collision, segments}) {
     const roadMaterials = {};
     for (const kind of ['major', 'minor', 'paved', 'dirt', 'sidewalk']) roadMaterials[kind] = groundMaterial({map: tex[kind]}, LAYER[kind][1]);
 
-    // Buildings: textured walls with one window per 3.6 m bay and 3.2 m storey, flat roofs.
+    // Buildings: textured walls with one window per 3.6 m bay and 3.2 m storey, flat roofs. There are
+    // ~145,000 of them (OSM plus Microsoft footprints), so each 500 m block is built only when the
+    // camera first comes near it, one block per frame.
+    const wallMaterial = new THREE.MeshStandardMaterial({map: tex.walls, vertexColors: true, roughness: .85});
+    const roofMaterial = new THREE.MeshStandardMaterial({vertexColors: true, roughness: .9});
+    const blocks = new Map();
+    for (const building of [...data.buildings, ...extraBuildings]) {
+        const key = `${Math.floor(building[1] / BLOCK)},${Math.floor(building[2] / BLOCK)}`;
+        if (!blocks.has(key)) {
+            const [bx, bz] = key.split(',').map(Number);
+            blocks.set(key, {x: (bx + .5) * BLOCK, z: (bz + .5) * BLOCK, buildings: [], meshes: null});
+        }
+        blocks.get(key).buildings.push(building);
+    }
+    const pendingBlocks = [...blocks.values()];
+
+    function buildBlock(block) {
+        const walls = {pos: [], uv: [], col: [], idx: []}, roofs = {pos: [], col: [], idx: []};
+        for (const building of block.buildings) {
+            const height = building[0];
+            let pts = building.slice(1);
+            if (signedArea(pts) > 0) {
+                const reversed = [];
+                for (let i = pts.length - 2; i >= 0; i -= 2) reversed.push(pts[i], pts[i + 1]);
+                pts = reversed;
+            }
+            // Colour picked from the position, so a block looks the same every time it is built.
+            const shade = Math.abs(Math.sin(pts[0] * 12.9898 + pts[1] * 78.233) * 43758.5453) % 1;
+            const color = BUILDING_COLORS[Math.floor(shade * BUILDING_COLORS.length)].clone().multiplyScalar(.9 + (shade * 7 % 1) * .15);
+            let along = 0;
+            for (let i = 0; i < pts.length; i += 2) {
+                const j = (i + 2) % pts.length, ax = pts[i], az = pts[i + 1], bx = pts[j], bz = pts[j + 1];
+                const len = Math.hypot(bx - ax, bz - az), base = walls.pos.length / 3;
+                walls.pos.push(ax, 0, az, bx, 0, bz, bx, height, bz, ax, height, az);
+                walls.uv.push(along / 3.6, 0, (along + len) / 3.6, 0, (along + len) / 3.6, height / 3.2, along / 3.6, height / 3.2);
+                for (let k = 0; k < 4; k++) walls.col.push(color.r, color.g, color.b);
+                walls.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+                along += len;
+            }
+            flatPolygon(roofs, pts, height, 0, color.clone().multiplyScalar(.78));
+        }
+        block.meshes = [toMesh(walls, wallMaterial, 'compute'), toMesh(roofs, roofMaterial)];
+        for (const mesh of block.meshes) {
+            mesh.castShadow = true;
+            addChunked(mesh);
+        }
+    }
+
+    // Rooftop water tanks and air coolers, typical of Mashhad apartment blocks, on the OSM buildings.
     const tanks = [], units = [];
     for (const building of data.buildings) {
-        const walls = bucket('walls', building[1], building[2], () => ({pos: [], uv: [], col: [], idx: []}));
-        const roofs = bucket('roofs', building[1], building[2], () => ({pos: [], col: [], idx: []}));
-        const height = building[0];
-        let pts = building.slice(1);
-        if (signedArea(pts) > 0) {
-            const reversed = [];
-            for (let i = pts.length - 2; i >= 0; i -= 2) reversed.push(pts[i], pts[i + 1]);
-            pts = reversed;
-        }
-        const color = BUILDING_COLORS[Math.floor(random() * BUILDING_COLORS.length)].clone().multiplyScalar(.9 + random() * .15);
-        let along = 0;
-        for (let i = 0; i < pts.length; i += 2) {
-            const j = (i + 2) % pts.length, ax = pts[i], az = pts[i + 1], bx = pts[j], bz = pts[j + 1];
-            const len = Math.hypot(bx - ax, bz - az), base = walls.pos.length / 3;
-            walls.pos.push(ax, 0, az, bx, 0, bz, bx, height, bz, ax, height, az);
-            walls.uv.push(along / 3.6, 0, (along + len) / 3.6, 0, (along + len) / 3.6, height / 3.2, along / 3.6, height / 3.2);
-            for (let k = 0; k < 4; k++) walls.col.push(color.r, color.g, color.b);
-            walls.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
-            along += len;
-        }
-        flatPolygon(roofs, pts, height, 0, color.clone().multiplyScalar(.78));
-        // Rooftop water tanks and air coolers, typical of Mashhad apartment blocks.
+        const height = building[0], pts = building.slice(1);
         let cx = 0, cz = 0;
         for (let i = 0; i < pts.length; i += 2) {
             cx += pts[i];
@@ -261,14 +291,9 @@ export function createCity(scene, data, {collision, segments}) {
             (random() < .5 ? tanks : units).push([cx + (random() - .5) * 2, height, random() * Math.PI, cz + (random() - .5) * 2, 0]);
         }
     }
-    const wallMaterial = new THREE.MeshStandardMaterial({map: tex.walls, vertexColors: true, roughness: .85});
-    const roofMaterial = new THREE.MeshStandardMaterial({vertexColors: true, roughness: .9});
     for (const {name, out} of buckets.values()) {
         const [kind, sub] = name.split(':');
-        const mesh = addChunked(kind === 'area' ? toMesh(out, areaMaterials[sub])
-            : kind === 'road' ? toMesh(out, roadMaterials[sub])
-                : kind === 'walls' ? toMesh(out, wallMaterial, 'compute') : toMesh(out, roofMaterial));
-        mesh.castShadow = kind === 'walls' || kind === 'roofs';
+        addChunked(kind === 'area' ? toMesh(out, areaMaterials[sub]) : toMesh(out, roadMaterials[sub]));
     }
     const dummy = new THREE.Object3D();
     // One instanced mesh per chunk, so small props are culled with the rest of their chunk.
@@ -419,6 +444,20 @@ export function createCity(scene, data, {collision, segments}) {
         update(camera) {
             ground.position.set(camera.x, -.02, camera.z);
             ridge.position.set(camera.x, 0, camera.z);
+            // Build the nearest unbuilt block in range, one per frame to avoid stutter.
+            let next = null, nextDistance = VIEW_RANGE + BLOCK;
+            for (const block of pendingBlocks) {
+                const d = Math.hypot(block.x - camera.x, block.z - camera.z);
+                if (d < nextDistance) {
+                    next = block;
+                    nextDistance = d;
+                }
+            }
+            if (next) {
+                pendingBlocks.splice(pendingBlocks.indexOf(next), 1);
+                buildBlock(next);
+                lastCheck = null;
+            }
             if (lastCheck && Math.hypot(camera.x - lastCheck.x, camera.z - lastCheck.z) < 60) return;
             lastCheck = {x: camera.x, z: camera.z};
             for (const mesh of chunked) {

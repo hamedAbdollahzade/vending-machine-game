@@ -9,6 +9,8 @@ import {createArView} from './ar.js';
 import data from './data/mellat.json';
 import iran from './data/iran.json';
 import {createCity} from './city.js';
+import {createImagery} from './imagery.js';
+import {decodeBuildings} from './buildings-data.js';
 import {createCollisionWorld, addPolygon, resolveCircle, clearFraction} from './collision.js';
 import {buildGraph, routeBetween, buildSegmentIndex, nearestSegment, DRIVABLE_MAX_TYPE} from './routing.js';
 import {machines, CATEGORIES, START, CITY_START, FACTORY, lockedPlaces} from './locations.js';
@@ -71,7 +73,12 @@ sun.shadow.normalBias = .4;
 scene.add(sun, sun.target);
 
 // ---------- World data ----------
-const collision = createCollisionWorld(data.buildings.map(b => b.slice(1)));
+// Microsoft's building footprints and the satellite tile list are downloaded files, not bundled code.
+// The game still runs without them (OSM buildings and drawn roads).
+const loadFile = (path, read) => fetch(path).then(r => r.ok ? r[read]() : null).catch(() => null);
+const [buildingsFile, imageryIndex] = await Promise.all([loadFile('./data/buildings.bin', 'arrayBuffer'), loadFile('./imagery/index.json', 'json')]);
+const extraBuildings = buildingsFile ? decodeBuildings(buildingsFile) : [];
+const collision = createCollisionWorld([...data.buildings, ...extraBuildings].map(b => b.slice(1)));
 const segments = buildSegmentIndex(data.roads);
 const walkGraph = buildGraph(data.roads), driveGraph = buildGraph(data.roads, {drivable: true});
 const ROAD_HALF_WIDTH = [5.5, 5, 4.5, 4, 3.2, 3, 2.5, 2];
@@ -148,7 +155,9 @@ const closestStation = (x, z, radius) => activeStations()
     .map(s => ({s, d: Math.hypot(s.front.x - x, s.front.z - z)}))
     .filter(({d}) => d < radius).sort((a, b) => a.d - b.d)[0]?.s ?? null;
 
-const city = createCity(scene, data, {collision, segments});
+const imagery = createImagery(scene, imageryIndex ?? {}, {lowQuality: quality === 'low', anisotropy: Math.min(16, renderer.capabilities.getMaxAnisotropy())});
+const city = createCity(scene, data, {collision, segments, extraBuildings, satellite: imagery.available, lowQuality: quality === 'low'});
+if (imagery.available) $('#attribution').textContent += ` · تصویر ماهواره‌ای: ${imageryIndex.attribution}`;
 const traffic = createTraffic(scene, data, 28);
 const mapAssets = createMapAssets(data, [factory.label]);
 
@@ -946,7 +955,7 @@ function setRealMode(on) {
 // and the robot are drawn over the real street; with it off, the 3D city is shown first person.
 const arView = createArView($('#camera'));
 let arMode = false, stableMode = true;
-const hiddenInAr = () => [sky, city.group, factory.group, traffic.group, carModel.group, parkGate];
+const hiddenInAr = () => [sky, city.group, imagery.group, factory.group, traffic.group, carModel.group, parkGate];
 
 async function setArMode(on) {
     if (on && !arMode) {
@@ -1354,6 +1363,7 @@ function frame() {
     sun.target.position.set(player.x, 0, player.z);
     sky.position.copy(camera.position);
     city.update(camera.position);
+    if (!arMode) imagery.update(camera.position.x, camera.position.z);
     if (playing) {
         hudTimer -= dt;
         updateHUD(dt);

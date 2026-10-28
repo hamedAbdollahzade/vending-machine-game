@@ -66,3 +66,32 @@ test('Traffic drives with the flow on one-way carriageways and stays inside them
         assert.ok(Math.abs(car.lane) < car.road.width / 2, 'lane inside the carriageway');
     }
 });
+
+test('Microsoft buildings decode into the world, stay clear of the factory and leave machines reachable', async () => {
+    const {decodeBuildings} = await import('../src/buildings-data.js');
+    const file = readFileSync(new URL('../public/data/buildings.bin', import.meta.url));
+    const buildings = decodeBuildings(file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength));
+    assert.ok(buildings.length > 100000, `${buildings.length} buildings`);
+    const {minX, minZ, maxX, maxZ} = data.bounds;
+    for (const b of buildings) {
+        assert.ok(b[0] >= 3 && b[0] <= 30, `height ${b[0]}`);
+        assert.ok(b[1] >= minX - 150 && b[1] <= maxX + 150 && b[2] >= minZ - 150 && b[2] <= maxZ + 150, 'near the region');
+    }
+    const world = createCollisionWorld([...data.buildings, ...buildings].map(b => b.slice(1)));
+    assert.equal(blocked(world, FACTORY.center.x, FACTORY.center.z), false, 'factory compound is clear');
+    // Every city machine's path point is still outside buildings, so the family can stand there.
+    for (const m of machines.filter(m => m.anchor)) assert.equal(blocked(world, m.anchor.x, m.anchor.z), false, m.id);
+});
+
+test('Satellite tiles land where the map is: a tile over Park Mellat covers the park', async () => {
+    const {tileCorners} = await import('../src/imagery.js');
+    const index = JSON.parse(readFileSync(new URL('../public/imagery/index.json', import.meta.url)));
+    assert.ok(index[17].length > 100 && index[15].length > 100);
+    const park = toLocal(36.32092, 59.53744), z = 17;
+    const x = Math.floor((59.53744 + 180) / 360 * 2 ** z), y = Math.floor((1 - Math.asinh(Math.tan(36.32092 * Math.PI / 180)) / Math.PI) / 2 * 2 ** z);
+    assert.ok(index[17].includes(`${x}/${y}`), 'the Park Mellat tile was downloaded');
+    const [nw, ne, sw, se] = tileCorners(x, y, z);
+    assert.ok(nw.x < ne.x && nw.z < sw.z && se.x > sw.x, 'north-west corner is up-left in world space');
+    assert.ok(park.x >= nw.x && park.x <= se.x && park.z >= nw.z && park.z <= se.z, 'the park centre lies inside its tile');
+    assert.ok(Math.abs((ne.x - nw.x) - 247) < 5, 'a zoom-17 tile is ~247 m wide at Mashhad');
+});
