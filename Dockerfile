@@ -6,7 +6,7 @@ ARG NPM_REGISTRY=https://registry.npmjs.org/
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund --registry="$NPM_REGISTRY" --fetch-retries=3 --fetch-timeout=60000
 COPY . .
-RUN node --test tests/*.test.js && npm run build
+RUN npm run format:check && npm run lint && npm test && npm run build
 
 # Stage 2: serve dist/ with Caddy, which also obtains and renews the HTTPS certificate.
 FROM caddy:2.8.4-alpine
