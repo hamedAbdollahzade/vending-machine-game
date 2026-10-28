@@ -1,0 +1,47 @@
+/** Display-only machine prices in rial, independent of the consumable economy. */
+export const SHOWROOM_CATALOG = [
+  {
+    id: 'rm-35',
+    category: 'warm-vending',
+    name: 'روبات مارکت ۳۵ کانال',
+    shortLabel: '۳۵ کانال',
+    channels: 35,
+    priceLabel: '4,680,000,000 ریال',
+    priceNumeric: 4680000000,
+    description:
+      'یخچالدار، ۳۵ کانال اختصاصی، سیستم خنک‌کننده قدرتمند، تحویل نرم، مدیریت آنلاین ۲۴ ساعته.',
+    highlights: ['یخچالدار', '۳۵ کانال اختصاصی', 'تحویل نرم', 'مدیریت آنلاین ۲۴ ساعته'],
+    image: '/images/machine-35-base.webp',
+    imageAlt: '/images/machine-35-white.webp',
+    gif: '/gifs/machine-35.gif',
+  },
+  {
+    id: 'rm-48',
+    category: 'warm-vending',
+    name: 'روبات مارکت ۴۸ کانال',
+    shortLabel: '۴۸ کانال',
+    channels: 48,
+    priceLabel: '5,480,000,000 ریال',
+    priceNumeric: 5480000000,
+    description: 'یخچالدار، ۴۸ کانال اختصاصی، قابلیت‌های پیشرفته مدیریت آنلاین و تحویل کالا.',
+    highlights: ['یخچالدار', '۴۸ کانال اختصاصی', 'مدیریت آنلاین پیشرفته', 'تحویل هوشمند کالا'],
+    image: '/images/machine-48-base.webp',
+    imageAlt: '/images/machine-48-white.webp',
+    gif: '/gifs/machine-48.gif',
+  },
+  {
+    id: 'rm-60',
+    category: 'warm-vending',
+    name: 'روبات مارکت ۶۰ کانال',
+    shortLabel: '۶۰ کانال',
+    channels: 60,
+    priceLabel: '5,980,000,000 ریال',
+    priceNumeric: 5980000000,
+    description: 'یخچالدار، ۶۰ کانال اختصاصی برای کسب‌وکارهای پرتردد.',
+    highlights: ['یخچالدار', '۶۰ کانال اختصاصی', 'مناسب اماکن پرتردد', 'ظرفیت بالا'],
+    image: '/images/machine-60-base.webp',
+    imageAlt: '/images/machine-60-white.webp',
+    gif: '/gifs/machine-60.gif',
+  },
+];
+export const SHOWROOM_REACH = 4;

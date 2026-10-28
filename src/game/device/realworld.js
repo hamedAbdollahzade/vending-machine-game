@@ -6,8 +6,17 @@ import { toLocal } from '../../utils/geo.js';
 export const MAX_WALKING_SPEED = 6; // m/s (~22 km/h); faster means a vehicle, so buying pauses.
 
 // Blends a new fix into the previous estimate, trusting whichever is more accurate.
+/**
+ * Runs the smooth fix operation for this subsystem.
+ * @param {*} previous - previous.
+ * @param {*} fix - fix.
+ * @returns {*} Operation result, when applicable.
+ */
 export function smoothFix(previous, fix) {
-  if (!previous || fix.time - previous.time > 30000) return { ...fix };
+  if (!previous || fix.time - previous.time > 30000)
+    return {
+      ...fix,
+    };
   const weight = previous.accuracy ** 2 / (previous.accuracy ** 2 + fix.accuracy ** 2);
   const dt = Math.max(0.001, (fix.time - previous.time) / 1000);
   const x = previous.x + (fix.x - previous.x) * weight,
@@ -32,6 +41,11 @@ export function smoothFix(previous, fix) {
 //    dropped (after three in a row it is accepted: the phone really moved, e.g. got in a car);
 //  - the shown position stays put until the estimate drifts beyond about half the GPS error,
 //    or the phone reports walking speed. Without stable mode every smoothed fix is shown.
+/**
+ * Creates stabilizer resources for the game.
+ * @param {*} options - Operation options.
+ * @returns {*} Operation result, when applicable.
+ */
 export function createStabilizer({ maxSpeed = 3 } = {}) {
   let estimate = null,
     shown = null,
@@ -48,14 +62,20 @@ export function createStabilizer({ maxSpeed = 3 } = {}) {
           rejected < 3
         ) {
           rejected++;
-          return shown && { ...shown };
+          return (
+            shown && {
+              ...shown,
+            }
+          );
         }
       }
       rejected = 0;
       estimate = smoothFix(estimate, fix);
       const drift = shown ? Math.hypot(estimate.x - shown.x, estimate.z - shown.z) : Infinity;
       if (!this.stable || drift > Math.max(3, estimate.accuracy / 2) || (fix.speed ?? 0) > 0.7)
-        shown = { ...estimate };
+        shown = {
+          ...estimate,
+        };
       else
         shown = {
           ...shown,
@@ -63,21 +83,39 @@ export function createStabilizer({ maxSpeed = 3 } = {}) {
           time: estimate.time,
           speed: fix.speed ?? 0,
         };
-      return { ...shown };
+      return {
+        ...shown,
+      };
     },
   };
 }
 
 // How close counts as "at the machine": 2.5× the GPS error, between 20 m (good outdoor fix) and 50 m,
 // so reaching the area around a machine is enough.
+/**
+ * Runs the arrival radius operation for this subsystem.
+ * @param {*} accuracy - accuracy.
+ * @returns {*} Operation result, when applicable.
+ */
 export const arrivalRadius = (accuracy) => Math.min(50, Math.max(20, accuracy * 2.5));
-
+/**
+ * Runs the inside world operation for this subsystem.
+ * @param {*} bounds - bounds.
+ * @param {*} x - x.
+ * @param {*} z - z.
+ * @returns {*} Operation result, when applicable.
+ */
 export const insideWorld = (bounds, x, z) =>
   x > bounds.minX && x < bounds.maxX && z > bounds.minZ && z < bounds.maxZ;
 
 // Watches the phone's position and compass. Calls onFix({x, z, accuracy, speed, lat, lon}),
 // onHeading(radians in the game's heading convention), onError(message) for a real problem and
 // onStatus(message) while it is still searching. `stabilizer` filters the fixes (see above).
+/**
+ * Runs the start tracking operation for this subsystem.
+ * @param {*} options - Operation options.
+ * @returns {*} Operation result, when applicable.
+ */
 export function startTracking({
   onFix,
   onHeading,
@@ -94,6 +132,11 @@ export function startTracking({
     return () => {};
   }
   let fixes = 0;
+  /**
+   * Runs the handle operation for this subsystem.
+   * @param {*} position - position.
+   * @returns {*} Operation result, when applicable.
+   */
   const handle = (position) => {
     const { latitude: lat, longitude: lon, accuracy, speed } = position.coords,
       local = toLocal(lat, lon);
@@ -104,8 +147,18 @@ export function startTracking({
       time: position.timestamp,
     });
     fixes++;
-    if (shown) onFix({ ...shown, lat, lon });
+    if (shown)
+      onFix({
+        ...shown,
+        lat,
+        lon,
+      });
   };
+  /**
+   * Runs the fail operation for this subsystem.
+   * @param {*} error - error.
+   * @returns {*} Operation result, when applicable.
+   */
   const fail = (error) => {
     if (error.code === error.PERMISSION_DENIED)
       onError(
@@ -131,6 +184,11 @@ export function startTracking({
     timeout: 30000,
   });
   // Compass: iOS reports webkitCompassHeading; Android reports absolute alpha (counter-clockwise).
+  /**
+   * Runs the orientation operation for this subsystem.
+   * @param {*} event - event.
+   * @returns {*} Operation result, when applicable.
+   */
   const orientation = (event) => {
     const compass =
       event.webkitCompassHeading ??
@@ -148,6 +206,11 @@ export function startTracking({
 }
 
 // iOS needs an explicit permission prompt for the compass, and it must come from a tap.
+/**
+ * Runs the request compass operation for this subsystem.
+
+ * @returns {*} Operation result, when applicable.
+ */
 export async function requestCompass() {
   try {
     if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission)

@@ -1,7 +1,13 @@
 import { createSlice } from '@reduxjs/toolkit';
 const gameSlice = createSlice({
   name: 'game',
-  initialState: { balance: 500, xp: 0, purchases: [], missionsDone: [], minutes: 510 },
+  initialState: {
+    balance: 500,
+    xp: 0,
+    purchases: [],
+    missionsDone: [],
+    minutes: 510,
+  },
   reducers: {
     publishProgress(_state, action) {
       return action.payload;

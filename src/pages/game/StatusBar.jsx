@@ -1,5 +1,4 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
-import { ViewLists } from './ViewLists.jsx';
 /** @typedef {{nodes:object,actions:object}} StatusBarProps */
 /** Presents the StatusBar using the current interface snapshot. */
 export function StatusBar({ nodes }) {

@@ -1,5 +1,4 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
-import { ViewLists } from './ViewLists.jsx';
 /** @typedef {{nodes:object,actions:object}} MachineDetailsProps */
 /** Presents the MachineDetails using the current interface snapshot. */
 export function MachineDetails({ nodes, actions }) {

@@ -1,10 +1,19 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
-import { ViewLists } from './ViewLists.jsx';
 /** @typedef {{nodes:object,actions:object}} GameToolbarProps */
 /** Presents the GameToolbar using the current interface snapshot. */
 export function GameToolbar({ nodes, actions }) {
   return (
     <GameNode as="div" id="toolbar" model={nodes['toolbar']}>
+      <GameNode
+        as="button"
+        id="showroom-open"
+        type="button"
+        hidden
+        model={nodes['showroom-open']}
+        onAction={() => actions.emit('showroom-open')}
+      >
+        مدل‌های کارخانه · Q
+      </GameNode>
       <GameNode
         as="button"
         id="gps-toggle"

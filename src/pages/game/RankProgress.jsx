@@ -1,5 +1,4 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
-import { ViewLists } from './ViewLists.jsx';
 /** @typedef {{nodes:object,actions:object}} RankProgressProps */
 /** Presents the RankProgress using the current interface snapshot. */
 export function RankProgress({ nodes }) {

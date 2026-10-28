@@ -10,6 +10,11 @@ export function useGameEngine(root, bridge) {
   const disposeRef = useRef(null);
   useEffect(() => {
     const controller = new AbortController();
+    /**
+     * Runs the start operation for this subsystem.
+
+     * @returns {*} Operation result, when applicable.
+     */
     async function start() {
       try {
         const { createGame } = await import('@/game/createGame.js');
@@ -22,7 +27,10 @@ export function useGameEngine(root, bridge) {
         if (controller.signal.aborted) dispose();
         else disposeRef.current = dispose;
       } catch (problem) {
-        if (!controller.signal.aborted) setError(problem.message);
+        if (!controller.signal.aborted) {
+          setError(problem.message);
+          controller.abort();
+        }
       }
     }
     start();
@@ -33,5 +41,7 @@ export function useGameEngine(root, bridge) {
       disposeRef.current = null;
     };
   }, [root, bridge]);
-  return { error };
+  return {
+    error,
+  };
 }

@@ -70,7 +70,14 @@ const BUILDING_COLORS = [
   '#d2b48f',
   '#b7957a',
 ].map((c) => new THREE.Color(c));
-
+/**
+ * Runs the canvas texture operation for this subsystem.
+ * @param {*} width - width.
+ * @param {*} height - height.
+ * @param {*} draw - draw.
+ * @param {*} repeat - repeat.
+ * @returns {*} Operation result, when applicable.
+ */
 function canvasTexture(width, height, draw, repeat = true) {
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -82,7 +89,16 @@ function canvasTexture(width, height, draw, repeat = true) {
   texture.anisotropy = 8;
   return texture;
 }
-
+/**
+ * Runs the noise operation for this subsystem.
+ * @param {*} c - c.
+ * @param {*} w - w.
+ * @param {*} h - h.
+ * @param {*} base - base.
+ * @param {*} spread - spread.
+ * @param {*} count - count.
+ * @returns {*} Operation result, when applicable.
+ */
 function noise(c, w, h, base, spread, count) {
   c.fillStyle = base;
   c.fillRect(0, 0, w, h);
@@ -92,7 +108,11 @@ function noise(c, w, h, base, spread, count) {
     c.fillRect(Math.random() * w, Math.random() * h, 2, 2);
   }
 }
+/**
+ * Runs the textures operation for this subsystem.
 
+ * @returns {*} Operation result, when applicable.
+ */
 const textures = () => ({
   major: canvasTexture(128, 256, (c, w, h) => {
     noise(c, w, h, '#4a4d50', 0.12, 1800);
@@ -140,6 +160,15 @@ const textures = () => ({
 });
 
 // Pushes a strip of quads along a polyline into a geometry buffer.
+/**
+ * Runs the ribbon operation for this subsystem.
+ * @param {*} out - out.
+ * @param {*} pts - pts.
+ * @param {*} width - width.
+ * @param {*} y - y.
+ * @param {*} repeat - repeat.
+ * @returns {*} Operation result, when applicable.
+ */
 function ribbon(out, pts, width, y, repeat) {
   const n = pts.length / 2;
   if (n < 2) return;
@@ -150,6 +179,12 @@ function ribbon(out, pts, width, y, repeat) {
     const x = pts[i * 2],
       z = pts[i * 2 + 1];
     if (i) along += Math.hypot(x - pts[i * 2 - 2], z - pts[i * 2 - 1]);
+    /**
+     * Runs the seg operation for this subsystem.
+     * @param {*} a - a.
+     * @param {*} b - b.
+     * @returns {*} Operation result, when applicable.
+     */
     const seg = (a, b) => {
       const dx = pts[b * 2] - pts[a * 2],
         dz = pts[b * 2 + 1] - pts[a * 2 + 1],
@@ -173,7 +208,15 @@ function ribbon(out, pts, width, y, repeat) {
     }
   }
 }
-
+/**
+ * Runs the disc operation for this subsystem.
+ * @param {*} out - out.
+ * @param {*} x - x.
+ * @param {*} z - z.
+ * @param {*} radius - radius.
+ * @param {*} y - y.
+ * @returns {*} Operation result, when applicable.
+ */
 function disc(out, x, z, radius, y) {
   const base = out.pos.length / 3;
   out.pos.push(x, y, z);
@@ -185,7 +228,11 @@ function disc(out, x, z, radius, y) {
     if (i) out.idx.push(base, base + i + 1, base + i);
   }
 }
-
+/**
+ * Runs the polygon triangles operation for this subsystem.
+ * @param {*} pts - pts.
+ * @returns {*} Operation result, when applicable.
+ */
 function polygonTriangles(pts) {
   const contour = [];
   for (let i = 0; i < pts.length; i += 2) contour.push(new THREE.Vector2(pts[i], pts[i + 1]));
@@ -197,6 +244,15 @@ function polygonTriangles(pts) {
 }
 
 // Flat polygon facing up; triangles are flipped where needed so normals point to the sky.
+/**
+ * Runs the flat polygon operation for this subsystem.
+ * @param {*} out - out.
+ * @param {*} pts - pts.
+ * @param {*} y - y.
+ * @param {*} uvScale - uv Scale.
+ * @param {*} color - color.
+ * @returns {*} Operation result, when applicable.
+ */
 function flatPolygon(out, pts, y, uvScale = 0, color = null) {
   const base = out.pos.length / 3;
   for (let i = 0; i < pts.length; i += 2) {
@@ -211,7 +267,13 @@ function flatPolygon(out, pts, y, uvScale = 0, color = null) {
     out.idx.push(base + a, ...(cross >= 0 ? [base + b, base + c] : [base + c, base + b]));
   }
 }
-
+/**
+ * Runs the to mesh operation for this subsystem.
+ * @param {*} out - out.
+ * @param {*} material - material.
+ * @param {*} normals - normals.
+ * @returns {*} Operation result, when applicable.
+ */
 function toMesh(out, material, normals = 'up') {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(out.pos, 3));
@@ -232,7 +294,12 @@ function toMesh(out, material, normals = 'up') {
   mesh.receiveShadow = true;
   return mesh;
 }
-
+/**
+ * Runs the ground material operation for this subsystem.
+ * @param {*} options - options.
+ * @param {*} layer - layer.
+ * @returns {*} Operation result, when applicable.
+ */
 const groundMaterial = (options, layer) =>
   new THREE.MeshStandardMaterial({
     roughness: 0.95,
@@ -241,14 +308,22 @@ const groundMaterial = (options, layer) =>
     polygonOffsetFactor: -layer,
     polygonOffsetUnits: -layer * 2,
   });
-
+/**
+ * Runs the seeded operation for this subsystem.
+ * @param {*} seed - seed.
+ * @returns {*} Operation result, when applicable.
+ */
 function seeded(seed) {
   return () => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     return seed / 4294967296;
   };
 }
-
+/**
+ * Runs the signed area operation for this subsystem.
+ * @param {*} pts - pts.
+ * @returns {*} Operation result, when applicable.
+ */
 function signedArea(pts) {
   let a = 0;
   for (let i = 0; i < pts.length; i += 2) {
@@ -264,51 +339,160 @@ const CHUNK = 2000,
 
 // With satellite imagery the photo shows the real roads and land, so the drawn roads and areas are
 // left out; `extraBuildings` are footprints beyond OSM (Microsoft's, see buildings-data.js).
+/**
+ * Creates city resources for the game.
+ * @param {*} scene - scene.
+ * @param {*} data - data.
+ * @param {*} options2 - Operation options.
+ * @returns {*} Operation result, when applicable.
+ */
 export function createCity(
   scene,
   data,
   { collision, segments, extraBuildings = [], satellite = false, lowQuality = false },
 ) {
-  const VIEW_RANGE = lowQuality ? 1500 : 2400;
-  const tex = textures(),
-    group = new THREE.Group();
-  scene.add(group);
-  const random = seeded(1405);
-  const chunked = [],
-    buckets = new Map();
-  const bucket = (name, x, z, make) => {
-    const key = `${name}|${Math.floor(x / CHUNK)},${Math.floor(z / CHUNK)}`;
-    if (!buckets.has(key)) buckets.set(key, { name, out: make() });
-    return buckets.get(key).out;
+  const build = {
+    scene,
+    data,
+    collision,
+    segments,
+    extraBuildings,
+    satellite,
+    lowQuality,
   };
-  const addChunked = (mesh) => {
+  for (const [name, method] of Object.entries(CITY_METHODS))
+    build[name] = (...args) => method(build, ...args);
+  for (const initialize of CITY_STEPS) initialize(build);
+  return build.result;
+}
+/**
+ * Runs the city build block operation for this subsystem.
+ * @param {*} build - build.
+ * @param {*} block - block.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildBlock(build, block) {
+  const walls = {
+      pos: [],
+      uv: [],
+      col: [],
+      idx: [],
+    },
+    roofs = {
+      pos: [],
+      col: [],
+      idx: [],
+    };
+  for (const building of block.buildings) {
+    const height = building[0];
+    let pts = building.slice(1);
+    if (signedArea(pts) > 0) {
+      const reversed = [];
+      for (let i = pts.length - 2; i >= 0; i -= 2) reversed.push(pts[i], pts[i + 1]);
+      pts = reversed;
+    }
+    // Colour picked from the position, so a block looks the same every time it is built.
+    const shade = Math.abs(Math.sin(pts[0] * 12.9898 + pts[1] * 78.233) * 43758.5453) % 1;
+    const color = BUILDING_COLORS[Math.floor(shade * BUILDING_COLORS.length)]
+      .clone()
+      .multiplyScalar(0.9 + ((shade * 7) % 1) * 0.15);
+    let along = 0;
+    for (let i = 0; i < pts.length; i += 2) {
+      const j = (i + 2) % pts.length,
+        ax = pts[i],
+        az = pts[i + 1],
+        bx = pts[j],
+        bz = pts[j + 1];
+      const len = Math.hypot(bx - ax, bz - az),
+        base = walls.pos.length / 3;
+      walls.pos.push(ax, 0, az, bx, 0, bz, bx, height, bz, ax, height, az);
+      walls.uv.push(
+        along / 3.6,
+        0,
+        (along + len) / 3.6,
+        0,
+        (along + len) / 3.6,
+        height / 3.2,
+        along / 3.6,
+        height / 3.2,
+      );
+      for (let k = 0; k < 4; k++) walls.col.push(color.r, color.g, color.b);
+      walls.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      along += len;
+    }
+    flatPolygon(roofs, pts, height, 0, color.clone().multiplyScalar(0.78));
+  }
+  block.meshes = [toMesh(walls, build.wallMaterial, 'compute'), toMesh(roofs, build.roofMaterial)];
+  for (const mesh of block.meshes) {
+    mesh.castShadow = true;
+    build.addChunked(mesh);
+  }
+}
+
+// Rooftop water tanks and air coolers, typical of Mashhad apartment blocks, on the OSM buildings.
+/**
+ * Runs the city build view_range operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildVIEW_RANGE(build) {
+  build.VIEW_RANGE = build.lowQuality ? 1500 : 2400;
+  build.tex = textures();
+  build.group = new THREE.Group();
+  build.scene.add(build.group);
+  build.random = seeded(1405);
+  build.chunked = [];
+  build.buckets = new Map();
+  build.bucket = (name, x, z, make) => {
+    const key = `${name}|${Math.floor(x / CHUNK)},${Math.floor(z / CHUNK)}`;
+    if (!build.buckets.has(key))
+      build.buckets.set(key, {
+        name,
+        out: make(),
+      });
+    return build.buckets.get(key).out;
+  };
+  build.addChunked = (mesh) => {
     mesh.geometry.computeBoundingSphere();
-    chunked.push(mesh);
-    group.add(mesh);
+    build.chunked.push(mesh);
+    build.group.add(mesh);
     return mesh;
   };
-
+}
+/**
+ * Runs the city build ground operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildGround(build) {
   // Open ground that follows the camera, so the horizon never shows an edge.
-  const ground = new THREE.Mesh(
+  build.ground = new THREE.Mesh(
     new THREE.PlaneGeometry(14000, 14000),
-    groundMaterial({ color: '#c6baa0' }, 0),
+    groundMaterial(
+      {
+        color: '#c6baa0',
+      },
+      0,
+    ),
   );
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.y = -0.02;
-  ground.receiveShadow = true;
-  group.add(ground);
-
-  for (const area of satellite ? [] : data.areas) {
-    const kind = data.areaKinds[area[0]];
+  build.ground.rotation.x = -Math.PI / 2;
+  build.ground.position.y = -0.02;
+  build.ground.receiveShadow = true;
+  build.group.add(build.ground);
+  for (const area of build.satellite ? [] : build.data.areas) {
+    const kind = build.data.areaKinds[area[0]];
     flatPolygon(
-      bucket(`area:${kind}`, area[1], area[2], () => ({ pos: [], idx: [] })),
+      build.bucket(`area:${kind}`, area[1], area[2], () => ({
+        pos: [],
+        idx: [],
+      })),
       area.slice(1),
       LAYER[kind][0],
     );
   }
-  const areaMaterials = {};
-  for (const kind of data.areaKinds)
-    areaMaterials[kind] = groundMaterial(
+  build.areaMaterials = {};
+  for (const kind of build.data.areaKinds)
+    build.areaMaterials[kind] = groundMaterial(
       {
         color: AREA_COLOR[kind],
         roughness: kind === 'water' ? 0.25 : 0.95,
@@ -316,103 +500,92 @@ export function createCity(
       },
       LAYER[kind][1],
     );
-
-  const road = (name, x, z) => bucket(`road:${name}`, x, z, () => ({ pos: [], uv: [], idx: [] }));
-  for (const r of satellite ? [] : data.roads) {
-    const type = data.roadTypes[r[0]],
+}
+/**
+ * Runs the city build road operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildRoad(build) {
+  build.road = (name, x, z) =>
+    build.bucket(`road:${name}`, x, z, () => ({
+      pos: [],
+      uv: [],
+      idx: [],
+    }));
+  for (const r of build.satellite ? [] : build.data.roads) {
+    const type = build.data.roadTypes[r[0]],
       kind = BUCKET[type],
       pts = r.slice(2),
       width = WIDTH[type];
-    ribbon(road(kind, pts[0], pts[1]), pts, width, LAYER[kind][0], kind === 'major' ? 9 : 8);
+    ribbon(build.road(kind, pts[0], pts[1]), pts, width, LAYER[kind][0], kind === 'major' ? 9 : 8);
     if (r[0] <= DRIVABLE_MAX_TYPE) {
       if (type !== 'service')
-        ribbon(road('sidewalk', pts[0], pts[1]), pts, width + 4, LAYER.sidewalk[0], 6);
-      disc(road(kind, pts[0], pts[1]), pts[0], pts[1], width / 2, LAYER[kind][0]);
-      disc(road(kind, pts[0], pts[1]), pts.at(-2), pts.at(-1), width / 2, LAYER[kind][0]);
+        ribbon(build.road('sidewalk', pts[0], pts[1]), pts, width + 4, LAYER.sidewalk[0], 6);
+      disc(build.road(kind, pts[0], pts[1]), pts[0], pts[1], width / 2, LAYER[kind][0]);
+      disc(build.road(kind, pts[0], pts[1]), pts.at(-2), pts.at(-1), width / 2, LAYER[kind][0]);
     }
   }
-  const roadMaterials = {};
+  build.roadMaterials = {};
+}
+/**
+ * Runs the city build geometry operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildGeometry(build) {
   for (const kind of ['major', 'minor', 'paved', 'dirt', 'sidewalk'])
-    roadMaterials[kind] = groundMaterial({ map: tex[kind] }, LAYER[kind][1]);
+    build.roadMaterials[kind] = groundMaterial(
+      {
+        map: build.tex[kind],
+      },
+      LAYER[kind][1],
+    );
 
   // Buildings: textured walls with one window per 3.6 m bay and 3.2 m storey, flat roofs. There are
   // ~145,000 of them (OSM plus Microsoft footprints), so each 500 m block is built only when the
   // camera first comes near it, one block per frame.
-  const wallMaterial = new THREE.MeshStandardMaterial({
-    map: tex.walls,
+  build.wallMaterial = new THREE.MeshStandardMaterial({
+    map: build.tex.walls,
     vertexColors: true,
     roughness: 0.85,
   });
-  const roofMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
-  const blocks = new Map();
-  for (const building of [...data.buildings, ...extraBuildings]) {
+  build.roofMaterial = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.9,
+  });
+  build.blocks = new Map();
+}
+/**
+ * Runs the city build geometry2 operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildGeometry2(build) {
+  for (const building of [...build.data.buildings, ...build.extraBuildings]) {
     const key = `${Math.floor(building[1] / BLOCK)},${Math.floor(building[2] / BLOCK)}`;
-    if (!blocks.has(key)) {
+    if (!build.blocks.has(key)) {
       const [bx, bz] = key.split(',').map(Number);
-      blocks.set(key, {
+      build.blocks.set(key, {
         x: (bx + 0.5) * BLOCK,
         z: (bz + 0.5) * BLOCK,
         buildings: [],
         meshes: null,
       });
     }
-    blocks.get(key).buildings.push(building);
+    build.blocks.get(key).buildings.push(building);
   }
-  const pendingBlocks = [...blocks.values()];
-
-  function buildBlock(block) {
-    const walls = { pos: [], uv: [], col: [], idx: [] },
-      roofs = { pos: [], col: [], idx: [] };
-    for (const building of block.buildings) {
-      const height = building[0];
-      let pts = building.slice(1);
-      if (signedArea(pts) > 0) {
-        const reversed = [];
-        for (let i = pts.length - 2; i >= 0; i -= 2) reversed.push(pts[i], pts[i + 1]);
-        pts = reversed;
-      }
-      // Colour picked from the position, so a block looks the same every time it is built.
-      const shade = Math.abs(Math.sin(pts[0] * 12.9898 + pts[1] * 78.233) * 43758.5453) % 1;
-      const color = BUILDING_COLORS[Math.floor(shade * BUILDING_COLORS.length)]
-        .clone()
-        .multiplyScalar(0.9 + ((shade * 7) % 1) * 0.15);
-      let along = 0;
-      for (let i = 0; i < pts.length; i += 2) {
-        const j = (i + 2) % pts.length,
-          ax = pts[i],
-          az = pts[i + 1],
-          bx = pts[j],
-          bz = pts[j + 1];
-        const len = Math.hypot(bx - ax, bz - az),
-          base = walls.pos.length / 3;
-        walls.pos.push(ax, 0, az, bx, 0, bz, bx, height, bz, ax, height, az);
-        walls.uv.push(
-          along / 3.6,
-          0,
-          (along + len) / 3.6,
-          0,
-          (along + len) / 3.6,
-          height / 3.2,
-          along / 3.6,
-          height / 3.2,
-        );
-        for (let k = 0; k < 4; k++) walls.col.push(color.r, color.g, color.b);
-        walls.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
-        along += len;
-      }
-      flatPolygon(roofs, pts, height, 0, color.clone().multiplyScalar(0.78));
-    }
-    block.meshes = [toMesh(walls, wallMaterial, 'compute'), toMesh(roofs, roofMaterial)];
-    for (const mesh of block.meshes) {
-      mesh.castShadow = true;
-      addChunked(mesh);
-    }
-  }
-
-  // Rooftop water tanks and air coolers, typical of Mashhad apartment blocks, on the OSM buildings.
-  const tanks = [],
-    units = [];
-  for (const building of data.buildings) {
+  build.pendingBlocks = [...build.blocks.values()];
+  build.tanks = [];
+  build.units = [];
+}
+/**
+ * Runs the city build geometry3 operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildGeometry3(build) {
+  for (const building of build.data.buildings) {
     const height = building[0],
       pts = building.slice(1);
     let cx = 0,
@@ -423,24 +596,35 @@ export function createCity(
     }
     cx /= pts.length / 2;
     cz /= pts.length / 2;
-    if (insidePolygon(pts, cx, cz) && random() < 0.6) {
-      (random() < 0.5 ? tanks : units).push([
-        cx + (random() - 0.5) * 2,
+    if (insidePolygon(pts, cx, cz) && build.random() < 0.6) {
+      (build.random() < 0.5 ? build.tanks : build.units).push([
+        cx + (build.random() - 0.5) * 2,
         height,
-        random() * Math.PI,
-        cz + (random() - 0.5) * 2,
+        build.random() * Math.PI,
+        cz + (build.random() - 0.5) * 2,
         0,
       ]);
     }
   }
-  for (const { name, out } of buckets.values()) {
+  for (const { name, out } of build.buckets.values()) {
     const [kind, sub] = name.split(':');
-    addChunked(kind === 'area' ? toMesh(out, areaMaterials[sub]) : toMesh(out, roadMaterials[sub]));
+    build.addChunked(
+      kind === 'area'
+        ? toMesh(out, build.areaMaterials[sub])
+        : toMesh(out, build.roadMaterials[sub]),
+    );
   }
-  const dummy = new THREE.Object3D();
+  build.dummy = new THREE.Object3D();
+}
+/**
+ * Runs the city build instanced operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildInstanced(build) {
   // One instanced mesh per chunk, so small props are culled with the rest of their chunk.
   // Each item is an array whose first entry is x and second-to-last entry is z.
-  const instanced = (geometry, material, items, place) => {
+  build.instanced = (geometry, material, items, place) => {
     const byChunk = new Map();
     items.forEach((item, i) => {
       const key = `${Math.floor(item[0] / CHUNK)},${Math.floor(item.at(-2) / CHUNK)}`;
@@ -452,44 +636,66 @@ export function createCity(
       const mesh = new THREE.InstancedMesh(geometry, material, list.length);
       list.forEach(([item], i) => {
         place(item);
-        dummy.updateMatrix();
-        mesh.setMatrixAt(i, dummy.matrix);
+        build.dummy.updateMatrix();
+        mesh.setMatrixAt(i, build.dummy.matrix);
       });
       mesh.castShadow = mesh.receiveShadow = true;
       mesh.computeBoundingSphere();
       mesh.userData.items = list.map(([, i]) => i);
-      chunked.push(mesh);
-      group.add(mesh);
+      build.chunked.push(mesh);
+      build.group.add(mesh);
       meshes.push(mesh);
     }
     return meshes;
   };
-  instanced(
+}
+/**
+ * Runs the city build geometry4 operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildGeometry4(build) {
+  build.instanced(
     new THREE.CylinderGeometry(0.55, 0.55, 1.1, 10),
-    new THREE.MeshStandardMaterial({ color: '#d8d8d2', metalness: 0.4, roughness: 0.4 }),
-    tanks,
+    new THREE.MeshStandardMaterial({
+      color: '#d8d8d2',
+      metalness: 0.4,
+      roughness: 0.4,
+    }),
+    build.tanks,
     ([x, y, , z]) => {
-      dummy.position.set(x, y + 0.55, z);
-      dummy.rotation.set(0, 0, 0);
-      dummy.scale.setScalar(1);
+      build.dummy.position.set(x, y + 0.55, z);
+      build.dummy.rotation.set(0, 0, 0);
+      build.dummy.scale.setScalar(1);
     },
   );
-  instanced(
+  build.instanced(
     new THREE.BoxGeometry(1, 0.8, 0.9),
-    new THREE.MeshStandardMaterial({ color: '#a9aaa4', roughness: 0.6 }),
-    units,
+    new THREE.MeshStandardMaterial({
+      color: '#a9aaa4',
+      roughness: 0.6,
+    }),
+    build.units,
     ([x, y, r, z]) => {
-      dummy.position.set(x, y + 0.4, z);
-      dummy.rotation.set(0, r, 0);
-      dummy.scale.setScalar(1);
+      build.dummy.position.set(x, y + 0.4, z);
+      build.dummy.rotation.set(0, r, 0);
+      build.dummy.scale.setScalar(1);
     },
   );
 
   // Trees fill parks and line the boulevards, kept off paths and out of buildings.
-  const trees = [];
-  const freeSpot = (x, z) => !blocked(collision, x, z) && !nearestSegment(segments, x, z, 3);
-  for (const area of data.areas) {
-    const kind = data.areaKinds[area[0]];
+  build.trees = [];
+  build.freeSpot = (x, z) =>
+    !blocked(build.collision, x, z) && !nearestSegment(build.segments, x, z, 3);
+}
+/**
+ * Runs the city build geometry5 operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildGeometry5(build) {
+  for (const area of build.data.areas) {
+    const kind = build.data.areaKinds[area[0]];
     if (!['park', 'forest', 'grass'].includes(kind)) continue;
     const pts = area.slice(1),
       step = kind === 'grass' ? 16 : 10;
@@ -505,14 +711,21 @@ export function createCity(
     }
     for (let x = ax; x < bx; x += step)
       for (let z = az; z < bz; z += step) {
-        const tx = x + (random() - 0.5) * step * 0.8,
-          tz = z + (random() - 0.5) * step * 0.8;
-        if (insidePolygon(pts, tx, tz) && freeSpot(tx, tz))
-          trees.push([tx, 0.8 + random() * 0.6, tz, 0]);
+        const tx = x + (build.random() - 0.5) * step * 0.8,
+          tz = z + (build.random() - 0.5) * step * 0.8;
+        if (insidePolygon(pts, tx, tz) && build.freeSpot(tx, tz))
+          build.trees.push([tx, 0.8 + build.random() * 0.6, tz, 0]);
       }
   }
-  for (const road of data.roads) {
-    const type = data.roadTypes[road[0]];
+}
+/**
+ * Runs the city build geometry6 operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildGeometry6(build) {
+  for (const road of build.data.roads) {
+    const type = build.data.roadTypes[road[0]];
     if (road[0] > 3) continue;
     const offset = WIDTH[type] / 2 + 2.6;
     for (let i = 4; i < road.length; i += 2) {
@@ -521,52 +734,73 @@ export function createCity(
         dx = road[i] - ax,
         dz = road[i + 1] - az,
         len = Math.hypot(dx, dz);
-      for (let d = random() * 12; d < len; d += 12)
+      for (let d = build.random() * 12; d < len; d += 12)
         for (const side of [-1, 1]) {
           const tx = ax + (dx / len) * d - (dz / len) * offset * side,
             tz = az + (dz / len) * d + (dx / len) * offset * side;
           if (
-            !blocked(collision, tx, tz) &&
+            !blocked(build.collision, tx, tz) &&
             !nearestSegment(
-              segments,
+              build.segments,
               tx,
               tz,
               WIDTH[type] / 2 + 1.5,
               (s) => s[4] <= DRIVABLE_MAX_TYPE,
             )
           )
-            trees.push([tx, 0.7 + random() * 0.4, tz, 0]);
+            build.trees.push([tx, 0.7 + build.random() * 0.4, tz, 0]);
         }
     }
   }
-  instanced(
+}
+/**
+ * Runs the city build geometry7 operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildGeometry7(build) {
+  build.instanced(
     new THREE.CylinderGeometry(0.14, 0.22, 2.6, 5, 1, true),
-    new THREE.MeshStandardMaterial({ color: '#6a5039', roughness: 0.9 }),
-    trees,
+    new THREE.MeshStandardMaterial({
+      color: '#6a5039',
+      roughness: 0.9,
+    }),
+    build.trees,
     ([x, s, z]) => {
-      dummy.position.set(x, 1.3 * s, z);
-      dummy.rotation.set(0, 0, 0);
-      dummy.scale.setScalar(s);
+      build.dummy.position.set(x, 1.3 * s, z);
+      build.dummy.rotation.set(0, 0, 0);
+      build.dummy.scale.setScalar(s);
     },
   );
-  const crowns = instanced(
+  build.crowns = build.instanced(
     new THREE.IcosahedronGeometry(1.7, 0),
-    new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.85, flatShading: true }),
-    trees,
+    new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.85,
+      flatShading: true,
+    }),
+    build.trees,
     ([x, s, z]) => {
-      dummy.position.set(x, 3.4 * s, z);
-      dummy.rotation.set(0, (x * 13) % 6, 0);
-      dummy.scale.set(s, s * (1 + ((x * 7) % 1) * 0.3), s);
+      build.dummy.position.set(x, 3.4 * s, z);
+      build.dummy.rotation.set(0, (x * 13) % 6, 0);
+      build.dummy.scale.set(s, s * (1 + ((x * 7) % 1) * 0.3), s);
     },
   );
-  const crownColors = ['#4d7a3e', '#5f8a45', '#3f6b3a', '#6f9150'].map((c) => new THREE.Color(c));
-  for (const mesh of crowns)
+  build.crownColors = ['#4d7a3e', '#5f8a45', '#3f6b3a', '#6f9150'].map((c) => new THREE.Color(c));
+  for (const mesh of build.crowns)
     mesh.userData.items.forEach((tree, i) =>
-      mesh.setColorAt(i, crownColors[tree % crownColors.length]),
+      mesh.setColorAt(i, build.crownColors[tree % build.crownColors.length]),
     );
 
   // Metro station entrances with the Mashhad Urban Railway "M" sign.
-  const signTexture = canvasTexture(
+}
+/**
+ * Runs the city build sign texture operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildSignTexture(build) {
+  build.signTexture = canvasTexture(
     128,
     128,
     (c, w, h) => {
@@ -581,35 +815,61 @@ export function createCity(
     },
     false,
   );
-  const canopy = new THREE.MeshStandardMaterial({
+  build.canopy = new THREE.MeshStandardMaterial({
     color: '#59646b',
     metalness: 0.5,
     roughness: 0.4,
   });
-  const glass = new THREE.MeshStandardMaterial({
+  build.glass = new THREE.MeshStandardMaterial({
     color: '#9fc4cf',
     transparent: true,
     opacity: 0.45,
     roughness: 0.1,
   });
-  for (const label of data.labels.filter((l) => l.kind === 'metro')) {
+}
+/**
+ * Runs the city build geometry8 operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildGeometry8(build) {
+  for (const label of build.data.labels.filter((l) => l.kind === 'metro')) {
     const entrance = new THREE.Group();
     entrance.position.set(label.x, 0, label.z);
-    const road = nearestSegment(segments, label.x, label.z, 40, (s) => s[4] <= DRIVABLE_MAX_TYPE);
+    const road = nearestSegment(
+      build.segments,
+      label.x,
+      label.z,
+      40,
+      (s) => s[4] <= DRIVABLE_MAX_TYPE,
+    );
     if (road) entrance.rotation.y = Math.atan2(road.dx, road.dz);
+    /**
+     * Runs the box operation for this subsystem.
+     * @param {*} w - w.
+     * @param {*} h - h.
+     * @param {*} d - d.
+     * @param {*} m - m.
+     * @param {*} x - x.
+     * @param {*} y - y.
+     * @param {*} z - z.
+     * @returns {*} Operation result, when applicable.
+     */
     const box = (w, h, d, m, x, y, z) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
       mesh.position.set(x, y, z);
       mesh.castShadow = mesh.receiveShadow = true;
       entrance.add(mesh);
     };
-    box(4.4, 0.2, 7, canopy, 0, 3, 0);
-    box(0.15, 3, 7, glass, -2.1, 1.5, 0);
-    box(0.15, 3, 7, glass, 2.1, 1.5, 0);
-    box(0.25, 4.2, 0.25, canopy, 2.6, 2.1, 3.6);
+    box(4.4, 0.2, 7, build.canopy, 0, 3, 0);
+    box(0.15, 3, 7, build.glass, -2.1, 1.5, 0);
+    box(0.15, 3, 7, build.glass, 2.1, 1.5, 0);
+    box(0.25, 4.2, 0.25, build.canopy, 2.6, 2.1, 3.6);
     const sign = new THREE.Mesh(
       new THREE.CircleGeometry(0.6, 24),
-      new THREE.MeshBasicMaterial({ map: signTexture }),
+      new THREE.MeshBasicMaterial({
+        map: build.signTexture,
+      }),
     );
     sign.position.set(2.6, 4.4, 3.75);
     entrance.add(sign);
@@ -617,19 +877,33 @@ export function createCity(
     back.rotation.y = Math.PI;
     back.position.z = 3.45;
     entrance.add(back);
-    group.add(entrance);
+    build.group.add(entrance);
   }
 
   // A continuous ridge line around the horizon: the Binalood range high to the south-west,
   // the lower Hezar Masjed hills to the north-east. Hazy colours stand in for distance fog.
-  const ridgePos = [],
-    ridgeCol = [],
-    ridgeIdx = [],
-    segmentsAround = 240;
-  const foot = new THREE.Color('#cfc5b0'),
-    crest = new THREE.Color('#a39a8a');
-  for (let i = 0; i <= segmentsAround; i++) {
-    const a = (i / segmentsAround) * Math.PI * 2,
+}
+/**
+ * Runs the city build ridge pos operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildRidgePos(build) {
+  build.ridgePos = [];
+  build.ridgeCol = [];
+  build.ridgeIdx = [];
+  build.segmentsAround = 240;
+  build.foot = new THREE.Color('#cfc5b0');
+  build.crest = new THREE.Color('#a39a8a');
+}
+/**
+ * Runs the city build geometry9 operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildGeometry9(build) {
+  for (let i = 0; i <= build.segmentsAround; i++) {
+    const a = (i / build.segmentsAround) * Math.PI * 2,
       x = Math.cos(a),
       z = Math.sin(a);
     // South-west is −x (west) and +z (south); peaks grow with how far this direction points there.
@@ -637,33 +911,58 @@ export function createCity(
       rough = Math.sin(a * 7) * 0.5 + Math.sin(a * 17 + 1) * 0.3 + Math.sin(a * 41) * 0.15;
     const height = 90 + southWest ** 1.5 * 420 + rough * (60 + southWest * 120),
       r = 4300;
-    ridgePos.push(x * r, -20, z * r, x * r, height, z * r);
-    ridgeCol.push(foot.r, foot.g, foot.b, crest.r, crest.g, crest.b);
+    build.ridgePos.push(x * r, -20, z * r, x * r, height, z * r);
+    build.ridgeCol.push(
+      build.foot.r,
+      build.foot.g,
+      build.foot.b,
+      build.crest.r,
+      build.crest.g,
+      build.crest.b,
+    );
     if (i) {
       const b = (i - 1) * 2;
-      ridgeIdx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2);
+      build.ridgeIdx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2);
     }
   }
-  const ridgeGeometry = new THREE.BufferGeometry();
-  ridgeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(ridgePos, 3));
-  ridgeGeometry.setAttribute('color', new THREE.Float32BufferAttribute(ridgeCol, 3));
-  ridgeGeometry.setIndex(ridgeIdx);
-  const ridge = new THREE.Mesh(
-    ridgeGeometry,
-    new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, side: THREE.DoubleSide }),
+  build.ridgeGeometry = new THREE.BufferGeometry();
+  build.ridgeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(build.ridgePos, 3));
+  build.ridgeGeometry.setAttribute('color', new THREE.Float32BufferAttribute(build.ridgeCol, 3));
+  build.ridgeGeometry.setIndex(build.ridgeIdx);
+}
+/**
+ * Runs the city build ridge operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildRidge(build) {
+  build.ridge = new THREE.Mesh(
+    build.ridgeGeometry,
+    new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      fog: false,
+      side: THREE.DoubleSide,
+    }),
   );
-  group.add(ridge);
-  let lastCheck = null;
-  return {
-    group,
+  build.group.add(build.ridge);
+  build.lastCheck = null;
+}
+/**
+ * Runs the city build result operation for this subsystem.
+ * @param {*} build - build.
+ * @returns {*} Operation result, when applicable.
+ */
+function cityBuildResult(build) {
+  build.result = {
+    group: build.group,
     // Keeps the ground and horizon around the camera and shows only chunks within range.
     update(camera) {
-      ground.position.set(camera.x, -0.02, camera.z);
-      ridge.position.set(camera.x, 0, camera.z);
+      build.ground.position.set(camera.x, -0.02, camera.z);
+      build.ridge.position.set(camera.x, 0, camera.z);
       // Build the nearest unbuilt block in range, one per frame to avoid stutter.
       let next = null,
-        nextDistance = VIEW_RANGE + BLOCK;
-      for (const block of pendingBlocks) {
+        nextDistance = build.VIEW_RANGE + BLOCK;
+      for (const block of build.pendingBlocks) {
         const d = Math.hypot(block.x - camera.x, block.z - camera.z);
         if (d < nextDistance) {
           next = block;
@@ -671,18 +970,47 @@ export function createCity(
         }
       }
       if (next) {
-        pendingBlocks.splice(pendingBlocks.indexOf(next), 1);
-        buildBlock(next);
-        lastCheck = null;
+        build.pendingBlocks.splice(build.pendingBlocks.indexOf(next), 1);
+        build.buildBlock(next);
+        build.lastCheck = null;
       }
-      if (lastCheck && Math.hypot(camera.x - lastCheck.x, camera.z - lastCheck.z) < 60) return;
-      lastCheck = { x: camera.x, z: camera.z };
-      for (const mesh of chunked) {
+      if (
+        build.lastCheck &&
+        Math.hypot(camera.x - build.lastCheck.x, camera.z - build.lastCheck.z) < 60
+      )
+        return;
+      build.lastCheck = {
+        x: camera.x,
+        z: camera.z,
+      };
+      for (const mesh of build.chunked) {
         const sphere = mesh.boundingSphere ?? mesh.geometry.boundingSphere;
         mesh.visible =
           Math.hypot(sphere.center.x - camera.x, sphere.center.z - camera.z) - sphere.radius <
-          VIEW_RANGE;
+          build.VIEW_RANGE;
       }
     },
   };
 }
+const CITY_METHODS = {
+  buildBlock: cityBuildBlock,
+};
+const CITY_STEPS = [
+  cityBuildVIEW_RANGE,
+  cityBuildGround,
+  cityBuildRoad,
+  cityBuildGeometry,
+  cityBuildGeometry2,
+  cityBuildGeometry3,
+  cityBuildInstanced,
+  cityBuildGeometry4,
+  cityBuildGeometry5,
+  cityBuildGeometry6,
+  cityBuildGeometry7,
+  cityBuildSignTexture,
+  cityBuildGeometry8,
+  cityBuildRidgePos,
+  cityBuildGeometry9,
+  cityBuildRidge,
+  cityBuildResult,
+];

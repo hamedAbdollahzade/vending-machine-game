@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { catalog } from '../economy/gameState.js';
 import { textTexture } from './textures.js';
-
 const PRODUCT_COLORS = {
   juice: '#e5ae47',
   water: '#9fd3e6',
@@ -15,6 +14,12 @@ const PRODUCT_COLORS = {
 };
 
 // Sign panel; the shared helper redraws it once the Persian web font has loaded.
+/**
+ * Runs the label operation for this subsystem.
+ * @param {*} text - text.
+ * @param {*} sub - sub.
+ * @returns {*} Operation result, when applicable.
+ */
 const label = (text, sub) =>
   textTexture(512, 160, (c, width, height) => {
     c.fillStyle = '#0f2a2a';
@@ -32,10 +37,37 @@ const label = (text, sub) =>
   });
 
 // A Robot Market machine. Local +z is the front face; the group is placed facing the path.
+/**
+ * Creates vending machine resources for the game.
+ * @param {*} def - def.
+ * @returns {*} Operation result, when applicable.
+ */
 export function createVendingMachine(def) {
   const group = new THREE.Group();
+  /**
+   * Runs the mat operation for this subsystem.
+   * @param {*} color - color.
+   * @param {*} extra - extra.
+   * @returns {*} Operation result, when applicable.
+   */
   const mat = (color, extra = {}) =>
-    new THREE.MeshStandardMaterial({ color, roughness: 0.5, ...extra });
+    new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.5,
+      ...extra,
+    });
+  /**
+   * Runs the box operation for this subsystem.
+   * @param {*} w - w.
+   * @param {*} h - h.
+   * @param {*} d - d.
+   * @param {*} material - material.
+   * @param {*} x - x.
+   * @param {*} y - y.
+   * @param {*} z - z.
+   * @param {*} parent - parent.
+   * @returns {*} Operation result, when applicable.
+   */
   const box = (w, h, d, material, x, y, z, parent = group) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
     mesh.position.set(x, y, z);
@@ -49,9 +81,15 @@ export function createVendingMachine(def) {
       emissive: '#0b8f88',
       emissiveIntensity: 0.15,
     }),
-    white = mat('#eef5f3', { metalness: 0.2, roughness: 0.35 });
+    white = mat('#eef5f3', {
+      metalness: 0.2,
+      roughness: 0.35,
+    });
   const dark = mat('#13292b'),
-    steel = mat('#b7c1c0', { metalness: 0.8, roughness: 0.3 });
+    steel = mat('#b7c1c0', {
+      metalness: 0.8,
+      roughness: 0.3,
+    });
   box(1.9, 2.4, 1.1, shell, 0, 1.3, 0);
   box(1.94, 0.32, 1.14, white, 0, 2.62, 0);
   box(1.94, 0.12, 1.14, dark, 0, 0.06, 0);
@@ -60,23 +98,45 @@ export function createVendingMachine(def) {
     1.3,
     1.8,
     0.06,
-    mat('#13292b', { emissive: '#2a7f73', emissiveIntensity: 0.5 }),
+    mat('#13292b', {
+      emissive: '#2a7f73',
+      emissiveIntensity: 0.5,
+    }),
     -0.2,
     1.45,
     0.56,
   );
-  // Six shelves of products behind the glass, coloured by what this machine sells.
-  for (let row = 0; row < 6; row++) {
-    const y = 0.78 + row * 0.28;
+  // Retail models retain 48 slots; showroom samples use their catalog channel count.
+  const rows = def.channels === 35 ? 5 : 6;
+  const columns = Math.ceil((def.channels ?? 48) / rows);
+  group.userData.channels = def.channels ?? 48;
+  for (let row = 0; row < rows; row++) {
+    const y = 0.78 + row * (1.4 / (rows - 1));
     box(1.2, 0.02, 0.25, steel, -0.2, y, 0.45);
-    for (let col = 0; col < 8; col++) {
-      const id = def.products[(row * 8 + col) % def.products.length];
+    for (let col = 0; col < columns; col++) {
+      const id = def.products[(row * columns + col) % def.products.length];
       const color = mat(PRODUCT_COLORS[id]);
+      let channelMesh;
       if (catalog[id].type === 'drink') {
         const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.17, 8), color);
-        bottle.position.set(-0.73 + col * 0.15, y + 0.1, 0.47);
+        bottle.position.set(
+          -0.73 + col * (def.channels ? 1.06 / (columns - 1) : 0.15),
+          y + 0.1,
+          0.47,
+        );
         group.add(bottle);
-      } else box(0.09, 0.14, 0.06, color, -0.73 + col * 0.15, y + 0.08, 0.47);
+        channelMesh = bottle;
+      } else
+        channelMesh = box(
+          0.09,
+          0.14,
+          0.06,
+          color,
+          -0.73 + col * (def.channels ? 1.06 / (columns - 1) : 0.15),
+          y + 0.08,
+          0.47,
+        );
+      channelMesh.userData.channel = row * columns + col + 1;
     }
   }
   const glass = new THREE.Mesh(
@@ -115,17 +175,40 @@ export function createVendingMachine(def) {
   const flap = new THREE.Group();
   flap.position.set(-0.2, 0.53, 0.61);
   group.add(flap);
-  box(0.88, 0.28, 0.03, mat('#4f6f68', { metalness: 0.4 }), 0, -0.14, 0, flap);
+  box(
+    0.88,
+    0.28,
+    0.03,
+    mat('#4f6f68', {
+      metalness: 0.4,
+    }),
+    0,
+    -0.14,
+    0,
+    flap,
+  );
   const sign = new THREE.Mesh(
     new THREE.PlaneGeometry(1.86, 0.3),
-    new THREE.MeshBasicMaterial({ map: label('روبات مارکت', def.name) }),
+    new THREE.MeshBasicMaterial({
+      map: label('روبات مارکت', def.name),
+    }),
   );
   sign.position.set(0, 2.62, 0.575);
   group.add(sign);
   const delivery = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.2, 10), mat('#e5ae47'));
   delivery.visible = false;
   group.add(delivery);
-  const card = box(0.2, 0.13, 0.01, mat('#e2d6a8', { metalness: 0.3 }), 0.95, 1.7, 0.66);
+  const card = box(
+    0.2,
+    0.13,
+    0.01,
+    mat('#e2d6a8', {
+      metalness: 0.3,
+    }),
+    0.95,
+    1.7,
+    0.66,
+  );
   card.visible = false;
 
   // Objective beacon: a tall column of light visible across the city, like a mission marker.
@@ -156,7 +239,6 @@ export function createVendingMachine(def) {
   ring.rotation.x = -Math.PI / 2;
   ring.position.set(0, 0.09, 1.6);
   group.add(ring);
-
   return {
     group,
     flap,

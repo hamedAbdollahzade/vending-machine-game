@@ -18,6 +18,7 @@ export function GamePage() {
   const nodes = useAppSelector(selectNodes);
   const { error } = useGameEngine(root, bridge);
   useEffect(() => {
+    bridge.activate();
     const dispose = setupPwa(bridge);
     return () => {
       dispose();
@@ -32,7 +33,10 @@ export function GamePage() {
       for (const name of Object.keys(classes)) document.body.classList.remove(name);
     };
   }, [nodes.body]);
-  const props = { nodes, actions: bridge };
+  const props = {
+    nodes,
+    actions: bridge,
+  };
   return (
     <main ref={root}>
       <GameSurfaces {...props} />

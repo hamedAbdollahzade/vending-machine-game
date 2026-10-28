@@ -3,10 +3,28 @@ import * as THREE from 'three';
 // Detailed vehicles for the family and the factory. All face local +X and sit on y = 0, like
 // createCarModel in traffic.js; `wheels` lists rear wheels first, then the two front (steering) ones.
 
+/**
+ * Runs the mat operation for this subsystem.
+ * @param {*} color - color.
+ * @param {*} extra - extra.
+ * @returns {*} Operation result, when applicable.
+ */
 const mat = (color, extra = {}) =>
-  new THREE.MeshStandardMaterial({ color, roughness: 0.45, ...extra });
+  new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.45,
+    ...extra,
+  });
 
 // A side profile (x along the car, y up) extruded across its width, with rounded edges.
+/**
+ * Runs the extrude profile operation for this subsystem.
+ * @param {*} points - points.
+ * @param {*} width - width.
+ * @param {*} material - material.
+ * @param {*} bevel - bevel.
+ * @returns {*} Operation result, when applicable.
+ */
 function extrudeProfile(points, width, material, bevel = 0.1) {
   const shape = new THREE.Shape();
   points.forEach(([x, y], i) => (i ? shape.lineTo(x, y) : shape.moveTo(x, y)));
@@ -25,6 +43,15 @@ function extrudeProfile(points, width, material, bevel = 0.1) {
 }
 
 // Lower-body outline with wheel arches cut around the wheel centres.
+/**
+ * Runs the body outline operation for this subsystem.
+ * @param {*} front - front.
+ * @param {*} rear - rear.
+ * @param {*} arches - arches.
+ * @param {*} radius - radius.
+ * @param {*} top - top.
+ * @returns {*} Operation result, when applicable.
+ */
 function bodyOutline(front, rear, arches, radius, top) {
   const shape = new THREE.Shape();
   shape.moveTo(rear[0][0], rear[0][1]);
@@ -39,11 +66,27 @@ function bodyOutline(front, rear, arches, radius, top) {
   for (const [x, y] of rear.slice(1).reverse()) shape.lineTo(x, y);
   return shape;
 }
-
+/**
+ * Runs the add wheels operation for this subsystem.
+ * @param {*} group - group.
+ * @param {*} positions - positions.
+ * @param {*} radius - radius.
+ * @param {*} tyreWidth - tyre Width.
+ * @param {*} rimColor - rim Color.
+ * @param {*} spokes - spokes.
+ * @returns {*} Operation result, when applicable.
+ */
 function addWheels(group, positions, radius, tyreWidth, rimColor = '#c9cdd1', spokes = 5) {
-  const tyre = mat('#151719', { roughness: 0.9 }),
-    rim = mat(rimColor, { metalness: 0.85, roughness: 0.25 }),
-    brake = mat('#3a3d40', { metalness: 0.6 });
+  const tyre = mat('#151719', {
+      roughness: 0.9,
+    }),
+    rim = mat(rimColor, {
+      metalness: 0.85,
+      roughness: 0.25,
+    }),
+    brake = mat('#3a3d40', {
+      metalness: 0.6,
+    });
   const wheels = [];
   for (const [x, z] of positions) {
     const wheel = new THREE.Group();
@@ -86,10 +129,21 @@ function addWheels(group, positions, radius, tyreWidth, rimColor = '#c9cdd1', sp
  */
 export function createSportSedan(color = '#1d3f78') {
   const group = new THREE.Group();
-  const paint = mat(color, { metalness: 0.7, roughness: 0.28 }),
-    glass = mat('#0f1a22', { metalness: 0.7, roughness: 0.08 });
-  const black = mat('#0b0c0d', { roughness: 0.6 }),
-    chrome = mat('#d8dcdf', { metalness: 0.95, roughness: 0.15 });
+  const paint = mat(color, {
+      metalness: 0.7,
+      roughness: 0.28,
+    }),
+    glass = mat('#0f1a22', {
+      metalness: 0.7,
+      roughness: 0.08,
+    });
+  const black = mat('#0b0c0d', {
+      roughness: 0.6,
+    }),
+    chrome = mat('#d8dcdf', {
+      metalness: 0.95,
+      roughness: 0.15,
+    });
   const W = 1.86;
   const outline = bodyOutline(
     [
@@ -203,8 +257,14 @@ export function createSportSedan(color = '#1d3f78') {
     }
   }
   // Headlights with two light rings each, and slim L-shaped tail lights.
-  const ring = mat('#eaf6ff', { emissive: '#cfe9ff', emissiveIntensity: 1.6 });
-  const tail = mat('#9e1410', { emissive: '#e0261c', emissiveIntensity: 0.9 });
+  const ring = mat('#eaf6ff', {
+    emissive: '#cfe9ff',
+    emissiveIntensity: 1.6,
+  });
+  const tail = mat('#9e1410', {
+    emissive: '#e0261c',
+    emissiveIntensity: 0.9,
+  });
   for (const side of [-1, 1]) {
     const housing = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.44), black);
     housing.position.set(2.42, 0.72, side * 0.6);
@@ -245,7 +305,10 @@ export function createSportSedan(color = '#1d3f78') {
     '#b8bcc0',
     5,
   );
-  return { group, wheels };
+  return {
+    group,
+    wheels,
+  };
 }
 
 /**
@@ -254,10 +317,32 @@ export function createSportSedan(color = '#1d3f78') {
  */
 export function createPickup(color = '#e8e8e4') {
   const group = new THREE.Group();
-  const paint = mat(color, { metalness: 0.5, roughness: 0.32 }),
-    glass = mat('#13202a', { metalness: 0.6, roughness: 0.1 });
-  const black = mat('#1a1c1e', { roughness: 0.7 }),
-    chrome = mat('#d0d4d7', { metalness: 0.9, roughness: 0.2 });
+  const paint = mat(color, {
+      metalness: 0.5,
+      roughness: 0.32,
+    }),
+    glass = mat('#13202a', {
+      metalness: 0.6,
+      roughness: 0.1,
+    });
+  const black = mat('#1a1c1e', {
+      roughness: 0.7,
+    }),
+    chrome = mat('#d0d4d7', {
+      metalness: 0.9,
+      roughness: 0.2,
+    });
+  /**
+   * Runs the box operation for this subsystem.
+   * @param {*} w - w.
+   * @param {*} h - h.
+   * @param {*} d - d.
+   * @param {*} m - m.
+   * @param {*} x - x.
+   * @param {*} y - y.
+   * @param {*} z - z.
+   * @returns {*} Operation result, when applicable.
+   */
   const box = (w, h, d, m, x, y, z) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
     mesh.position.set(x, y, z);
@@ -315,14 +400,20 @@ export function createPickup(color = '#e8e8e4') {
   // Front: wide grille with horizontal chrome bars, headlights, bumper and skid plate.
   box(0.06, 0.34, 1.1, black, 2.67, 0.92, 0);
   for (let i = 0; i < 3; i++) box(0.07, 0.04, 1.12, chrome, 2.68, 0.82 + i * 0.1, 0);
-  const lamp = mat('#eaf6ff', { emissive: '#cfe9ff', emissiveIntensity: 1.2 });
+  const lamp = mat('#eaf6ff', {
+    emissive: '#cfe9ff',
+    emissiveIntensity: 1.2,
+  });
   for (const side of [-1, 1]) {
     box(0.08, 0.14, 0.32, lamp, 2.62, 1.02, side * 0.74);
     box(
       0.06,
       0.26,
       0.1,
-      mat('#9e1410', { emissive: '#c4241b', emissiveIntensity: 0.7 }),
+      mat('#9e1410', {
+        emissive: '#c4241b',
+        emissiveIntensity: 0.7,
+      }),
       -2.7,
       1.0,
       side * 0.86,
@@ -349,7 +440,10 @@ export function createPickup(color = '#e8e8e4') {
   );
   for (const x of [-1.7, 1.7])
     for (const side of [-1, 1]) box(1.05, 0.1, 0.2, black, x, 0.86, side * 0.96);
-  return { group, wheels };
+  return {
+    group,
+    wheels,
+  };
 }
 
 /**
@@ -358,10 +452,33 @@ export function createPickup(color = '#e8e8e4') {
  */
 export function createTruck(color = '#e9eef0') {
   const group = new THREE.Group();
-  const paint = mat(color, { metalness: 0.35, roughness: 0.4 }),
-    glass = mat('#14212b', { metalness: 0.6, roughness: 0.1 });
-  const black = mat('#1b1d1f', { roughness: 0.7 }),
-    teal = mat('#0b8f88', { metalness: 0.3, roughness: 0.4 });
+  const paint = mat(color, {
+      metalness: 0.35,
+      roughness: 0.4,
+    }),
+    glass = mat('#14212b', {
+      metalness: 0.6,
+      roughness: 0.1,
+    });
+  const black = mat('#1b1d1f', {
+      roughness: 0.7,
+    }),
+    teal = mat('#0b8f88', {
+      metalness: 0.3,
+      roughness: 0.4,
+    });
+  /**
+   * Runs the box operation for this subsystem.
+   * @param {*} w - w.
+   * @param {*} h - h.
+   * @param {*} d - d.
+   * @param {*} m - m.
+   * @param {*} x - x.
+   * @param {*} y - y.
+   * @param {*} z - z.
+   * @param {*} parent - parent.
+   * @returns {*} Operation result, when applicable.
+   */
   const box = (w, h, d, m, x, y, z, parent = group) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
     mesh.position.set(x, y, z);
@@ -375,14 +492,27 @@ export function createTruck(color = '#e9eef0') {
   for (const side of [-1, 1]) box(1.0, 0.7, 0.04, glass, 3.1, 2.4, side * 1.16);
   box(0.08, 0.3, 2.2, teal, 3.92, 1.35, 0);
   box(0.25, 0.35, 2.36, black, 3.95, 0.85, 0);
-  const lamp = mat('#eaf6ff', { emissive: '#cfe9ff', emissiveIntensity: 1 });
+  const lamp = mat('#eaf6ff', {
+    emissive: '#cfe9ff',
+    emissiveIntensity: 1,
+  });
   for (const side of [-1, 1]) {
     box(0.06, 0.16, 0.3, lamp, 3.98, 1.1, side * 0.9);
     box(0.3, 0.3, 0.08, black, 3.4, 2.7, side * 1.25);
   }
   // Chassis and the flatbed with low side rails.
   box(7.6, 0.3, 1.0, black, 0, 0.75, 0);
-  box(5.9, 0.14, 2.4, mat('#6b5a45', { roughness: 0.9 }), -1.05, 1.0, 0);
+  box(
+    5.9,
+    0.14,
+    2.4,
+    mat('#6b5a45', {
+      roughness: 0.9,
+    }),
+    -1.05,
+    1.0,
+    0,
+  );
   for (const side of [-1, 1]) box(5.9, 0.5, 0.06, teal, -1.05, 1.32, side * 1.19);
   box(0.06, 0.5, 2.4, teal, -4.0, 1.32, 0);
   box(0.1, 1.6, 2.4, black, 1.9, 1.85, 0);
@@ -391,7 +521,10 @@ export function createTruck(color = '#e9eef0') {
       0.1,
       0.22,
       0.26,
-      mat('#9e1410', { emissive: '#c4241b', emissiveIntensity: 0.6 }),
+      mat('#9e1410', {
+        emissive: '#c4241b',
+        emissiveIntensity: 0.6,
+      }),
       -4.02,
       0.82,
       side * 0.95,
@@ -412,5 +545,9 @@ export function createTruck(color = '#e9eef0') {
     '#c2c6c9',
     8,
   );
-  return { group, wheels, bed };
+  return {
+    group,
+    wheels,
+    bed,
+  };
 }

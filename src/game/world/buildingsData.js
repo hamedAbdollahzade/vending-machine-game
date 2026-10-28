@@ -1,3 +1,8 @@
+/**
+ * Runs the decode buildings operation for this subsystem.
+ * @param {*} buffer - buffer.
+ * @returns {*} Operation result, when applicable.
+ */
 // Reads public/data/buildings.bin (written by scripts/build-buildings.mjs) into the same
 // [height, x0, z0, x1, z1, …] arrays the OSM buildings in mellat.json use.
 export function decodeBuildings(buffer) {

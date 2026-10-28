@@ -1,7 +1,6 @@
 import { MachineDetails } from './MachineDetails.jsx';
 import { MachineList } from './MachineList.jsx';
 import { GameNode } from '@/components/shared/GameNode.jsx';
-import { ViewLists } from './ViewLists.jsx';
 /** @typedef {{nodes:object,actions:object}} MapDialogProps */
 /** Presents the MapDialog view using plain models and semantic native elements.
  * @param {MapDialogProps} props - Interface snapshots and callbacks.

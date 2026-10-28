@@ -6,7 +6,14 @@ import { publishProgress } from '../store/slices/gameSlice.js';
  * @returns {object} View publication and action registration API.
  */
 export function createInterfaceBridge(store) {
-  let nodes = { briefing: { hidden: false }, hud: { hidden: true } },
+  let nodes = {
+      briefing: {
+        hidden: false,
+      },
+      hud: {
+        hidden: true,
+      },
+    },
     actions = new Map(),
     timer = null,
     disposed = false;
@@ -19,18 +26,45 @@ export function createInterfaceBridge(store) {
   function patch(id, values) {
     const previous = nodes[id] ?? {};
     if (Object.keys(values).every((key) => Object.is(previous[key], values[key]))) return;
-    nodes = { ...nodes, [id]: { ...previous, ...values } };
+    nodes = {
+      ...nodes,
+      [id]: {
+        ...previous,
+        ...values,
+      },
+    };
     if (timer === null && !disposed) timer = setTimeout(flush, 100);
   }
   return {
+    activate() {
+      disposed = false;
+    },
     patch,
     read: (id) => nodes[id] ?? {},
-    open: (id) => patch(id, { open: true }),
-    close: (id) => patch(id, { open: false }),
+    open: (id) =>
+      patch(id, {
+        open: true,
+      }),
+    close: (id) =>
+      patch(id, {
+        open: false,
+      }),
     on: (id, handler) => actions.set(id, handler),
     emit: (id, value) => actions.get(id)?.(value),
-    style: (id, style) => patch(id, { style: { ...nodes[id]?.style, ...style } }),
-    classState: (id, name, on) => patch(id, { classes: { ...nodes[id]?.classes, [name]: on } }),
+    style: (id, style) =>
+      patch(id, {
+        style: {
+          ...nodes[id]?.style,
+          ...style,
+        },
+      }),
+    classState: (id, name, on) =>
+      patch(id, {
+        classes: {
+          ...nodes[id]?.classes,
+          [name]: on,
+        },
+      }),
     publishGame: (state) => store.dispatch(publishProgress(structuredClone(state))),
     clearActions: () => actions.clear(),
     dispose() {

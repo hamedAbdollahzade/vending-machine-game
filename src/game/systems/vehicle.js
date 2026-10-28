@@ -10,11 +10,29 @@ export const CAR = {
   wheelBase: 2.7,
   radius: 1.6,
 };
-
+/**
+ * Creates car resources for the game.
+ * @param {*} x - x.
+ * @param {*} z - z.
+ * @param {*} heading - heading.
+ * @returns {*} Operation result, when applicable.
+ */
 export function createCar(x, z, heading = 0) {
-  return { x, z, heading, speed: 0, steer: 0 };
+  return {
+    x,
+    z,
+    heading,
+    speed: 0,
+    steer: 0,
+  };
 }
-
+/**
+ * Runs the step car operation for this subsystem.
+ * @param {*} car - car.
+ * @param {*} options1 - Operation options.
+ * @param {*} dt - dt.
+ * @returns {*} Operation result, when applicable.
+ */
 export function stepCar(car, { throttle = 0, steer = 0, handbrake = false }, dt) {
   car.steer += (steer * CAR.maxSteer - car.steer) * Math.min(1, dt * 6);
   if (throttle > 0) car.speed += (car.speed < 0 ? CAR.brake : CAR.accel) * throttle * dt;
@@ -31,5 +49,9 @@ export function stepCar(car, { throttle = 0, steer = 0, handbrake = false }, dt)
   car.z -= Math.sin(car.heading) * car.speed * dt;
   return car;
 }
-
+/**
+ * Runs the kmh operation for this subsystem.
+ * @param {*} car - car.
+ * @returns {*} Operation result, when applicable.
+ */
 export const kmh = (car) => Math.round(Math.abs(car.speed) * 3.6);

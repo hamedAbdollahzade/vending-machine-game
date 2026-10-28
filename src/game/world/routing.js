@@ -2,11 +2,23 @@
 // A road is [typeIndex, nameIndex, x0, z0, x1, z1, …]; ways that share an OSM node share coordinates.
 export const DRIVABLE_MAX_TYPE = 7; // trunk … service in data.roadTypes
 
+/**
+ * Runs the build graph operation for this subsystem.
+ * @param {*} roads - roads.
+ * @param {*} options1 - Operation options.
+ * @returns {*} Operation result, when applicable.
+ */
 export function buildGraph(roads, { drivable = false } = {}) {
   const ids = new Map(),
     xs = [],
     zs = [],
     adj = [];
+  /**
+   * Runs the node operation for this subsystem.
+   * @param {*} x - x.
+   * @param {*} z - z.
+   * @returns {*} Operation result, when applicable.
+   */
   const node = (x, z) => {
     const k = `${x},${z}`;
     if (!ids.has(k)) {
@@ -30,7 +42,13 @@ export function buildGraph(roads, { drivable = false } = {}) {
       prev = next;
     }
   }
-  const graph = { xs, zs, adj, main: largestComponent(adj), grid: new Map() };
+  const graph = {
+    xs,
+    zs,
+    adj,
+    main: largestComponent(adj),
+    grid: new Map(),
+  };
   graph.main.forEach((inMain, i) => {
     if (!inMain) return;
     const k = cellKey(Math.floor(xs[i] / 50), Math.floor(zs[i] / 50));
@@ -39,9 +57,18 @@ export function buildGraph(roads, { drivable = false } = {}) {
   });
   return graph;
 }
-
+/**
+ * Runs the cell key operation for this subsystem.
+ * @param {*} cx - cx.
+ * @param {*} cz - cz.
+ * @returns {*} Operation result, when applicable.
+ */
 const cellKey = (cx, cz) => cx * 100003 + cz;
-
+/**
+ * Runs the largest component operation for this subsystem.
+ * @param {*} adj - adj.
+ * @returns {*} Operation result, when applicable.
+ */
 function largestComponent(adj) {
   const label = new Int32Array(adj.length).fill(-1),
     sizes = [];
@@ -67,6 +94,13 @@ function largestComponent(adj) {
 }
 
 // Nearest node of the main connected component, searching outward ring by ring.
+/**
+ * Runs the nearest node operation for this subsystem.
+ * @param {*} graph - graph.
+ * @param {*} x - x.
+ * @param {*} z - z.
+ * @returns {*} Operation result, when applicable.
+ */
 export function nearestNode(graph, x, z) {
   const cx = Math.floor(x / 50),
     cz = Math.floor(z / 50);
@@ -88,15 +122,31 @@ export function nearestNode(graph, x, z) {
   }
   return best;
 }
-
+/**
+ * Runs the find path operation for this subsystem.
+ * @param {*} graph - graph.
+ * @param {*} start - start.
+ * @param {*} goal - goal.
+ * @returns {*} Operation result, when applicable.
+ */
 export function findPath(graph, start, goal) {
   if (start < 0 || goal < 0) return null;
   const { xs, zs, adj } = graph,
     g = new Map([[start, 0]]),
     from = new Map(),
     closed = new Set();
+  /**
+   * Runs the h operation for this subsystem.
+   * @param {*} n - n.
+   * @returns {*} Operation result, when applicable.
+   */
   const h = (n) => Math.hypot(xs[n] - xs[goal], zs[n] - zs[goal]);
   const heap = [[h(start), start]];
+  /**
+   * Runs the push operation for this subsystem.
+   * @param {*} item - item.
+   * @returns {*} Operation result, when applicable.
+   */
   const push = (item) => {
     heap.push(item);
     for (let i = heap.length - 1; i > 0;) {
@@ -106,6 +156,11 @@ export function findPath(graph, start, goal) {
       i = p;
     }
   };
+  /**
+   * Runs the pop operation for this subsystem.
+
+   * @returns {*} Operation result, when applicable.
+   */
   const pop = () => {
     const top = heap[0],
       last = heap.pop();
@@ -145,18 +200,42 @@ export function findPath(graph, start, goal) {
   }
   return null;
 }
-
+/**
+ * Runs the route between operation for this subsystem.
+ * @param {*} graph - graph.
+ * @param {*} ax - ax.
+ * @param {*} az - az.
+ * @param {*} bx - bx.
+ * @param {*} bz - bz.
+ * @returns {*} Operation result, when applicable.
+ */
 export function routeBetween(graph, ax, az, bx, bz) {
   const path = findPath(graph, nearestNode(graph, ax, az), nearestNode(graph, bx, bz));
   if (!path) return null;
   const points = [
-    { x: ax, z: az },
-    ...path.map((n) => ({ x: graph.xs[n], z: graph.zs[n] })),
-    { x: bx, z: bz },
+    {
+      x: ax,
+      z: az,
+    },
+    ...path.map((n) => ({
+      x: graph.xs[n],
+      z: graph.zs[n],
+    })),
+    {
+      x: bx,
+      z: bz,
+    },
   ];
-  return { points, length: polylineLength(points) };
+  return {
+    points,
+    length: polylineLength(points),
+  };
 }
-
+/**
+ * Runs the polyline length operation for this subsystem.
+ * @param {*} points - points.
+ * @returns {*} Operation result, when applicable.
+ */
 export function polylineLength(points) {
   let total = 0;
   for (let i = 1; i < points.length; i++)
@@ -165,6 +244,11 @@ export function polylineLength(points) {
 }
 
 // Spatial index of road segments, used for street names and keeping trees off paths.
+/**
+ * Runs the build segment index operation for this subsystem.
+ * @param {*} roads - roads.
+ * @returns {*} Operation result, when applicable.
+ */
 export function buildSegmentIndex(roads) {
   const grid = new Map();
   for (const road of roads)
@@ -187,7 +271,15 @@ export function buildSegmentIndex(roads) {
     }
   return grid;
 }
-
+/**
+ * Runs the nearest segment operation for this subsystem.
+ * @param {*} index - index.
+ * @param {*} x - x.
+ * @param {*} z - z.
+ * @param {*} maxDistance - max Distance.
+ * @param {*} filter - filter.
+ * @returns {*} Operation result, when applicable.
+ */
 export function nearestSegment(index, x, z, maxDistance, filter = () => true) {
   let best = null,
     bestD = maxDistance;

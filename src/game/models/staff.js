@@ -7,13 +7,35 @@ import { textTexture } from './textures.js';
 // People face their local +Z; `root.rotation.y` turns them.
 
 const materials = new Map();
+/**
+ * Runs the mat operation for this subsystem.
+ * @param {*} color - color.
+ * @param {*} extra - extra.
+ * @returns {*} Operation result, when applicable.
+ */
 const mat = (color, extra = {}) => {
   const key = color + JSON.stringify(extra);
   if (!materials.has(key))
-    materials.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...extra }));
+    materials.set(
+      key,
+      new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.8,
+        ...extra,
+      }),
+    );
   return materials.get(key);
 };
-
+/**
+ * Runs the part operation for this subsystem.
+ * @param {*} parent - parent.
+ * @param {*} geometry - geometry.
+ * @param {*} material - material.
+ * @param {*} x - x.
+ * @param {*} y - y.
+ * @param {*} z - z.
+ * @returns {*} Operation result, when applicable.
+ */
 function part(parent, geometry, material, x = 0, y = 0, z = 0) {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(x, y, z);
@@ -77,7 +99,9 @@ export function createPerson({
     const shirt = part(
       torso,
       new THREE.PlaneGeometry(0.12, 0.2),
-      mat('#f4f4f2', { side: THREE.DoubleSide }),
+      mat('#f4f4f2', {
+        side: THREE.DoubleSide,
+      }),
       0,
       0.49,
       0.133,
@@ -88,7 +112,9 @@ export function createPerson({
       const lapel = part(
         torso,
         new THREE.BoxGeometry(0.05, 0.22, 0.01),
-        mat(top, { roughness: 0.5 }),
+        mat(top, {
+          roughness: 0.5,
+        }),
         side * 0.07,
         0.47,
         0.132,
@@ -134,7 +160,10 @@ export function createPerson({
     );
   }
   if (glasses) {
-    const frame = mat('#222', { metalness: 0.6, roughness: 0.3 });
+    const frame = mat('#222', {
+      metalness: 0.6,
+      roughness: 0.3,
+    });
     for (const side of [-1, 1])
       part(head, new THREE.TorusGeometry(0.024, 0.004, 4, 14), frame, side * 0.04, 0.02, 0.11);
     part(head, new THREE.BoxGeometry(0.03, 0.004, 0.004), frame, 0, 0.022, 0.11);
@@ -151,7 +180,10 @@ export function createPerson({
     shoulder.add(elbow);
     part(elbow, new THREE.CapsuleGeometry(0.043, 0.18, 4, 8), topMat, 0, -0.12, 0);
     part(elbow, new THREE.SphereGeometry(0.045, 8, 6), skinMat, 0, -0.27, 0);
-    return { shoulder, elbow };
+    return {
+      shoulder,
+      elbow,
+    };
   });
   // Legs: hip → knee → foot.
   const legs = [-1, 1].map((side) => {
@@ -164,9 +196,11 @@ export function createPerson({
     hip.add(knee);
     part(knee, new THREE.CapsuleGeometry(0.058, 0.32, 4, 8), bottomMat, 0, -0.22, 0);
     part(knee, new THREE.BoxGeometry(0.1, 0.07, 0.24), shoeMat, 0, -0.45, 0.05);
-    return { hip, knee };
+    return {
+      hip,
+      knee,
+    };
   });
-
   const person = {
     root,
     head,
@@ -217,6 +251,12 @@ export function createPerson({
 }
 
 // Floating name badge above a person's head.
+/**
+ * Runs the name tag operation for this subsystem.
+ * @param {*} name - name.
+ * @param {*} role - role.
+ * @returns {*} Operation result, when applicable.
+ */
 export function nameTag(name, role = '') {
   const texture = textTexture(512, 160, (c, w, h) => {
     c.clearRect(0, 0, w, h);
@@ -239,7 +279,11 @@ export function nameTag(name, role = '') {
     }
   });
   const sprite = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }),
+    new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthWrite: false,
+    }),
   );
   sprite.scale.set(1.3, 0.41, 1);
   return sprite;
@@ -253,6 +297,13 @@ export function createCrew(parent, workers) {
   const n = workers.length,
     group = new THREE.Group();
   parent.add(group);
+  /**
+   * Runs the instanced operation for this subsystem.
+   * @param {*} geometry - geometry.
+   * @param {*} material - material.
+   * @param {*} count - count.
+   * @returns {*} Operation result, when applicable.
+   */
   const instanced = (geometry, material, count = n) => {
     const mesh = new THREE.InstancedMesh(geometry, material, count);
     mesh.castShadow = true;
@@ -260,7 +311,10 @@ export function createCrew(parent, workers) {
     group.add(mesh);
     return mesh;
   };
-  const white = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.8 });
+  const white = new THREE.MeshStandardMaterial({
+    color: '#ffffff',
+    roughness: 0.8,
+  });
   const torso = instanced(new THREE.BoxGeometry(0.42, 0.6, 0.26), white);
   const legs = instanced(
     new THREE.BoxGeometry(0.15, 0.9, 0.17).translate(0, -0.45, 0),
@@ -274,11 +328,17 @@ export function createCrew(parent, workers) {
   );
   const heads = instanced(
     new THREE.SphereGeometry(0.12, 10, 8),
-    new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.8 }),
+    new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.8,
+    }),
   );
   const hats = instanced(
     new THREE.SphereGeometry(0.135, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2),
-    new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.4 }),
+    new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.4,
+    }),
   );
   const skins = ['#e7b48f', '#d49f7a', '#c48a63', '#edc2a0'].map((c) => new THREE.Color(c));
   const color = new THREE.Color();
@@ -295,18 +355,34 @@ export function createCrew(parent, workers) {
     color.set(w.hat ?? '#f2c94c');
     hats.setColorAt(i, color);
     w.phase = i * 1.37;
-    w.from = { x: w.x, z: w.z };
+    w.from = {
+      x: w.x,
+      z: w.z,
+    };
   });
   const base = new THREE.Matrix4(),
     m = new THREE.Matrix4(),
     local = new THREE.Matrix4(),
     q = new THREE.Quaternion(),
     up = new THREE.Vector3(0, 1, 0);
+  /**
+   * Runs the set limb operation for this subsystem.
+   * @param {*} mesh - mesh.
+   * @param {*} index - index.
+   * @param {*} x - x.
+   * @param {*} y - y.
+   * @param {*} angle - angle.
+   * @returns {*} Operation result, when applicable.
+   */
   const setLimb = (mesh, index, x, y, angle) => {
     local.makeRotationX(angle).setPosition(x, y, 0);
     mesh.setMatrixAt(index, m.multiplyMatrices(base, local));
   };
-
+  /**
+   * Updates update from the active simulation.
+   * @param {*} time - time.
+   * @returns {*} Operation result, when applicable.
+   */
   function update(time) {
     workers.forEach((w, i) => {
       let x = w.x,
@@ -361,5 +437,8 @@ export function createCrew(parent, workers) {
   update(0);
   for (const mesh of [torso, legs, arms, heads, hats])
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  return { group, update };
+  return {
+    group,
+    update,
+  };
 }

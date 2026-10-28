@@ -1,14 +1,49 @@
 import * as THREE from 'three';
 
 // Low-poly saloon facing local +X, sized like a Peugeot/Samand (4.4 m long).
+/**
+ * Creates car model resources for the game.
+ * @param {*} color - color.
+ * @returns {*} Operation result, when applicable.
+ */
 export function createCarModel(color = '#d9d9d4') {
   const group = new THREE.Group();
+  /**
+   * Runs the mat operation for this subsystem.
+   * @param {*} c - c.
+   * @param {*} extra - extra.
+   * @returns {*} Operation result, when applicable.
+   */
   const mat = (c, extra = {}) =>
-    new THREE.MeshStandardMaterial({ color: c, roughness: 0.45, ...extra });
-  const paint = mat(color, { metalness: 0.55, roughness: 0.35 }),
-    glass = mat('#1e2c33', { metalness: 0.6, roughness: 0.15 });
+    new THREE.MeshStandardMaterial({
+      color: c,
+      roughness: 0.45,
+      ...extra,
+    });
+  const paint = mat(color, {
+      metalness: 0.55,
+      roughness: 0.35,
+    }),
+    glass = mat('#1e2c33', {
+      metalness: 0.6,
+      roughness: 0.15,
+    });
   const dark = mat('#141618'),
-    chrome = mat('#c8ccce', { metalness: 0.9, roughness: 0.2 });
+    chrome = mat('#c8ccce', {
+      metalness: 0.9,
+      roughness: 0.2,
+    });
+  /**
+   * Runs the box operation for this subsystem.
+   * @param {*} w - w.
+   * @param {*} h - h.
+   * @param {*} d - d.
+   * @param {*} m - m.
+   * @param {*} x - x.
+   * @param {*} y - y.
+   * @param {*} z - z.
+   * @returns {*} Operation result, when applicable.
+   */
   const box = (w, h, d, m, x, y, z) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
     mesh.position.set(x, y, z);
@@ -27,7 +62,10 @@ export function createCarModel(color = '#d9d9d4') {
       0.06,
       0.18,
       0.34,
-      mat('#fff4cc', { emissive: '#fff1b0', emissiveIntensity: 0.6 }),
+      mat('#fff4cc', {
+        emissive: '#fff1b0',
+        emissiveIntensity: 0.6,
+      }),
       2.21,
       0.78,
       z,
@@ -36,7 +74,10 @@ export function createCarModel(color = '#d9d9d4') {
       0.06,
       0.16,
       0.34,
-      mat('#b3261e', { emissive: '#7a0f0b', emissiveIntensity: 0.5 }),
+      mat('#b3261e', {
+        emissive: '#7a0f0b',
+        emissiveIntensity: 0.5,
+      }),
       -2.21,
       0.8,
       z,
@@ -58,9 +99,11 @@ export function createCarModel(color = '#d9d9d4') {
       group.add(wheel);
       wheels.push(wheel);
     }
-  return { group, wheels };
+  return {
+    group,
+    wheels,
+  };
 }
-
 const COLORS = [
   '#e9e9e4',
   '#1d1f22',
@@ -76,6 +119,13 @@ const COLORS = [
 // falls too far behind is moved to a road ahead or around them. Cars stop for anything in their lane.
 const WIDTH = [11, 10, 9, 8]; // trunk … tertiary, matching the road strips in city.js
 
+/**
+ * Creates traffic resources for the game.
+ * @param {*} scene - scene.
+ * @param {*} data - data.
+ * @param {*} count - count.
+ * @returns {*} Operation result, when applicable.
+ */
 export function createTraffic(scene, data, count = 28) {
   const oneway = new Set(data.oneway ?? []);
   const roads = data.roads
@@ -105,22 +155,47 @@ export function createTraffic(scene, data, count = 28) {
       ];
     })
     .filter((r) => r.total > 80);
+  /**
+   * Runs the sample operation for this subsystem.
+   * @param {*} road - road.
+   * @param {*} d - d.
+   * @returns {*} Operation result, when applicable.
+   */
   const sample = (road, d) => {
     let i = 1;
     while (i < road.lengths.length - 1 && road.lengths[i] < d) i++;
     const a = road.pts[i - 1],
       b = road.pts[i],
       t = (d - road.lengths[i - 1]) / (road.lengths[i] - road.lengths[i - 1] || 1);
-    return { x: a.x + (b.x - a.x) * t, z: a.y + (b.y - a.y) * t, dx: b.x - a.x, dz: b.y - a.y };
+    return {
+      x: a.x + (b.x - a.x) * t,
+      z: a.y + (b.y - a.y) * t,
+      dx: b.x - a.x,
+      dz: b.y - a.y,
+    };
   };
   let seed = 7;
+  /**
+   * Runs the random operation for this subsystem.
+
+   * @returns {*} Operation result, when applicable.
+   */
   const random = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
   // Roads whose bounding box comes within 600 m of the player, refreshed as they travel.
   let nearby = [],
     nearbyAt = null;
+  /**
+   * Runs the roads near operation for this subsystem.
+   * @param {*} x - x.
+   * @param {*} z - z.
+   * @returns {*} Operation result, when applicable.
+   */
   const roadsNear = (x, z) => {
     if (!nearbyAt || Math.hypot(x - nearbyAt.x, z - nearbyAt.z) > 150) {
-      nearbyAt = { x, z };
+      nearbyAt = {
+        x,
+        z,
+      };
       nearby = roads.filter(
         ({ box }) => x > box.x0 - 600 && x < box.x1 + 600 && z > box.z0 - 600 && z < box.z1 + 600,
       );
@@ -128,6 +203,13 @@ export function createTraffic(scene, data, count = 28) {
     return nearby;
   };
   // Places a car on a random main-road point between 120 and 600 m from (x, z), if one exists.
+  /**
+   * Runs the respawn operation for this subsystem.
+   * @param {*} car - car.
+   * @param {*} x - x.
+   * @param {*} z - z.
+   * @returns {*} Operation result, when applicable.
+   */
   function respawn(car, x, z) {
     const candidates = roadsNear(x, z);
     for (let attempt = 0; attempt < 30 && candidates.length; attempt++) {
@@ -159,16 +241,36 @@ export function createTraffic(scene, data, count = 28) {
     const model = createCarModel(COLORS[i % COLORS.length]);
     group.add(model.group);
     model.group.visible = false;
-    cars.push({ model, road: null, d: 0, dir: 1, lane: 2.2, speed: 10, x: 1e9, z: 1e9 });
+    cars.push({
+      model,
+      road: null,
+      d: 0,
+      dir: 1,
+      lane: 2.2,
+      speed: 10,
+      x: 1e9,
+      z: 1e9,
+    });
   }
   // Takes a car off the road; it respawns out of sight on a later frame.
+  /**
+   * Runs the remove operation for this subsystem.
+   * @param {*} car - car.
+   * @returns {*} Operation result, when applicable.
+   */
   function remove(car) {
     car.road = null;
     car.x = car.z = 1e9;
     car.model.group.visible = false;
   }
-
   let cursor = 0;
+  /**
+   * Updates update from the active simulation.
+   * @param {*} dt - dt.
+   * @param {*} obstacles - obstacles.
+   * @param {*} around - around.
+   * @returns {*} Operation result, when applicable.
+   */
   function update(dt, obstacles, around) {
     // Re-home a couple of distant cars per frame, which keeps the cost per frame small.
     for (let n = 0; n < 2; n++) {
@@ -210,5 +312,10 @@ export function createTraffic(scene, data, count = 28) {
       for (const wheel of car.model.wheels) wheel.rotation.z -= (speed * dt) / 0.36;
     }
   }
-  return { group, cars, update, remove };
+  return {
+    group,
+    cars,
+    update,
+    remove,
+  };
 }

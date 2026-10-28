@@ -6,7 +6,6 @@ import * as THREE from 'three';
 
 // The rear camera's field of view across its long side; typical phone main cameras are 60–70°.
 const CAMERA_LONG_FOV = 65;
-
 const zee = new THREE.Vector3(0, 0, 1),
   euler = new THREE.Euler(),
   q0 = new THREE.Quaternion();
@@ -14,6 +13,15 @@ const q1 = new THREE.Quaternion(-Math.SQRT1_2, 0, 0, Math.SQRT1_2); // camera lo
 
 // Device orientation (degrees) to a camera quaternion in a frame where −z is north and +y is up.
 // `alpha` must be measured from north (absolute), counter-clockwise.
+/**
+ * Runs the orientation quaternion operation for this subsystem.
+ * @param {*} target - target.
+ * @param {*} alpha - alpha.
+ * @param {*} beta - beta.
+ * @param {*} gamma - gamma.
+ * @param {*} screenAngle - screen Angle.
+ * @returns {*} Operation result, when applicable.
+ */
 export function orientationQuaternion(target, alpha, beta, gamma, screenAngle) {
   const r = Math.PI / 180;
   euler.set(beta * r, alpha * r, -gamma * r, 'YXZ');
@@ -24,6 +32,12 @@ export function orientationQuaternion(target, alpha, beta, gamma, screenAngle) {
 }
 
 // Vertical field of view of what is visible once the video is scaled to cover the screen.
+/**
+ * Runs the cover fov operation for this subsystem.
+ * @param {*} videoAspect - video Aspect.
+ * @param {*} screenAspect - screen Aspect.
+ * @returns {*} Operation result, when applicable.
+ */
 export function coverFov(videoAspect, screenAspect) {
   const long = Math.tan((CAMERA_LONG_FOV * Math.PI) / 360);
   // The video's own vertical and horizontal half-angle tangents.
@@ -33,7 +47,11 @@ export function coverFov(videoAspect, screenAspect) {
   const visibleV = screenAspect > videoAspect ? hTan / screenAspect : vTan;
   return (Math.atan(visibleV) * 360) / Math.PI;
 }
-
+/**
+ * Creates ar view resources for the game.
+ * @param {*} video - video.
+ * @returns {*} Operation result, when applicable.
+ */
 export function createArView(video) {
   let stream = null,
     orientation = null,
@@ -42,11 +60,25 @@ export function createArView(video) {
   const target = new THREE.Quaternion();
   // Android sends north-referenced readings as `deviceorientationabsolute`; iOS and some browsers
   // only send `deviceorientation`, which is used until (or unless) absolute readings arrive.
+  /**
+   * Runs the on absolute operation for this subsystem.
+   * @param {*} event - event.
+   * @returns {*} Operation result, when applicable.
+   */
   const onAbsolute = (event) => {
     if (event.alpha == null) return;
     absoluteSeen = true;
-    orientation = { alpha: event.alpha, beta: event.beta, gamma: event.gamma };
+    orientation = {
+      alpha: event.alpha,
+      beta: event.beta,
+      gamma: event.gamma,
+    };
   };
+  /**
+   * Runs the on orientation operation for this subsystem.
+   * @param {*} event - event.
+   * @returns {*} Operation result, when applicable.
+   */
   const onOrientation = (event) => {
     if (event.alpha == null || absoluteSeen) return;
     let alpha = event.alpha;
@@ -55,7 +87,11 @@ export function createArView(video) {
       compassOffset = 360 - event.webkitCompassHeading - event.alpha;
     }
     if (!event.absolute && compassOffset != null) alpha += compassOffset;
-    orientation = { alpha, beta: event.beta, gamma: event.gamma };
+    orientation = {
+      alpha,
+      beta: event.beta,
+      gamma: event.gamma,
+    };
   };
   let sensing = false;
   return {
@@ -88,9 +124,15 @@ export function createArView(video) {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            facingMode: {
+              ideal: 'environment',
+            },
+            width: {
+              ideal: 1280,
+            },
+            height: {
+              ideal: 720,
+            },
           },
           audio: false,
         });

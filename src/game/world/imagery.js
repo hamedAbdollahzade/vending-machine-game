@@ -6,10 +6,29 @@ import { toLocal } from '../../utils/geo.js';
 // the ground as textured quads. Detailed zoom-17 tiles load near the camera, zoom-15 tiles further
 // out underneath them, and tiles out of range are released.
 
+/**
+ * Runs the tile lon operation for this subsystem.
+ * @param {*} x - x.
+ * @param {*} z - z.
+ * @returns {*} Operation result, when applicable.
+ */
 const tileLon = (x, z) => (x / 2 ** z) * 360 - 180;
+/**
+ * Runs the tile lat operation for this subsystem.
+ * @param {*} y - y.
+ * @param {*} z - z.
+ * @returns {*} Operation result, when applicable.
+ */
 const tileLat = (y, z) => (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / 2 ** z))) * 180) / Math.PI;
 
 // World-space corners of a Web Mercator tile: north-west, north-east, south-west, south-east.
+/**
+ * Runs the tile corners operation for this subsystem.
+ * @param {*} x - x.
+ * @param {*} y - y.
+ * @param {*} z - z.
+ * @returns {*} Operation result, when applicable.
+ */
 export function tileCorners(x, y, z) {
   const n = tileLat(y, z),
     s = tileLat(y + 1, z),
@@ -17,7 +36,13 @@ export function tileCorners(x, y, z) {
     e = tileLon(x + 1, z);
   return [toLocal(n, w), toLocal(n, e), toLocal(s, w), toLocal(s, e)];
 }
-
+/**
+ * Creates imagery resources for the game.
+ * @param {*} scene - scene.
+ * @param {*} index - index.
+ * @param {*} options2 - Operation options.
+ * @returns {*} Operation result, when applicable.
+ */
 export function createImagery(
   scene,
   index,
@@ -28,8 +53,18 @@ export function createImagery(
   const loader = new THREE.TextureLoader();
   // Zoom 15 sits just under zoom 17 so the detailed tiles always win where both exist.
   const levels = [
-    { z: 17, range: lowQuality ? 450 : 750, y: 0.012, offset: -3 },
-    { z: 15, range: lowQuality ? 1800 : 2800, y: 0.004, offset: -1 },
+    {
+      z: 17,
+      range: lowQuality ? 450 : 750,
+      y: 0.012,
+      offset: -3,
+    },
+    {
+      z: 15,
+      range: lowQuality ? 1800 : 2800,
+      y: 0.004,
+      offset: -1,
+    },
   ].map((level) => ({
     ...level,
     tiles: (index[level.z] ?? []).map((key) => {
@@ -37,13 +72,27 @@ export function createImagery(
         corners = tileCorners(x, y, level.z);
       const cx = corners.reduce((s, c) => s + c.x, 0) / 4,
         cz = corners.reduce((s, c) => s + c.z, 0) / 4;
-      return { key, x, y, corners, cx, cz, mesh: null, loading: false };
+      return {
+        key,
+        x,
+        y,
+        corners,
+        cx,
+        cz,
+        mesh: null,
+        loading: false,
+      };
     }),
   }));
   let loads = 0;
   let disposed = false;
   const controller = new AbortController();
-
+  /**
+   * Runs the show operation for this subsystem.
+   * @param {*} level - level.
+   * @param {*} tile - tile.
+   * @returns {*} Operation result, when applicable.
+   */
   async function show(level, tile) {
     if (tile.mesh || tile.loading || loads >= 6) return;
     tile.loading = true;
@@ -105,7 +154,11 @@ export function createImagery(
       },
     );
   }
-
+  /**
+   * Runs the hide operation for this subsystem.
+   * @param {*} tile - tile.
+   * @returns {*} Operation result, when applicable.
+   */
   function hide(tile) {
     if (!tile.mesh) return;
     group.remove(tile.mesh);
@@ -114,7 +167,6 @@ export function createImagery(
     tile.mesh.material.dispose();
     tile.mesh = null;
   }
-
   let last = null;
   return {
     group,
@@ -128,7 +180,10 @@ export function createImagery(
     update(x, z) {
       const moved = !last || Math.hypot(x - last.x, z - last.z) > 25;
       if (!moved && loads >= 6) return;
-      last = { x, z };
+      last = {
+        x,
+        z,
+      };
       for (const level of levels) {
         const wanted = [];
         for (const tile of level.tiles) {

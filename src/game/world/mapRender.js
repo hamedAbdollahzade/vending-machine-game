@@ -16,9 +16,25 @@ const AREA = {
   farmland: '#2a3326',
 };
 const ROAD_WIDTH = [11, 10, 9, 8, 6.5, 6, 5, 4, 4, 2.4, 2, 1.6, 3, 2.2];
+/**
+ * Runs the road color operation for this subsystem.
+ * @param {*} type - type.
+ * @returns {*} Operation result, when applicable.
+ */
 const roadColor = (type) => (type <= 2 ? '#d7dcd3' : type <= 7 ? '#8e9891' : '#5f6b63');
+/**
+ * Runs the tile key operation for this subsystem.
+ * @param {*} tx - tx.
+ * @param {*} tz - tz.
+ * @returns {*} Operation result, when applicable.
+ */
 const tileKey = (tx, tz) => tx * 100003 + tz;
-
+/**
+ * Runs the path operation for this subsystem.
+ * @param {*} c - c.
+ * @param {*} pts - pts.
+ * @returns {*} Operation result, when applicable.
+ */
 function path(c, pts) {
   c.beginPath();
   c.moveTo(pts[0], pts[1]);
@@ -26,6 +42,14 @@ function path(c, pts) {
 }
 
 // Draws features in world metres; the caller sets up the transform. Minor roads go first.
+/**
+ * Runs the draw features operation for this subsystem.
+ * @param {*} c - c.
+ * @param {*} options1 - Operation options.
+ * @param {*} data - data.
+ * @param {*} minWidth - min Width.
+ * @returns {*} Operation result, when applicable.
+ */
 function drawFeatures(c, { areas, roads, buildings }, data, minWidth) {
   for (const area of areas) {
     c.fillStyle = AREA[data.areaKinds[area[0]]];
@@ -45,11 +69,23 @@ function drawFeatures(c, { areas, roads, buildings }, data, minWidth) {
     c.fill();
   }
 }
-
+/**
+ * Creates map assets resources for the game.
+ * @param {*} data - data.
+ * @param {*} extraLabels - extra Labels.
+ * @returns {*} Operation result, when applicable.
+ */
 export function createMapAssets(data, extraLabels = []) {
   const { minX, minZ, maxX, maxZ } = data.bounds;
   // Bin every feature into the tiles its bounding box touches.
   const bins = new Map();
+  /**
+   * Runs the bin operation for this subsystem.
+   * @param {*} list - list.
+   * @param {*} feature - feature.
+   * @param {*} first - first.
+   * @returns {*} Operation result, when applicable.
+   */
   const bin = (list, feature, first) => {
     let x0 = Infinity,
       z0 = Infinity,
@@ -64,15 +100,25 @@ export function createMapAssets(data, extraLabels = []) {
     for (let tx = Math.floor((x0 - 8) / TILE_M); tx <= Math.floor((x1 + 8) / TILE_M); tx++)
       for (let tz = Math.floor((z0 - 8) / TILE_M); tz <= Math.floor((z1 + 8) / TILE_M); tz++) {
         const k = tileKey(tx, tz);
-        if (!bins.has(k)) bins.set(k, { areas: [], roads: [], buildings: [] });
+        if (!bins.has(k))
+          bins.set(k, {
+            areas: [],
+            roads: [],
+            buildings: [],
+          });
         bins.get(k)[list].push(feature);
       }
   };
   data.areas.forEach((a) => bin('areas', a, 1));
   [...data.roads].sort((a, b) => b[0] - a[0]).forEach((r) => bin('roads', r, 2));
   data.buildings.forEach((b) => bin('buildings', b, 1));
-
   const cache = new Map();
+  /**
+   * Runs the tile operation for this subsystem.
+   * @param {*} tx - tx.
+   * @param {*} tz - tz.
+   * @returns {*} Operation result, when applicable.
+   */
   function tile(tx, tz) {
     const k = tileKey(tx, tz);
     if (cache.has(k)) {
@@ -87,12 +133,20 @@ export function createMapAssets(data, extraLabels = []) {
     c.fillStyle = '#1b231f';
     c.fillRect(0, 0, TILE_PX, TILE_PX);
     c.setTransform(SCALE, 0, 0, SCALE, -tx * TILE_M * SCALE, -tz * TILE_M * SCALE);
-    drawFeatures(c, bins.get(k) ?? { areas: [], roads: [], buildings: [] }, data, 1.6);
+    drawFeatures(
+      c,
+      bins.get(k) ?? {
+        areas: [],
+        roads: [],
+        buildings: [],
+      },
+      data,
+      1.6,
+    );
     cache.set(k, canvas);
     if (cache.size > MAX_TILES) cache.delete(cache.keys().next().value);
     return canvas;
   }
-
   const overview = document.createElement('canvas');
   overview.width = Math.ceil((maxX - minX) * OVERVIEW_SCALE);
   overview.height = Math.ceil((maxZ - minZ) * OVERVIEW_SCALE);
@@ -132,7 +186,13 @@ export function createMapAssets(data, extraLabels = []) {
         road[Math.min(mid + 3, road.length - 1)] - road[mid - 1],
         road[Math.min(mid + 2, road.length - 2)] - road[mid - 2],
       );
-      streets.set(name, { name, len, x: road[mid], z: road[mid + 1], angle });
+      streets.set(name, {
+        name,
+        len,
+        x: road[mid],
+        z: road[mid + 1],
+        angle,
+      });
     }
   }
   return {
@@ -146,6 +206,17 @@ export function createMapAssets(data, extraLabels = []) {
 
 // Paints the map for the world rectangle x0..x1, z0..z1 into a context already transformed to world
 // metres; pxPerMetre decides between detailed tiles and the overview.
+/**
+ * Runs the paint world operation for this subsystem.
+ * @param {*} c - c.
+ * @param {*} assets - assets.
+ * @param {*} x0 - x0.
+ * @param {*} z0 - z0.
+ * @param {*} x1 - x1.
+ * @param {*} z1 - z1.
+ * @param {*} pxPerMetre - px Per Metre.
+ * @returns {*} Operation result, when applicable.
+ */
 function paintWorld(c, assets, x0, z0, x1, z1, pxPerMetre) {
   const { minX, minZ } = assets.bounds;
   c.fillStyle = '#141b18';
@@ -164,7 +235,16 @@ function paintWorld(c, assets, x0, z0, x1, z1, pxPerMetre) {
     for (let tz = Math.floor(z0 / TILE_M); tz <= Math.floor(z1 / TILE_M); tz++)
       c.drawImage(assets.tile(tx, tz), tx * TILE_M, tz * TILE_M, TILE_M + 0.5, TILE_M + 0.5);
 }
-
+/**
+ * Runs the rotate point operation for this subsystem.
+ * @param {*} x - x.
+ * @param {*} z - z.
+ * @param {*} cx - cx.
+ * @param {*} cz - cz.
+ * @param {*} angle - angle.
+ * @param {*} k - k.
+ * @returns {*} Operation result, when applicable.
+ */
 function rotatePoint(x, z, cx, cz, angle, k) {
   const dx = (x - cx) * k,
     dz = (z - cz) * k,
@@ -172,7 +252,14 @@ function rotatePoint(x, z, cx, cz, angle, k) {
     sin = Math.sin(angle);
   return [dx * cos - dz * sin, dx * sin + dz * cos];
 }
-
+/**
+ * Runs the machine icon operation for this subsystem.
+ * @param {*} c - c.
+ * @param {*} x - x.
+ * @param {*} y - y.
+ * @param {*} options3 - Operation options.
+ * @returns {*} Operation result, when applicable.
+ */
 function machineIcon(c, x, y, { objective, visited, open }) {
   c.save();
   c.translate(x, y);
@@ -203,6 +290,13 @@ function machineIcon(c, x, y, { objective, visited, open }) {
 }
 
 // Circular minimap rotated so the camera's forward direction points up.
+/**
+ * Runs the draw minimap operation for this subsystem.
+ * @param {*} ctx - ctx.
+ * @param {*} assets - assets.
+ * @param {*} view - view.
+ * @returns {*} Operation result, when applicable.
+ */
 export function drawMinimap(ctx, assets, view) {
   const { size, x, z, heading, camForward, radius, markers, route } = view;
   const r = size / 2,
@@ -283,11 +377,25 @@ export function drawMinimap(ctx, assets, view) {
 }
 
 // Full-screen city map. view = {cx, cz, mpp} (centre in metres, metres per CSS pixel).
+/**
+ * Runs the draw full map operation for this subsystem.
+ * @param {*} ctx - ctx.
+ * @param {*} assets - assets.
+ * @param {*} view - view.
+ * @param {*} state - state.
+ * @returns {*} Operation result, when applicable.
+ */
 export function drawFullMap(ctx, assets, view, state) {
   const { width, height } = ctx.canvas,
     dpr = state.dpr,
     w = width / dpr,
     h = height / dpr;
+  /**
+   * Runs the to screen operation for this subsystem.
+   * @param {*} x - x.
+   * @param {*} z - z.
+   * @returns {*} Operation result, when applicable.
+   */
   const toScreen = (x, z) => [(x - view.cx) / view.mpp + w / 2, (z - view.cz) / view.mpp + h / 2];
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = '#101614';
@@ -407,6 +515,13 @@ export function drawFullMap(ctx, assets, view, state) {
 }
 
 // Iran overview for the briefing and the map's country tab. `t` animates the highlight.
+/**
+ * Runs the draw iran operation for this subsystem.
+ * @param {*} ctx - ctx.
+ * @param {*} iran - iran.
+ * @param {*} options2 - Operation options.
+ * @returns {*} Operation result, when applicable.
+ */
 export function drawIran(
   ctx,
   iran,
@@ -420,6 +535,12 @@ export function drawIran(
     k = Math.min(width / ((lon1 - lon0) * kx), height / (lat1 - lat0)) * 0.94;
   const offX = (width - (lon1 - lon0) * kx * k) / 2,
     offY = (height - (lat1 - lat0) * k) / 2;
+  /**
+   * Runs the p operation for this subsystem.
+   * @param {*} lon - lon.
+   * @param {*} lat - lat.
+   * @returns {*} Operation result, when applicable.
+   */
   const p = (lon, lat) => [offX + (lon - lon0) * kx * k, offY + (lat1 - lat) * k];
   ctx.clearRect(0, 0, width, height);
   for (const province of iran.provinces) {

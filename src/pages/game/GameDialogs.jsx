@@ -1,3 +1,4 @@
+import { ShowroomDialog } from './ShowroomDialog.jsx';
 import { PaymentPanel } from './PaymentPanel.jsx';
 import { MapDialog } from './MapDialog.jsx';
 import { ShopDialog } from './ShopDialog.jsx';
@@ -9,6 +10,7 @@ import { EndDialog } from './EndDialog.jsx';
 export function GameDialogs(props) {
   return (
     <>
+      <ShowroomDialog {...props} />
       <PaymentPanel {...props} />
       <MapDialog {...props} />
       <ShopDialog {...props} />

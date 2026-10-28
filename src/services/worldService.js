@@ -1,6 +1,8 @@
 import { apiClient } from './apiClient.js';
-
-const WORLD_FILES = { buildings: './data/buildings.bin', imagery: './imagery/index.json' };
+const WORLD_FILES = {
+  buildings: './data/buildings.bin',
+  imagery: './imagery/index.json',
+};
 
 /** Loads optional world assets without preventing the OSM fallback on network failure.
  * @param {AbortSignal} signal - Cancels startup when the game unmounts.
@@ -8,8 +10,13 @@ const WORLD_FILES = { buildings: './data/buildings.bin', imagery: './imagery/ind
  */
 export async function loadWorldFiles(signal) {
   const requests = [
-    apiClient.get(WORLD_FILES.buildings, { responseType: 'arraybuffer', signal }),
-    apiClient.get(WORLD_FILES.imagery, { signal }),
+    apiClient.get(WORLD_FILES.buildings, {
+      responseType: 'arraybuffer',
+      signal,
+    }),
+    apiClient.get(WORLD_FILES.imagery, {
+      signal,
+    }),
   ];
   const results = await Promise.allSettled(requests);
   return results.map((result) => (result.status === 'fulfilled' ? result.value.data : null));
@@ -21,6 +28,9 @@ export async function loadWorldFiles(signal) {
  * @returns {Promise<string>} Temporary URL, to revoke after image decoding.
  */
 export async function loadTileUrl(path, signal) {
-  const response = await apiClient.get(path, { responseType: 'blob', signal });
+  const response = await apiClient.get(path, {
+    responseType: 'blob',
+    signal,
+  });
   return URL.createObjectURL(response.data);
 }

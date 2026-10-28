@@ -1,6 +1,14 @@
 import { createSlice } from '@reduxjs/toolkit';
-
-const initialState = { nodes: { briefing: { hidden: false }, hud: { hidden: true } } };
+const initialState = {
+  nodes: {
+    briefing: {
+      hidden: false,
+    },
+    hud: {
+      hidden: true,
+    },
+  },
+};
 const interfaceSlice = createSlice({
   name: 'interface',
   initialState,
