@@ -39,7 +39,7 @@ const placesVisited = purchases => new Set(purchases.map(p => p.machineId)).size
 
 export const MISSIONS = [
     {
-        id: 'factory', title: 'در سالن تولید از دستگاه نمونهٔ کارخانه خرید کن', target: 'factory', xp: 100, hetoman: 20,
+        id: 'factory', title: 'در دفتر فنی مهندسی کارخانه از دستگاه وندینگ خرید کن', target: 'factory', xp: 100, hetoman: 20,
         done: ps => ps.some(p => p.machineId === 'factory')
     },
     {

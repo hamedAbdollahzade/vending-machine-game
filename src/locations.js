@@ -23,11 +23,11 @@ export const FACTORY = {
 
 export const machines = [
     {
-        id: 'factory', name: 'دستگاه نمونهٔ کارخانه', category: 'factory',
-        address: `${FACTORY.address}، سالن تولید`,
+        id: 'factory', name: 'دستگاه دفتر فنی مهندسی', category: 'factory',
+        address: `${FACTORY.address}، ساختمان اداری، دفتر فنی مهندسی`,
         anchor: null, hours: [0, 24 * 60], priceFactor: .5,
         products: ['water', 'juice', 'tea', 'biscuit', 'chocolate'],
-        note: 'دستگاه نمونهٔ خط تولید؛ نصف قیمت برای مهمان‌های کارخانه'
+        note: 'دستگاه دفتر برنامه‌نویس‌ها؛ نصف قیمت برای مهمان‌های کارخانه'
     },
     {
         id: 'mellat-park', name: 'بوستان ملت', category: 'park',

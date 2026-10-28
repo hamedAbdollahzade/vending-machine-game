@@ -13,7 +13,7 @@ import {createImagery} from './imagery.js';
 import {decodeBuildings} from './buildings-data.js';
 import {createCollisionWorld, addPolygon, resolveCircle, clearFraction} from './collision.js';
 import {buildGraph, routeBetween, buildSegmentIndex, nearestSegment, DRIVABLE_MAX_TYPE} from './routing.js';
-import {machines, CATEGORIES, START, CITY_START, FACTORY, lockedPlaces} from './locations.js';
+import {machines, CATEGORIES, CITY_START, FACTORY, lockedPlaces} from './locations.js';
 import {createState, catalog, priceAt, isOpen, purchaseBlocker, formatHetoman, formatClock, fa, canAffordAnything} from './game-state.js';
 import {createPayment, beginPayment, readyPayment, swipePayment, cancelPayment} from './payment.js';
 import {awardsFor, rankFor, completeMissions, activeMission, MISSIONS} from './scoring.js';
@@ -21,7 +21,8 @@ import {createFamily} from './characters.js';
 import {createVendingMachine} from './vending.js';
 import {createFactory} from './factory.js';
 import {createCar, stepCar, kmh} from './vehicle.js';
-import {createCarModel, createTraffic} from './traffic.js';
+import {createTraffic} from './traffic.js';
+import {createSportSedan} from './car-models.js';
 import {createMapAssets, drawMinimap, drawFullMap, drawIran} from './map-render.js';
 import {bearing, formatDistance, toLocal} from './geo.js';
 
@@ -77,7 +78,16 @@ scene.add(sun, sun.target);
 // The game still runs without them (OSM buildings and drawn roads).
 const loadFile = (path, read) => fetch(path).then(r => r.ok ? r[read]() : null).catch(() => null);
 const [buildingsFile, imageryIndex] = await Promise.all([loadFile('./data/buildings.bin', 'arrayBuffer'), loadFile('./imagery/index.json', 'json')]);
-const extraBuildings = buildingsFile ? decodeBuildings(buildingsFile) : [];
+// Footprints reaching into the factory compound are left out: the game's own buildings stand there.
+const inFactory = (x, z) => {
+    const dx = x - FACTORY.center.x, dz = z - FACTORY.center.z;
+    const u = dx * FACTORY.axis.x + dz * FACTORY.axis.z, v = -dx * FACTORY.axis.z + dz * FACTORY.axis.x;
+    return u > -112 && u < 82 && v > -52 && v < 52;
+};
+const extraBuildings = (buildingsFile ? decodeBuildings(buildingsFile) : []).filter(b => {
+    for (let i = 1; i < b.length; i += 2) if (inFactory(b[i], b[i + 1])) return false;
+    return true;
+});
 const collision = createCollisionWorld([...data.buildings, ...extraBuildings].map(b => b.slice(1)));
 const segments = buildSegmentIndex(data.roads);
 const walkGraph = buildGraph(data.roads), driveGraph = buildGraph(data.roads, {drivable: true});
@@ -199,21 +209,23 @@ scene.add(family.group);
 const guide = createFamily({robot: true});
 guide.group.visible = false;
 scene.add(guide.group);
-const carModel = createCarModel('#f2f2ee');
+const carModel = createSportSedan('#1d3f78');
 scene.add(carModel.group);
 
 let state, payment, player, car, mode, cam, waypoint, route, routeTimer, deliveryTimer, ended;
 const keys = new Set();
 
-// The family car waits in the factory yard, pointing at the gate.
+// The family car waits in the factory yard right beside them, pointing at the gate.
 const spawnCar = () => createCar(factory.car.x, factory.car.z, factory.car.heading);
 
 function reset() {
     state = createState();
     payment = createPayment();
-    const start = stationById(START.machineId);
-    const spot = resolveCircle(collision, start.front.x + (start.front.x - start.x) * 3, start.front.z + (start.front.z - start.z) * 3, 1);
-    player = {x: spot.x, z: spot.z, heading: Math.atan2(-(start.z - spot.z), start.x - spot.x), speed: 0, gait: 0};
+    // The family starts in the factory yard, facing the engineering office.
+    const spot = resolveCircle(collision, factory.start.x, factory.start.z, 1);
+    player = {x: spot.x, z: spot.z, heading: factory.start.heading, speed: 0, gait: 0};
+    factory.reset();
+    for (const t of factory.talks) t.done = false;
     car = spawnCar();
     mode = 'walk';
     // Camera yaw: the camera sits at target + (sin yaw, cos yaw) * distance, so it looks along (-sin, -cos).
@@ -337,6 +349,8 @@ const axis = (pos, neg) => Number(pos.some(k => keys.has(k))) - Number(neg.some(
 
 // ---------- Subtitles ----------
 const SPEAKERS = {robot: 'روبات', father: 'پدر', child: 'بچه'};
+// Factory staff speak under their own names.
+for (const t of factory.talks) if (t.label) SPEAKERS[t.speaker] = t.label;
 let lines = [], lineTimer = 0, talking = false;
 
 // `face` picks the robot's expression portrait (public/robot/<face>.webp).
@@ -353,7 +367,7 @@ function updateSubtitles(dt) {
     talking = next?.speaker === 'robot';
     if (!next) return;
     $('#subtitle-speaker').textContent = `${SPEAKERS[next.speaker]}:`;
-    $('#subtitle-speaker').className = next.speaker;
+    $('#subtitle-speaker').className = ['robot', 'father', 'child'].includes(next.speaker) ? next.speaker : 'staff';
     $('#subtitle-text').textContent = next.text;
     $('#subtitle-face').hidden = next.speaker !== 'robot';
     if (next.speaker === 'robot') $('#subtitle-face').src = `./robot/${next.face}.webp`;
@@ -903,7 +917,9 @@ function startMission() {
     $('#briefing').hidden = true;
     $('#hud').hidden = false;
     say('child', 'بابا، اینجا همون کارخونه‌ایه که دستگاه‌های روبات مارکت رو می‌سازه؟');
-    say('father', 'آره! بیا جلوی دستگاه نمونه وایسیم ببینیم چی می‌شه.');
+    say('father', 'آره! سالن تولید اون‌وره؛ دستگاه وندینگ هم توی دفتر فنی مهندسیه. بریم ببینیم!');
+    say('child', 'اون وانت سفیده کیه داره میاد تو؟');
+    say('father', 'آقای محمدیه، مدیر شرکت. بعداً بریم اتاقش سلام کنیم.');
     if (!isTouch && !real.on) canvas.requestPointerLock?.()?.catch?.(() => {});
 }
 
@@ -1088,17 +1104,22 @@ function updateDrive(dt) {
     if (debugHits.length > 200) debugHits.splice(0, 100);
     const throttle = THREE.MathUtils.clamp(axis(['w', 'arrowup'], ['s', 'arrowdown']) + stick.y, -1, 1);
     const steer = THREE.MathUtils.clamp(axis(['d', 'arrowright'], ['a', 'arrowleft']) + stick.x, -1, 1);
-    stepCar(car, {throttle, steer, handbrake: keys.has(' ')}, dt);
-    // Two collision circles along the body keep the nose and tail out of buildings.
-    for (const along of [1.3, -1.3]) {
-        const cx = car.x + Math.cos(car.heading) * along, cz = car.z - Math.sin(car.heading) * along;
-        const p = resolveCircle(collision, cx, cz, 1.05);
-        if (p.hit) {
-            debugHits.push({kind: 'building', x: Math.round(cx), z: Math.round(cz), v: +car.speed.toFixed(1)});
-            car.x += p.x - cx;
-            car.z += p.z - cz;
-            if (Math.abs(car.speed) > 4) tone(90, .2, .08, 'square');
-            car.speed *= .35;
+    // At top speed the car covers almost 2 m per step, so move it in short slices that can't
+    // tunnel through a thin wall or fence.
+    const slices = Math.max(1, Math.ceil(Math.abs(car.speed) * dt / .6));
+    for (let i = 0; i < slices; i++) {
+        stepCar(car, {throttle, steer, handbrake: keys.has(' ')}, dt / slices);
+        // Two collision circles along the body keep the nose and tail out of buildings.
+        for (const along of [1.3, -1.3]) {
+            const cx = car.x + Math.cos(car.heading) * along, cz = car.z - Math.sin(car.heading) * along;
+            const p = resolveCircle(collision, cx, cz, 1.05);
+            if (p.hit) {
+                debugHits.push({kind: 'building', x: Math.round(cx), z: Math.round(cz), v: +car.speed.toFixed(1)});
+                car.x += p.x - cx;
+                car.z += p.z - cz;
+                if (Math.abs(car.speed) > 4) tone(90, .2, .08, 'square');
+                car.speed *= .35;
+            }
         }
     }
     // Bumping a traffic car slows you down but never throws you backwards. If you stay pressed
@@ -1156,7 +1177,7 @@ function updateCamera(dt) {
         let distance = cam.distance;
         const ox = Math.sin(cam.yaw) * Math.cos(cam.pitch), oz = Math.cos(cam.yaw) * Math.cos(cam.pitch);
         const free = clearFraction(collision, focus.x, focus.z, focus.x + ox * distance, focus.z + oz * distance, .8);
-        if (cam.pitch < .9) distance = Math.max(1.6, distance * free - .4);
+        if (cam.pitch < .9) distance = Math.max(1.6, distance * free - .7);
         camTarget.set(focus.x + ox * distance, Math.max(.6, focus.y + Math.sin(cam.pitch) * distance), focus.z + oz * distance);
         lookAt.lerp(focus, 1 - Math.exp(-dt * 14));
     }
@@ -1212,6 +1233,19 @@ function updateHUD(dt) {
 
 let hints = {closed: false, car: false};
 
+// People in the factory say their lines once, when the family walks up to them.
+function updateTalks() {
+    if (mode !== 'walk' || real.on || lines.length > 2) return;
+    for (const t of factory.talks) {
+        if (t.done || (t.ready && !t.ready())) continue;
+        const p = t.pos();
+        if (Math.hypot(p.x - player.x, p.z - player.z) > t.radius) continue;
+        t.done = true;
+        for (const text of t.lines) say(t.speaker, text);
+        return;
+    }
+}
+
 // ---------- Robot guide ----------
 // When the family walks up to a machine the robot pops out of it, greets them and explains what to
 // do; when they leave it goes back inside. It is never a walking companion.
@@ -1223,10 +1257,10 @@ function greet(station) {
     const def = station.def, first = !guideState.greeted.has(def.id);
     guideState.greeted.add(def.id);
     if (def.id === 'factory' && first) {
-        say('robot', 'سلام! من روبات راهنمای روبات مارکتم؛ همین الان از خط تولید اومدم بیرون!', 'excited');
-        say('robot', `به ${FACTORY.name} خوش اومدین. همهٔ دستگاه‌های شهر همین‌جا ساخته می‌شن.`, 'happy');
-        say('robot', 'اول از همین دستگاه نمونه یه چیزی بخرین؛ کلید E رو بزنین.', 'wink');
-        say('robot', 'بعد ماشینتون تو حیاطه. با F سوار شین و برین بوستان ملت؛ من توی همهٔ دستگاه‌ها منتظرتونم!', 'love');
+        say('robot', 'سلام! من روبات راهنمای روبات مارکتم؛ تو دستگاه دفتر فنی زندگی می‌کنم!', 'excited');
+        say('robot', `به ${FACTORY.name} خوش اومدین. بچه‌های همین دفتر نرم‌افزار دستگاه‌ها رو می‌نویسن.`, 'happy');
+        say('robot', 'اول از همین دستگاه یه چیزی بخرین؛ کلید E رو بزنین.', 'wink');
+        say('robot', 'ماشینتون جلوی همین ساختمونه. با F سوار شین و برین بوستان ملت؛ من توی همهٔ دستگاه‌ها منتظرتونم!', 'love');
         return;
     }
     if (!isOpen(def, state.minutes)) {
@@ -1313,6 +1347,7 @@ function frame() {
         }
         updateRoute(dt);
         updateHints();
+        updateTalks();
         updateGuide(dt);
         if (Math.floor(elapsed * 2) !== Math.floor((elapsed - dt) * 2)) checkEnd();
     } else if (engine && soundOn) engine.g.gain.setTargetAtTime(0, audio.currentTime, .1);
@@ -1323,7 +1358,7 @@ function frame() {
     family.group.position.set(player.x, 0, player.z);
     family.group.rotation.y = player.heading;
     family.update({dt, time: elapsed, gait: player.gait, moving: player.speed > .4, shopping: state.busy || payment.phase !== 'idle', delivery: deliveryTimer > 0});
-    factory.update(elapsed);
+    factory.update(elapsed, paused ? 0 : dt, camera.position);
     carModel.group.position.set(car.x, 0, car.z);
     carModel.group.rotation.y = car.heading;
     for (const [i, wheel] of carModel.wheels.entries()) {
@@ -1381,7 +1416,9 @@ if (new URLSearchParams(location.search).has('debug')) window.game = {
         return state;
     }, get player() {
         return player;
-    }, get car() {
+    }, get cam() {
+        return cam;
+    }, factory, get car() {
         return car;
     }, get mode() {
         return mode;
