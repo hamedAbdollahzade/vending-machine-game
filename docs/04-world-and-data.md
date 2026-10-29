@@ -27,7 +27,7 @@ buildGraph گراف پیاده با همهٔ مسیرها، و سواره با r
 - city بخش‌های ۲۰۰۰ متری و ساختمان‌ها بلوک‌های ۵۰۰ متری دارد؛ ساخت/visibility وابسته به فاصله است. worker و props با instancing کاهش draw call دارند.
 - `public/imagery/index.json`: ۳۴۰ tile زوم۱۵ و ۶۶۰ tile زوم۱۷ (مجموع ۱۰۰۰ JPG). imagery هم‌زمان حداکثر ۶ درخواست می‌فرستد؛ tileهای دور geometry/material/texture آزاد می‌کنند.
 - زوم۱۷: شعاع ۴۵۰ متر در low و ۷۵۰ در high؛ زوم۱۵: ۱۸۰۰ و ۲۸۰۰. محدودهٔ حذف ۱٫۲ برابر range است.
-- با index ماهواره‌ای موجود، زمین/جادهٔ procedural شهر جایگزین می‌شود. نبود دانلود bin/index fallback دارد؛ index موجود با JPGهای غایب لزوماً به fallback بدون تصویر تبدیل نمی‌شود.
+- زمین ماهواره‌ای با `SATELLITE_GROUND = false` در `src/constants/world.js` خاموش است. در این حالت index دانلود نمی‌شود و زمین و جاده‌ها از OSM کشیده می‌شوند. اگر روشن شود و index موجود باشد، زمین/جادهٔ procedural شهر جایگزین می‌شود. نبود دانلود bin/index fallback دارد؛ index موجود با JPGهای غایب لزوماً به fallback بدون تصویر تبدیل نمی‌شود.
 - portraitهای روبات: front، happy، wink، surprised، laugh، love، curious، serious، excited؛ نام فایل با face زیرنویس تطبیق دارد.
 - آیکون‌های PWA در `public/icons` و manifest در `public/manifest.webmanifest` هستند.
 

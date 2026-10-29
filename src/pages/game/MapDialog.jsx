@@ -59,7 +59,7 @@ export function MapDialog({ nodes, actions }) {
             <GameNode as="canvas" id="fullmap" model={nodes['fullmap']} />
             <GameNode as="canvas" id="iran-map" hidden model={nodes['iran-map']} />
             <p className="map-help">
-              {'کشیدن: جابه‌جایی · چرخ ماوس: زوم · کلیک روی دستگاه: انتخاب'}
+              {'کشیدن: جابه‌جایی · دو انگشت یا چرخ ماوس: زوم · لمس یا کلیک روی دستگاه: انتخاب'}
             </p>
           </div>
           <aside className="map-side">

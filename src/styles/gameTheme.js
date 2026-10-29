@@ -138,10 +138,13 @@ export const gameTheme = {
     'font-size': 'var(--game-token-11)',
     'letter-spacing': 'var(--game-token-12)',
   },
+  // The briefing can be taller than a phone screen (portrait text, or any landscape phone), so it
+  // scrolls; otherwise the start and install buttons end up below the edge, out of reach.
   '#briefing': {
     position: 'fixed',
     inset: '0',
     'z-index': '40',
+    'overflow-y': 'auto',
     display: 'grid',
     'grid-template-columns': '1.3fr 1fr',
     background:
@@ -250,7 +253,7 @@ export const gameTheme = {
   },
   '.map-hint': {
     position: 'absolute',
-    bottom: '-var(--game-token-17)',
+    bottom: 'calc(-1 * var(--game-token-17))',
     left: '50%',
     transform: 'translateX(-50%)',
     padding: 'var(--game-token-35) var(--game-token-36)',
@@ -348,7 +351,7 @@ export const gameTheme = {
     left: '50%',
     width: 'var(--game-token-17)',
     height: 'var(--game-token-17)',
-    margin: '-var(--game-token-35)',
+    margin: 'calc(-1 * var(--game-token-35))',
     'border-radius': '50%',
     background: 'var(--game-token-44)',
     'pointer-events': 'none',
@@ -918,6 +921,7 @@ export const gameTheme = {
       display: 'none',
     },
     '#status': {
+      right: 'var(--game-token-30)',
       bottom: 'var(--game-token-24)',
     },
     '.stat': {
@@ -927,8 +931,11 @@ export const gameTheme = {
     '.stat strong': {
       'font-size': 'var(--game-token-42)',
     },
+    // The rank bar moves to the top on phones; without bottom: auto it would stretch to full height.
     '#rank': {
       top: 'var(--game-token-17)',
+      bottom: 'auto',
+      width: '70vw',
       padding: 'var(--game-token-35) var(--game-token-45)',
       'font-size': 'var(--game-token-37)',
     },
@@ -945,6 +952,8 @@ export const gameTheme = {
       'padding-bottom': 'env(safe-area-inset-bottom, var(--game-token-9))',
     },
     '#toolbar button': {
+      padding: 'var(--game-token-17) var(--game-token-45)',
+      'font-size': 'var(--game-token-37)',
       flex: '0 0 auto',
       'white-space': 'nowrap',
     },
@@ -973,11 +982,80 @@ export const gameTheme = {
       bottom: 'var(--game-token-78)',
     },
   },
+  // Phones held sideways: the desktop layout is too tall for ~390px, so shrink the map and panels,
+  // move the rank bar to the top and lay the touch buttons out in a row above the stats.
+  // Only height is tested, so every phone held sideways matches whatever its width; narrow ones
+  // also match the phone block above, and this block, coming later, wins.
+  '@media (max-height: 520px)': {
+    '.brief-panel': {
+      'align-self': 'start',
+      margin: 'var(--game-token-42)',
+      padding: 'var(--game-token-11)',
+    },
+    '#brief-text': {
+      'font-size': 'var(--game-token-41)',
+    },
+    '#minimap-button,\n  #minimap': {
+      width: 'var(--game-token-72)',
+      height: 'var(--game-token-72)',
+    },
+    '#minimap-button': {
+      top: 'var(--game-token-30)',
+      left: 'var(--game-token-30)',
+    },
+    '#location': {
+      top: 'calc(var(--game-token-72) + var(--game-token-42))',
+      left: 'var(--game-token-30)',
+      width: 'var(--game-token-72)',
+    },
+    '#objectives': {
+      top: 'var(--game-token-30)',
+      right: 'var(--game-token-30)',
+      width: '30vw',
+      padding: 'var(--game-token-45)',
+    },
+    '#mission-list li:not(.active)': {
+      display: 'none',
+    },
+    '#rank': {
+      top: 'var(--game-token-17)',
+      bottom: 'auto',
+      width: '40vw',
+      padding: 'var(--game-token-35) var(--game-token-45)',
+      'font-size': 'var(--game-token-37)',
+    },
+    '#rank .bar': {
+      height: 'var(--game-token-21)',
+      'margin-top': 'var(--game-token-35)',
+    },
+    '#compass': {
+      top: 'var(--game-token-89)',
+      width: '34vw',
+    },
+    '.stat': {
+      'min-width': 'var(--game-token-81)',
+      padding: 'var(--game-token-17) var(--game-token-45)',
+    },
+    '.stat strong': {
+      'font-size': 'var(--game-token-42)',
+    },
+    '#toolbar button': {
+      padding: 'var(--game-token-17) var(--game-token-45)',
+      'font-size': 'var(--game-token-37)',
+    },
+    '#touch': {
+      bottom: 'var(--game-token-24)',
+    },
+    '.touch-buttons': {
+      'grid-auto-flow': 'column',
+      'margin-bottom': 'var(--game-token-69)',
+    },
+  },
   '.brief-robot': {
     float: 'left',
     width: 'var(--game-token-82)',
     height: 'auto',
-    margin: '-var(--game-token-45) 0 0 var(--game-token-45)',
+    margin: 'calc(-1 * var(--game-token-45)) 0 0 var(--game-token-45)',
     filter: 'drop-shadow(0 var(--game-token-45) var(--game-token-11) var(--game-token-83))',
   },
   '.brief-actions': {

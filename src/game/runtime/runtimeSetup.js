@@ -25,6 +25,10 @@ import { createTraffic } from '../systems/traffic.js';
 import { createSportSedan } from '../models/carModels.js';
 import { createMapAssets } from '../world/mapRender.js';
 import { formatDistance, toLocal } from '../../utils/geo.js';
+
+// City map zoom limits in metres per screen pixel (closest and furthest).
+const MAP_ZOOM_MIN = 0.35;
+const MAP_ZOOM_MAX = 30;
 /**
  * Initializes timers in dependency order.
  * @param {*} context - context.
@@ -863,24 +867,72 @@ export async function registerMapTabs(context) {
  * @returns {*} Operation result, when applicable.
  */
 export async function registerMapDragging(context) {
+  // Every finger (or the mouse) on the map, so two fingers can pinch to zoom on phones.
+  context.mapPointers = new Map();
+  context.mapPinch = null;
   context.listen(context.mapCanvas, 'pointerdown', (e) => {
-    context.mapDrag = {
-      x: e.clientX,
-      y: e.clientY,
-      moved: 0,
-    };
+    context.mapPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     context.mapCanvas.setPointerCapture(e.pointerId);
+    // A second finger turns the gesture into a pinch; it never counts as a tap on a machine.
+    if (context.mapPointers.size > 1) {
+      context.mapDrag = null;
+      context.mapPinch = pointerSpread(context.mapPointers);
+      return;
+    }
+    context.mapDrag = { x: e.clientX, y: e.clientY, moved: 0 };
   });
   context.listen(context.mapCanvas, 'pointermove', (e) => {
-    if (!context.mapDrag) return;
-    context.mapView.cx -= (e.clientX - context.mapDrag.x) * context.mapView.mpp;
-    context.mapView.cz -= (e.clientY - context.mapDrag.y) * context.mapView.mpp;
-    context.mapDrag.moved +=
-      Math.abs(e.clientX - context.mapDrag.x) + Math.abs(e.clientY - context.mapDrag.y);
-    context.mapDrag.x = e.clientX;
-    context.mapDrag.y = e.clientY;
-    context.renderMap();
+    if (!context.mapPointers.has(e.pointerId)) return;
+    context.mapPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (context.mapPinch) pinchMap(context);
+    else if (context.mapDrag) dragMap(context, e);
   });
+  const release = (e) => {
+    context.mapPointers.delete(e.pointerId);
+    if (context.mapPointers.size < 2) context.mapPinch = null;
+  };
+  context.listen(context.mapCanvas, 'pointercancel', (e) => {
+    release(e);
+    context.mapDrag = null;
+  });
+  context.mapRelease = release;
+}
+/**
+ * Measures the distance between the first two pointers on the map.
+ * @param {Map<number, {x: number, y: number}>} pointers - Active pointers by id.
+ * @returns {number} Distance in CSS pixels.
+ */
+function pointerSpread(pointers) {
+  const [a, b] = [...pointers.values()];
+  return Math.hypot(a.x - b.x, a.y - b.y) || 1;
+}
+/**
+ * Zooms the city map by how much the two fingers spread or closed since the last move.
+ * @param {*} context - Game context with the map view and active pointers.
+ */
+function pinchMap(context) {
+  const spread = pointerSpread(context.mapPointers);
+  context.mapView.mpp = THREE.MathUtils.clamp(
+    (context.mapView.mpp * context.mapPinch) / spread,
+    MAP_ZOOM_MIN,
+    MAP_ZOOM_MAX,
+  );
+  context.mapPinch = spread;
+  context.renderMap();
+}
+/**
+ * Pans the city map with a one-finger or mouse drag.
+ * @param {*} context - Game context with the map view and drag state.
+ * @param {PointerEvent} e - The move event.
+ */
+function dragMap(context, e) {
+  context.mapView.cx -= (e.clientX - context.mapDrag.x) * context.mapView.mpp;
+  context.mapView.cz -= (e.clientY - context.mapDrag.y) * context.mapView.mpp;
+  context.mapDrag.moved +=
+    Math.abs(e.clientX - context.mapDrag.x) + Math.abs(e.clientY - context.mapDrag.y);
+  context.mapDrag.x = e.clientX;
+  context.mapDrag.y = e.clientY;
+  context.renderMap();
 }
 /**
  * Runs the register map selection and zoom operation for this subsystem.
@@ -899,6 +951,7 @@ export async function registerMapSelectionAndZoom(context) {
       if (hit) context.selectMachine(hit.def.id);
     }
     context.mapDrag = null;
+    context.mapRelease(e);
   });
   context.listen(
     context.mapCanvas,
@@ -907,8 +960,8 @@ export async function registerMapSelectionAndZoom(context) {
       e.preventDefault();
       context.mapView.mpp = THREE.MathUtils.clamp(
         context.mapView.mpp * (e.deltaY > 0 ? 1.15 : 1 / 1.15),
-        0.35,
-        30,
+        MAP_ZOOM_MIN,
+        MAP_ZOOM_MAX,
       );
       context.renderMap();
     },

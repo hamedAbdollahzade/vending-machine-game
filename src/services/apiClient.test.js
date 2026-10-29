@@ -10,7 +10,7 @@ describe('world asset service', () => {
     const { apiClient } = await import('./apiClient.js');
     expect(apiClient.defaults.baseURL).toBe(`${location.origin}/vending-machine-game/`);
   });
-  it('retains the optional-data fallback and passes cancellation to both requests', async () => {
+  it('retains the optional-data fallback and skips the satellite index while it is off', async () => {
     const { apiClient } = await import('./apiClient.js');
     const { loadWorldFiles } = await import('./worldService.js');
     const get = vi.spyOn(apiClient, 'get').mockRejectedValue(new Error('offline'));
@@ -20,6 +20,6 @@ describe('world asset service', () => {
       responseType: 'arraybuffer',
       signal: controller.signal,
     });
-    expect(get).toHaveBeenCalledWith('./imagery/index.json', { signal: controller.signal });
+    expect(get).not.toHaveBeenCalledWith('./imagery/index.json', expect.anything());
   });
 });
