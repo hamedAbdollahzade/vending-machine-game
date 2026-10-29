@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { createVendingMachine } from './vending.js';
-import { createCarModel } from '../systems/traffic.js';
-import { createPickup, createTruck } from './carModels.js';
+import { createTruck } from './carModels.js';
+import { createLuxuryCar } from './luxuryCars.js';
+import { MANAGER_CAR_BRAND, MOTORCYCLE_COUNT, VEHICLE_BLACK } from '../../constants/vehicles.js';
 import { createPerson, createCrew, nameTag } from './staff.js';
 import { FACTORY } from '../../constants/locations.js';
 import { textTexture } from './textures.js';
@@ -139,7 +140,7 @@ const CODE = {
 /**
  * The Robot Market factory compound: production hall with five work areas and forty workers, an
  * office building (engineering, accounting and the manager's room), a loading truck, the manager's
- * arrival in his pickup, fenced yard and gate. Layout uses a local frame: u runs along the driveway
+ * arrival in his car, fenced yard and gate. Layout uses a local frame: u runs along the driveway
  * towards the gate, v across it. Returns world-space collision footprints, key positions and the
  * people the family can talk to.
  */
@@ -270,8 +271,8 @@ function factoryUpdateArrival(build, dt, time) {
   if (build.arrival.stage === 'drive') {
     build.arrival.s += dt * 7;
     const p = build.along(build.DRIVE_IN, build.arrival.s);
-    build.placeVehicle(build.pickup, build.arrival, p, dt);
-    build.pickup.wheels.forEach((w) => (w.rotation.z -= (dt * 7) / 0.4));
+    build.placeVehicle(build.managerCar, build.arrival, p, dt);
+    build.managerCar.wheels.forEach((w) => (w.rotation.z -= (dt * 7) / 0.4));
     build.manager.root.visible = false;
     if (p.done)
       Object.assign(build.arrival, {
@@ -304,7 +305,7 @@ function factoryResetArrival(build) {
     s: 0,
     sat: false,
   });
-  build.placeVehicle(build.pickup, build.arrival, build.along(build.DRIVE_IN, 0), 0);
+  build.placeVehicle(build.managerCar, build.arrival, build.along(build.DRIVE_IN, 0), 0);
   build.manager.root.visible = false;
 }
 /**
@@ -1586,20 +1587,22 @@ function factoryBuildGeometry12(build) {
  * @returns {*} Operation result, when applicable.
  */
 function factoryBuildGeometry13(build) {
-  for (let i = 0; i < 4; i++) {
-    const parked = createCarModel(['#2f4a6b', '#e9e9e4', '#7e1f1d', '#9aa3a8'][i]);
-    const u = 56 + i * 4;
-    parked.group.position.set(u, 0, -19);
-    parked.group.rotation.y = Math.PI / 2;
-    build.group.add(parked.group);
-    build.solid(u - 1.1, u + 1.1, -21.3, -16.7);
-  }
+  // Bay centres for the staff cars and the motorcycle row; the garage puts drivable vehicles there.
+  const heading = build.worldHeading(0, -1);
+  build.parking = {
+    cars: [58, 62, 66].map((u) => ({ ...build.toWorld(u, -19), heading })),
+    // Motorcycles barely reverse, so they stand facing out towards the driveway.
+    bikes: Array.from({ length: MOTORCYCLE_COUNT }, (_, i) => ({
+      ...build.toWorld(36.6 + i * 1.1, -19.5),
+      heading: build.worldHeading(0, 1),
+    })),
+  };
 
-  // ---------- The manager arrives in his pickup ----------
+  // ---------- The manager arrives in his Bugatti ----------
   // Mr Mohammadi drives in through the gate when the game starts, parks by the office, walks to
-  // his room and sits at his desk.
-  build.pickup = createPickup('#f1f1ee');
-  build.group.add(build.pickup.group);
+  // his room and sits at his desk. Once parked the car can be taken like any other.
+  build.managerCar = createLuxuryCar(MANAGER_CAR_BRAND);
+  build.group.add(build.managerCar.group);
 }
 /**
  * Runs the factory build manager operation for this subsystem.
@@ -1634,24 +1637,6 @@ function factoryBuildManager(build) {
     [48.5, -40.7],
     [45, -40.7],
   ];
-  {
-    // The parked pickup blocks its bay.
-    const [ax, az] = build.DRIVE_IN.at(-2),
-      [bx, bz] = build.DRIVE_IN.at(-1),
-      len = Math.hypot(bx - ax, bz - az);
-    const du = (bx - ax) / len,
-      dv = (bz - az) / len;
-    build.footprints.push(
-      [
-        [2.7, 1],
-        [2.7, -1],
-        [-2.7, -1],
-        [-2.7, 1],
-      ].flatMap(([a, b]) =>
-        Object.values(build.toWorld(bx + du * a - dv * b, bz + dv * a + du * b)),
-      ),
-    );
-  }
 }
 /**
  * Runs the factory build arrival operation for this subsystem.
@@ -1723,7 +1708,7 @@ function factoryBuildPlaceVehicle(build) {
   // ---------- Delivery truck ----------
   // Packed machines ride the conveyor onto the truck at the dock; when it is full it drives out
   // of the gate to the city, and comes back empty a while later, reversing up to the dock.
-  build.truck = createTruck();
+  build.truck = createTruck(VEHICLE_BLACK);
   build.group.add(build.truck.group);
   build.DOCK = [5.5, 31];
   build.DEPART = [build.DOCK, [14, 31], [30, 22], [50, 8], [66, 1], [80, 0], [100, 0]];
@@ -1836,6 +1821,13 @@ function factoryBuildResult(build) {
       ...build.toWorld(-20, 0),
     },
     talks: build.talks,
+    parking: build.parking,
+    // The garage takes the manager's car over once it has parked, and hands it back on reset.
+    managerCar: {
+      model: build.managerCar,
+      home: build.group,
+      parked: () => build.arrival.stage !== 'drive',
+    },
     reset: build.resetArrival,
     // `dt` is 0 while the game is paused; distant viewers skip the people and machines.
     update(time, dt, viewer) {

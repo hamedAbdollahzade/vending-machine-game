@@ -5,6 +5,7 @@ import { FACTORY } from '../../constants/locations.js';
 import { isOpen, formatClock, fa } from '../economy/gameState.js';
 import { rankFor, activeMission, MISSIONS } from '../economy/scoring.js';
 import { kmh } from '../systems/vehicle.js';
+import { nearestRide } from './garage.js';
 import { drawMinimap } from '../world/mapRender.js';
 import { bearing, formatDistance } from '../../utils/geo.js';
 /**
@@ -191,11 +192,21 @@ export function refreshHUD(context) {
   });
   context.ui.publishGame(context.state);
   context.ui.patch('mode-label', {
-    text: context.mode === 'drive' ? 'در ماشین · F برای پیاده شدن' : 'پیاده',
+    text: modeLabel(context),
   });
   context.ui.patch('speed-stat', {
     hidden: context.mode !== 'drive',
   });
+}
+/**
+ * Describes how the player is travelling, for the HUD.
+ * @param {object} context - Game context.
+ * @returns {string} Persian label.
+ */
+function modeLabel(context) {
+  if (context.mode !== 'drive') return 'پیاده';
+  if (context.vehicle.kind === 'bike') return 'روی موتور · F برای پیاده شدن';
+  return `در ${context.vehicle.label} · F برای پیاده شدن`;
 }
 /**
  * Updates prompt from the active simulation.
@@ -213,16 +224,13 @@ export function updatePrompt(context) {
   }
   let text = '';
   const station = context.nearStation();
+  const ride = context.mode === 'walk' ? nearestRide(context) : null;
   if (!context.state.busy && context.payment.phase === 'idle') {
     if (station)
       text = isOpen(station.def, context.state.minutes)
         ? `E · خرید از روبات مارکت · ${station.def.name}`
         : `دستگاه بسته است · ${context.hoursText(station.def)}`;
-    else if (
-      context.mode === 'walk' &&
-      Math.hypot(context.car.x - context.player.x, context.car.z - context.player.z) < 4.5
-    )
-      text = 'F · سوار ماشین شو';
+    else if (ride) text = `F · سوار ${ride.label} شو`;
     else if (
       context.mode === 'drive' &&
       Math.abs(context.car.speed) < 1 &&

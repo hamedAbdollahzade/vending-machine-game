@@ -16,8 +16,12 @@ JavaScript ES Modules، Three.js/WebGL، Vite، HTML و CSS فارسی RTL و Ca
 | characters.js | createFamily معمولی (پدر/کودک) و robot-only، مفصل و انیمیشن |
 | factory.js | ساختمان/دکور/کارخانه، کارکنان، موقعیت spawn، talks، مدیر و کامیون |
 | staff.js | مدل کارکنان مفصلی و crew به شکل InstancedMesh |
-| car-models.js | سدان خانواده، pickup مدیر و کامیون |
-| vehicle.js | state و فیزیک آرکید ماشین |
+| car-models.js | سدان خانواده، کامیون و helperهای مشترک بدنه |
+| luxuryCars.js | ماشین‌های لوکس مشکی به سبک بوگاتی، لامبورگینی، مزدا و نیسان |
+| motorcycle.js | موتور آپاچی با راکب و بدنهٔ خم‌شونده |
+| vehicle.js | state و فیزیک آرکید ماشین (`CAR`) و موتور (`BIKE`) |
+| vehicleCollision.js | برخورد جعبهٔ جهت‌دار وسیله‌ها و هل‌دادن پیاده از وسیلهٔ پارک‌شده |
+| garage.js | فهرست وسیله‌های سوارشدنی، سوار/پیاده، برخورد رانندگی و reset |
 | traffic.js | ماشین‌های NPC، spawn و حرکت روی شبکهٔ اصلی و one-way داده |
 | city.js | مدل شهر، زمین fallback، ساختمان، فضای سبز و chunk visibility |
 | collision.js | spatial grid چندضلعی‌ها، resolveCircle و clearFraction دوربین |

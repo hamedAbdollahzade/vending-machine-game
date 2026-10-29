@@ -119,6 +119,13 @@ const COLORS = [
 // falls too far behind is moved to a road ahead or around them. Cars stop for anything in their lane.
 const WIDTH = [11, 10, 9, 8]; // trunk … tertiary, matching the road strips in city.js
 
+// Body size of a traffic car (createCarModel), for collisions and lane checks.
+export const TRAFFIC_CAR = { halfLength: 2.2, halfWidth: 0.88 };
+// Extra side clearance a traffic car wants before it drives past something.
+const PASSING_MARGIN = 0.25;
+// Half width assumed for an obstacle that doesn't give one, such as a pedestrian.
+const DEFAULT_OBSTACLE_HALF_WIDTH = 0.4;
+
 /**
  * Creates traffic resources for the game.
  * @param {*} scene - scene.
@@ -238,11 +245,14 @@ export function createTraffic(scene, data, count = 28) {
     cars = [];
   scene.add(group);
   for (let i = 0; i < count; i++) {
-    const model = createCarModel(COLORS[i % COLORS.length]);
+    const color = COLORS[i % COLORS.length];
+    const model = createCarModel(color);
     group.add(model.group);
     model.group.visible = false;
     cars.push({
       model,
+      color,
+      halfWidth: TRAFFIC_CAR.halfWidth,
       road: null,
       d: 0,
       dir: 1,
@@ -262,6 +272,20 @@ export function createTraffic(scene, data, count = 28) {
     car.road = null;
     car.x = car.z = 1e9;
     car.model.group.visible = false;
+  }
+  /**
+   * Hands a traffic car's model over to the player, who takes it as their own vehicle. The traffic
+   * slot gets a fresh model of the same colour and respawns out of sight later.
+   * @param {object} car - The traffic car being taken.
+   * @returns {{group: THREE.Group, wheels: THREE.Group[]}} The model that now belongs to the player.
+   */
+  function adopt(car) {
+    const { model } = car;
+    group.remove(model.group);
+    car.model = createCarModel(car.color);
+    group.add(car.model.group);
+    remove(car);
+    return model;
   }
   let cursor = 0;
   /**
@@ -290,7 +314,11 @@ export function createTraffic(scene, data, count = 28) {
           const ox = o.x - car.x,
             oz = o.z - car.z,
             along = ox * fx + oz * fz;
-          return along > 0 && along < 9 && Math.abs(ox * fz - oz * fx) < 2.2;
+          // Only something that really overlaps the lane stops the car, so a motorcycle
+          // filtering between two lanes doesn't bring traffic to a halt.
+          const reach =
+            TRAFFIC_CAR.halfWidth + (o.halfWidth ?? DEFAULT_OBSTACLE_HALF_WIDTH) + PASSING_MARGIN;
+          return along > 0 && along < 9 && Math.abs(ox * fz - oz * fx) < reach;
         });
       const speed = ahead ? 0 : car.speed;
       car.d += speed * car.dir * dt;
@@ -317,5 +345,6 @@ export function createTraffic(scene, data, count = 28) {
     cars,
     update,
     remove,
+    adopt,
   };
 }

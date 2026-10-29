@@ -20,9 +20,8 @@ import { isOpen, formatClock } from '../economy/gameState.js';
 import { activeMission } from '../economy/scoring.js';
 import { createFamily } from '../models/characters.js';
 import { createFactory } from '../models/factory.js';
-import { createCar } from '../systems/vehicle.js';
 import { createTraffic } from '../systems/traffic.js';
-import { createSportSedan } from '../models/carModels.js';
+import { createGarage } from './garage.js';
 import { createMapAssets } from '../world/mapRender.js';
 import { formatDistance, toLocal } from '../../utils/geo.js';
 
@@ -402,12 +401,11 @@ export async function initializeFamily(context) {
   });
   context.guide.group.visible = false;
   context.scene.add(context.guide.group);
-  context.carModel = createSportSedan('#1d3f78');
-  context.scene.add(context.carModel.group);
   context.state = undefined;
   context.payment = undefined;
   context.player = undefined;
   context.car = undefined;
+  context.vehicle = undefined;
   context.mode = undefined;
   context.cam = undefined;
   context.waypoint = undefined;
@@ -423,9 +421,9 @@ export async function initializeFamily(context) {
  * @returns {*} Operation result, when applicable.
  */
 export async function initializeSpawnCar(context) {
-  // The family car waits in the factory yard right beside them, pointing at the gate.
-  context.spawnCar = () =>
-    createCar(context.factory.car.x, context.factory.car.z, context.factory.car.heading);
+  // The family car waits in the factory yard right beside them, pointing at the gate; the staff
+  // cars and motorcycles are parked in front of the office.
+  createGarage(context);
   // ---------- Input ----------
   context.isTouch = matchMedia('(pointer: coarse)').matches;
   context.anyDialogOpen = () =>
@@ -1091,7 +1089,7 @@ export async function initializeArMode(context) {
     context.imagery.group,
     context.factory.group,
     context.traffic.group,
-    context.carModel.group,
+    context.garage.group,
     context.parkGate,
     ...context.showroom.samples.map((sample) => sample.machine.group),
   ];
@@ -1197,6 +1195,10 @@ export async function exposeDebugTools(context) {
       real: context.real,
       keys: context.keys,
       traffic: context.traffic,
+      garage: context.garage,
+      get vehicle() {
+        return context.vehicle;
+      },
     };
 }
 /**

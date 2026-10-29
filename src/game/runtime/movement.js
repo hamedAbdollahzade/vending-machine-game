@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import data from '../../data/mellat.json';
 import { resolveCircle } from '../world/collision.js';
 import { stepCar } from '../systems/vehicle.js';
+import { EXIT_MAX_SPEED } from '../../constants/vehicles.js';
+import { collideDriving, nearestRide, takeRide, walkAroundVehicles } from './garage.js';
 /**
  * Runs the look operation for this subsystem.
  * @param {*} context - context.
@@ -30,9 +32,8 @@ export function look(context, dx, dy, k) {
 
 // Touch joystick: x steers / strafes, y walks / throttles.
 /**
- * Runs the toggle car operation for this subsystem.
- * @param {*} context - context.
- * @returns {*} Operation result, when applicable.
+ * Gets the player into the nearest vehicle, or out of the current one.
+ * @param {object} context - Game context.
  */
 export // ---------- Car ----------
 function toggleCar(context) {
@@ -41,40 +42,52 @@ function toggleCar(context) {
     context.say('father', 'توی حالت دنیای واقعی پیاده راه می‌ریم؛ ماشین مجازی لازم نیست.');
     return;
   }
-  if (context.mode === 'walk') {
-    if (Math.hypot(context.car.x - context.player.x, context.car.z - context.player.z) > 4.5)
-      return;
-    context.mode = 'drive';
-    context.cam.distance = Math.max(context.cam.distance, 8);
-    context.tone(320, 0.2, 0.05, 'square');
-    context.say('father', 'کمربندها رو ببندیم! مسیر طلایی روی زمین راه رو نشون می‌ده.');
-  } else {
-    if (Math.abs(context.car.speed) > 3) {
-      context.say('father', 'اول ماشین را نگه دار، بعد پیاده می‌شویم.');
-      return;
-    }
-    // Step out on the driver's (left) side, or wherever is free.
-    const left = {
-      x: -Math.sin(context.car.heading),
-      z: -Math.cos(context.car.heading),
-    };
-    const spot = resolveCircle(
-      context.collision,
-      context.car.x + left.x * 2.8,
-      context.car.z + left.z * 2.8,
-      1,
-    );
-    Object.assign(context.player, {
-      x: spot.x,
-      z: spot.z,
-      heading: context.car.heading,
-    });
-    context.car.speed = 0;
-    context.mode = 'walk';
-    context.cam.distance = 5.5;
-    context.tone(260, 0.2, 0.05, 'square');
-  }
+  if (context.mode === 'walk') getIn(context);
+  else getOut(context);
   context.refreshHUD();
+}
+
+/**
+ * Gets on or in the closest vehicle within reach, if there is one.
+ * @param {object} context - Game context.
+ */
+function getIn(context) {
+  const ride = nearestRide(context);
+  if (!ride) return;
+  const { kind } = takeRide(context, ride);
+  context.mode = 'drive';
+  context.cam.distance = Math.max(context.cam.distance, kind === 'bike' ? 6 : 8);
+  context.tone(320, 0.2, 0.05, 'square');
+  const line =
+    kind === 'bike'
+      ? 'کلاه ایمنی سرت باشه! با موتور می‌شه از لای ماشین‌ها رد شد.'
+      : 'کمربندها رو ببندیم! مسیر طلایی روی زمین راه رو نشون می‌ده.';
+  context.say('father', line);
+}
+
+/**
+ * Steps out of the current vehicle on its left side, or wherever is free.
+ * @param {object} context - Game context.
+ */
+function getOut(context) {
+  const { state, spec } = context.vehicle;
+  if (Math.abs(state.speed) > EXIT_MAX_SPEED) {
+    context.say('father', 'اول نگه دار، بعد پیاده می‌شویم.');
+    return;
+  }
+  const left = { x: -Math.sin(state.heading), z: -Math.cos(state.heading) };
+  const step = spec.halfWidth + 1.8;
+  const spot = resolveCircle(
+    context.collision,
+    state.x + left.x * step,
+    state.z + left.z * step,
+    1,
+  );
+  Object.assign(context.player, { x: spot.x, z: spot.z, heading: state.heading });
+  state.speed = 0;
+  context.mode = 'walk';
+  context.cam.distance = 5.5;
+  context.tone(260, 0.2, 0.05, 'square');
 }
 
 // ---------- Machines, shop and payment ----------
@@ -121,11 +134,38 @@ export function updateWalk(context, dt) {
   }
   const mx = Math.cos(context.player.heading) * context.player.speed * dt,
     mz = -Math.sin(context.player.heading) * context.player.speed * dt;
-  const p = resolveCircle(context.collision, context.player.x + mx, context.player.z + mz, 1);
+  const p = walkAroundVehicles(
+    context,
+    resolveCircle(context.collision, context.player.x + mx, context.player.z + mz, 1),
+  );
   const { minX, minZ, maxX, maxZ } = data.bounds;
   context.player.x = THREE.MathUtils.clamp(p.x, minX + 15, maxX - 15);
   context.player.z = THREE.MathUtils.clamp(p.z, minZ + 15, maxZ - 15);
   context.player.gait += dt * context.player.speed * 1.9;
+}
+
+/**
+ * Pushes the driven vehicle out of buildings using the circles along its body.
+ * @param {object} context - Game context.
+ */
+function keepOutOfBuildings(context) {
+  const car = context.car;
+  for (const { along, radius } of context.vehicle.spec.probes) {
+    const cx = car.x + Math.cos(car.heading) * along,
+      cz = car.z - Math.sin(car.heading) * along;
+    const p = resolveCircle(context.collision, cx, cz, radius);
+    if (!p.hit) continue;
+    context.debugHits.push({
+      kind: 'building',
+      x: Math.round(cx),
+      z: Math.round(cz),
+      v: +car.speed.toFixed(1),
+    });
+    car.x += p.x - cx;
+    car.z += p.z - cz;
+    if (Math.abs(car.speed) > 4) context.tone(90, 0.2, 0.08, 'square');
+    car.speed *= 0.35;
+  }
 }
 
 // Collision log for ?debug runs; trimmed so it never grows without bound.
@@ -148,67 +188,17 @@ export function updateDrive(context, dt) {
     1,
   );
   // At top speed the car covers almost 2 m per step, so move it in short slices that can't
-  // tunnel through a thin wall or fence.
+  // tunnel through a thin wall, a fence or another vehicle.
   const slices = Math.max(1, Math.ceil((Math.abs(context.car.speed) * dt) / 0.6));
   for (let i = 0; i < slices; i++) {
     stepCar(
       context.car,
-      {
-        throttle,
-        steer,
-        handbrake: context.keys.has(' '),
-      },
+      { throttle, steer, handbrake: context.keys.has(' ') },
       dt / slices,
+      context.vehicle.spec,
     );
-    // Two collision circles along the body keep the nose and tail out of buildings.
-    for (const along of [1.3, -1.3]) {
-      const cx = context.car.x + Math.cos(context.car.heading) * along,
-        cz = context.car.z - Math.sin(context.car.heading) * along;
-      const p = resolveCircle(context.collision, cx, cz, 1.05);
-      if (p.hit) {
-        context.debugHits.push({
-          kind: 'building',
-          x: Math.round(cx),
-          z: Math.round(cz),
-          v: +context.car.speed.toFixed(1),
-        });
-        context.car.x += p.x - cx;
-        context.car.z += p.z - cz;
-        if (Math.abs(context.car.speed) > 4) context.tone(90, 0.2, 0.08, 'square');
-        context.car.speed *= 0.35;
-      }
-    }
-  }
-  // Bumping a traffic car slows you down but never throws you backwards. If you stay pressed
-  // against one, it pulls away (respawns out of sight) so you can never get stuck behind it.
-  for (const npc of context.traffic.cars) {
-    const dx = context.car.x - npc.x,
-      dz = context.car.z - npc.z,
-      d = Math.hypot(dx, dz);
-    if (d >= 3.4 || d === 0) {
-      if (npc.contact) npc.contact = 0;
-      continue;
-    }
-    context.debugHits.push({
-      kind: 'traffic',
-      x: Math.round(context.car.x),
-      z: Math.round(context.car.z),
-      v: +context.car.speed.toFixed(1),
-      npcDir: npc.dir,
-    });
-    context.car.x = npc.x + (dx / d) * 3.4;
-    context.car.z = npc.z + (dz / d) * 3.4;
-    const towards =
-      (Math.cos(context.car.heading) * -dx - Math.sin(context.car.heading) * -dz) *
-        Math.sign(context.car.speed) >
-      0;
-    if (towards && Math.abs(context.car.speed) > 4) context.tone(110, 0.25, 0.08, 'square');
-    if (towards) context.car.speed *= 0.4;
-    npc.contact = (npc.contact ?? 0) + dt;
-    if (npc.contact > 0.8) {
-      npc.contact = 0;
-      context.traffic.remove(npc);
-    }
+    keepOutOfBuildings(context);
+    collideDriving(context, dt / slices);
   }
   const { minX, minZ, maxX, maxZ } = data.bounds;
   context.car.x = THREE.MathUtils.clamp(context.car.x, minX + 15, maxX - 15);

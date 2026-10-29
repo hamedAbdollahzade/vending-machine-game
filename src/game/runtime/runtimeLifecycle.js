@@ -2,6 +2,7 @@ import { addPolygon, resolveCircle } from '../world/collision.js';
 import { createState } from '../economy/gameState.js';
 import { createPayment } from '../economy/payment.js';
 import { createVendingMachine } from '../models/vending.js';
+import { resetGarage } from './garage.js';
 /**
  * Runs the place station operation for this subsystem.
  * @param {*} context - context.
@@ -78,9 +79,9 @@ export function reset(context) {
     speed: 0,
     gait: 0,
   };
+  resetGarage(context);
   context.factory.reset();
   for (const t of context.factory.talks) t.done = false;
-  context.car = context.spawnCar();
   context.mode = 'walk';
   // Camera yaw: the camera sits at target + (sin yaw, cos yaw) * distance, so it looks along (-sin, -cos).
   context.cam = {

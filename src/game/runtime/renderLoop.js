@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import iran from '../../data/iran.json';
 import { clearFraction } from '../world/collision.js';
 import { drawIran } from '../world/mapRender.js';
+import { syncActiveVehicle, trafficObstacles, updateGarage } from './garage.js';
 /**
  * Runs the resize operation for this subsystem.
  * @param {*} context - context.
@@ -109,20 +110,7 @@ export function frame(context) {
       else context.updateWalk(step);
       context.updatePayment(step);
       context.updateDelivery(step);
-      context.traffic.update(
-        step,
-        [
-          {
-            x: context.player.x,
-            z: context.player.z,
-          },
-          {
-            x: context.car.x,
-            z: context.car.z,
-          },
-        ],
-        context.player,
-      );
+      context.traffic.update(step, trafficObstacles(context), context.player);
     }
     context.updateRoute(dt);
     context.updateHints();
@@ -147,6 +135,7 @@ export function frame(context) {
     delivery: context.deliveryTimer > 0,
   });
   context.factory.update(context.elapsed, paused ? 0 : dt, context.camera.position);
+  updateGarage(context);
   context.showroom.update({
     player: context.player,
     time: context.elapsed,
@@ -154,12 +143,7 @@ export function frame(context) {
     enabled: context.mode === 'walk' && !context.real.on,
     talking: context.ui.read('showroom').open,
   });
-  context.carModel.group.position.set(context.car.x, 0, context.car.z);
-  context.carModel.group.rotation.y = context.car.heading;
-  for (const [i, wheel] of context.carModel.wheels.entries()) {
-    wheel.rotation.z -= (context.car.speed * dt) / 0.36;
-    if (i >= 2) wheel.rotation.y = -context.car.steer;
-  }
+  syncActiveVehicle(context, dt);
   for (const s of context.stations)
     s.model.ring.material.opacity = 0.35 + Math.sin(context.elapsed * 3) * 0.25;
   context.updateReachCircles();

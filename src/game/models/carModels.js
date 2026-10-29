@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
-// Detailed vehicles for the family and the factory. All face local +X and sit on y = 0, like
-// createCarModel in traffic.js; `wheels` lists rear wheels first, then the two front (steering) ones.
+// Detailed vehicles for the family and the factory, plus the shared helpers luxuryCars.js builds
+// on. All face local +X and sit on y = 0, like createCarModel in traffic.js; `wheels` lists rear wheels first, then the two front (steering) ones.
 
 /**
  * Runs the mat operation for this subsystem.
@@ -9,7 +9,7 @@ import * as THREE from 'three';
  * @param {*} extra - extra.
  * @returns {*} Operation result, when applicable.
  */
-const mat = (color, extra = {}) =>
+export const mat = (color, extra = {}) =>
   new THREE.MeshStandardMaterial({
     color,
     roughness: 0.45,
@@ -25,7 +25,7 @@ const mat = (color, extra = {}) =>
  * @param {*} bevel - bevel.
  * @returns {*} Operation result, when applicable.
  */
-function extrudeProfile(points, width, material, bevel = 0.1) {
+export function extrudeProfile(points, width, material, bevel = 0.1) {
   const shape = new THREE.Shape();
   points.forEach(([x, y], i) => (i ? shape.lineTo(x, y) : shape.moveTo(x, y)));
   const geometry = new THREE.ExtrudeGeometry(shape, {
@@ -52,7 +52,7 @@ function extrudeProfile(points, width, material, bevel = 0.1) {
  * @param {*} top - top.
  * @returns {*} Operation result, when applicable.
  */
-function bodyOutline(front, rear, arches, radius, top) {
+export function bodyOutline(front, rear, arches, radius, top) {
   const shape = new THREE.Shape();
   shape.moveTo(rear[0][0], rear[0][1]);
   const bottom = 0.3;
@@ -67,6 +67,15 @@ function bodyOutline(front, rear, arches, radius, top) {
   return shape;
 }
 /**
+ * Measures a freshly built model (not yet placed or parented) on the ground plane.
+ * @param {THREE.Group} group - Model group facing local +X.
+ * @returns {{halfLength: number, halfWidth: number}} Half extents along and across the body.
+ */
+export function measureFootprint(group) {
+  const size = new THREE.Box3().setFromObject(group).getSize(new THREE.Vector3());
+  return { halfLength: size.x / 2, halfWidth: size.z / 2 };
+}
+/**
  * Runs the add wheels operation for this subsystem.
  * @param {*} group - group.
  * @param {*} positions - positions.
@@ -76,7 +85,7 @@ function bodyOutline(front, rear, arches, radius, top) {
  * @param {*} spokes - spokes.
  * @returns {*} Operation result, when applicable.
  */
-function addWheels(group, positions, radius, tyreWidth, rimColor = '#c9cdd1', spokes = 5) {
+export function addWheels(group, positions, radius, tyreWidth, rimColor = '#c9cdd1', spokes = 5) {
   const tyre = mat('#151719', {
       roughness: 0.9,
     }),
@@ -305,141 +314,6 @@ export function createSportSedan(color = '#1d3f78') {
     '#b8bcc0',
     5,
   );
-  return {
-    group,
-    wheels,
-  };
-}
-
-/**
- * Double-cab pickup in the style of the KMC T8: tall square bonnet, wide chrome grille, a cargo
- * bed behind the cab. 5.3 m long.
- */
-export function createPickup(color = '#e8e8e4') {
-  const group = new THREE.Group();
-  const paint = mat(color, {
-      metalness: 0.5,
-      roughness: 0.32,
-    }),
-    glass = mat('#13202a', {
-      metalness: 0.6,
-      roughness: 0.1,
-    });
-  const black = mat('#1a1c1e', {
-      roughness: 0.7,
-    }),
-    chrome = mat('#d0d4d7', {
-      metalness: 0.9,
-      roughness: 0.2,
-    });
-  /**
-   * Runs the box operation for this subsystem.
-   * @param {*} w - w.
-   * @param {*} h - h.
-   * @param {*} d - d.
-   * @param {*} m - m.
-   * @param {*} x - x.
-   * @param {*} y - y.
-   * @param {*} z - z.
-   * @returns {*} Operation result, when applicable.
-   */
-  const box = (w, h, d, m, x, y, z) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
-    mesh.position.set(x, y, z);
-    mesh.castShadow = mesh.receiveShadow = true;
-    group.add(mesh);
-    return mesh;
-  };
-  group.add(
-    extrudeProfile(
-      [
-        [2.62, 0.5],
-        [2.66, 0.95],
-        [2.5, 1.18],
-        [1.3, 1.24],
-        [1.3, 0.5],
-      ],
-      1.9,
-      paint,
-      0.1,
-    ),
-  );
-  group.add(
-    extrudeProfile(
-      [
-        [1.3, 0.5],
-        [1.3, 1.24],
-        [0.7, 1.86],
-        [-0.95, 1.88],
-        [-1.0, 0.5],
-      ],
-      1.88,
-      paint,
-      0.1,
-    ),
-  );
-  group.add(
-    extrudeProfile(
-      [
-        [1.24, 1.26],
-        [0.68, 1.82],
-        [-0.9, 1.84],
-        [-0.94, 1.26],
-      ],
-      1.92,
-      glass,
-      0.02,
-    ),
-  );
-  // Cargo bed: floor, sides and tailgate.
-  box(1.62, 0.1, 1.8, black, -1.85, 0.72, 0);
-  for (const side of [-1, 1]) box(1.66, 0.5, 0.07, paint, -1.85, 0.95, side * 0.9);
-  box(0.07, 0.5, 1.86, paint, -2.66, 0.95, 0);
-  box(1.66, 0.46, 1.9, paint, -1.85, 0.5, 0);
-  box(0.3, 0.06, 1.86, black, -1.02, 1.26, 0);
-  // Front: wide grille with horizontal chrome bars, headlights, bumper and skid plate.
-  box(0.06, 0.34, 1.1, black, 2.67, 0.92, 0);
-  for (let i = 0; i < 3; i++) box(0.07, 0.04, 1.12, chrome, 2.68, 0.82 + i * 0.1, 0);
-  const lamp = mat('#eaf6ff', {
-    emissive: '#cfe9ff',
-    emissiveIntensity: 1.2,
-  });
-  for (const side of [-1, 1]) {
-    box(0.08, 0.14, 0.32, lamp, 2.62, 1.02, side * 0.74);
-    box(
-      0.06,
-      0.26,
-      0.1,
-      mat('#9e1410', {
-        emissive: '#c4241b',
-        emissiveIntensity: 0.7,
-      }),
-      -2.7,
-      1.0,
-      side * 0.86,
-    );
-    box(0.2, 0.14, 0.2, black, 1.2, 1.36, side * 1.02);
-    box(1.0, 0.05, 0.06, chrome, -0.1, 1.25, side * 0.97);
-    for (const x of [0.6, -0.4]) box(0.16, 0.04, 0.03, chrome, x, 1.12, side * 0.97);
-  }
-  box(0.16, 0.2, 2.0, black, 2.7, 0.55, 0);
-  box(0.16, 0.2, 2.0, black, -2.72, 0.55, 0);
-  box(0.04, 0.12, 0.5, mat('#f4f4f0'), 2.79, 0.6, 0);
-  const wheels = addWheels(
-    group,
-    [
-      [-1.7, -0.86],
-      [-1.7, 0.86],
-      [1.7, -0.86],
-      [1.7, 0.86],
-    ],
-    0.4,
-    0.3,
-    '#a9adb1',
-    6,
-  );
-  for (const x of [-1.7, 1.7])
-    for (const side of [-1, 1]) box(1.05, 0.1, 0.2, black, x, 0.86, side * 0.96);
   return {
     group,
     wheels,
