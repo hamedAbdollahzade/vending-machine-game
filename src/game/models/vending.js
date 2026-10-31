@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { catalog } from '../economy/gameState.js';
 import { textTexture } from './textures.js';
+import { COMPANY } from '../../config/company.js';
+
+// Brand colours for materials and canvas drawings.
+const BRAND = COMPANY.colors;
 const PRODUCT_COLORS = {
   juice: '#e5ae47',
   water: '#9fd3e6',
@@ -24,14 +28,14 @@ const label = (text, sub) =>
   textTexture(512, 160, (c, width, height) => {
     c.fillStyle = '#0f2a2a';
     c.fillRect(0, 0, width, height);
-    c.fillStyle = '#3ee0c9';
+    c.fillStyle = BRAND.primary;
     c.fillRect(0, height - 10, width, 10);
     c.textAlign = 'center';
     c.direction = 'rtl';
     c.fillStyle = '#e9fff8';
     c.font = 'bold 56px Vazirmatn, Tahoma, sans-serif';
     c.fillText(text, width / 2, 72);
-    c.fillStyle = '#9fe9da';
+    c.fillStyle = BRAND.primaryLighter;
     c.font = '34px Vazirmatn, Tahoma, sans-serif';
     c.fillText(sub, width / 2, 126);
   });
@@ -75,10 +79,10 @@ export function createVendingMachine(def) {
     parent.add(mesh);
     return mesh;
   };
-  const shell = mat('#0b8f88', {
+  const shell = mat(BRAND.primary, {
       metalness: 0.45,
       roughness: 0.3,
-      emissive: '#0b8f88',
+      emissive: BRAND.primary,
       emissiveIntensity: 0.15,
     }),
     white = mat('#eef5f3', {
@@ -190,7 +194,7 @@ export function createVendingMachine(def) {
   const sign = new THREE.Mesh(
     new THREE.PlaneGeometry(1.86, 0.3),
     new THREE.MeshBasicMaterial({
-      map: label('روبات مارکت', def.name),
+      map: label(COMPANY.shortName, def.name),
     }),
   );
   sign.position.set(0, 2.62, 0.575);
@@ -213,7 +217,7 @@ export function createVendingMachine(def) {
 
   // Objective beacon: a tall column of light visible across the city, like a mission marker.
   const beaconMaterial = new THREE.MeshBasicMaterial({
-    color: '#3ee0c9',
+    color: BRAND.primary,
     transparent: true,
     opacity: 0.22,
     depthWrite: false,
@@ -230,7 +234,7 @@ export function createVendingMachine(def) {
   const ring = new THREE.Mesh(
     new THREE.RingGeometry(1.6, 1.9, 40),
     new THREE.MeshBasicMaterial({
-      color: '#3ee0c9',
+      color: BRAND.primary,
       transparent: true,
       opacity: 0.6,
       depthWrite: false,

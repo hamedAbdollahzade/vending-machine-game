@@ -1,4 +1,5 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
+import { strings } from '@/i18n/fa.js';
 /** @typedef {{nodes:object,actions:object}} InstallDialogProps */
 /** Presents the InstallDialog view using plain models and semantic native elements.
  * @param {InstallDialogProps} props - Interface snapshots and callbacks.
@@ -13,21 +14,19 @@ export function InstallDialog({ nodes, actions }) {
         model={nodes['ios-install']}
         onClose={() => actions.close('ios-install')}
       >
-        <h2>{'نصب روی آیفون'}</h2>
+        <h2>{strings.install.title}</h2>
         <ol>
           <li>
-            {'در Safari دکمهٔ '}
+            {strings.install.shareBefore}
             <b>{'Share'}</b>
-            {' (مربع با فلش رو به بالا) را بزنید.'}
+            {strings.install.shareAfter}
           </li>
           <li>
-            {'گزینهٔ '}
+            {strings.install.addBefore}
             <b>{'Add to Home Screen'}</b>
-            {' را انتخاب کنید.'}
+            {strings.install.addAfter}
           </li>
-          <li>
-            {'روبات مارکت مثل یک اپ روی صفحهٔ اصلی گوشی شما قرار می‌گیرد و آفلاین هم اجرا می‌شود.'}
-          </li>
+          <li>{strings.install.note}</li>
         </ol>
         <GameNode
           as="button"
@@ -36,7 +35,7 @@ export function InstallDialog({ nodes, actions }) {
           model={nodes['ios-close']}
           onAction={() => actions.emit('ios-close')}
         >
-          {'متوجه شدم'}
+          {strings.common.gotIt}
         </GameNode>
       </GameNode>
     </>

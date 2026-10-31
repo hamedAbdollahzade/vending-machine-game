@@ -1,26 +1,27 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
+import { strings } from '@/i18n/fa.js';
 /** @typedef {{nodes:object,actions:object}} StatusBarProps */
 /** Presents the StatusBar using the current interface snapshot. */
 export function StatusBar({ nodes }) {
   return (
     <GameNode as="div" id="status" model={nodes['status']}>
       <div className="stat">
-        <small>{'بودجه'}</small>
+        <small>{strings.status.budget}</small>
         <GameNode as="strong" id="balance" model={nodes['balance']}>
-          {'۵۰۰'}
+          {strings.status.budgetStart}
         </GameNode>
-        <span>{'هتومان'}</span>
+        <span>{strings.units.hetomanName}</span>
       </div>
       <div className="stat">
-        <small>{'ساعت'}</small>
+        <small>{strings.status.clock}</small>
         <GameNode as="strong" id="clock" model={nodes['clock']}>
-          {'۰۸:۳۰'}
+          {strings.status.clockStart}
         </GameNode>
       </div>
       <GameNode as="div" className="stat" id="speed-stat" hidden model={nodes['speed-stat']}>
-        <small>{'سرعت'}</small>
+        <small>{strings.status.speed}</small>
         <GameNode as="strong" id="speed" model={nodes['speed']}>
-          {'۰'}
+          {strings.status.speedStart}
         </GameNode>
         <span>{'km/h'}</span>
       </GameNode>

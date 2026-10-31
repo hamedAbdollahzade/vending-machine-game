@@ -1,4 +1,5 @@
 import { toLocal } from '../../utils/geo.js';
+import { strings } from '../../i18n/fa.js';
 
 // Real-world mode: the family follows the phone's GPS position. Phone GPS in a city is off by
 // 5–20 m and jumps around, so fixes are blended by their accuracy and arrival uses a wide radius.
@@ -124,11 +125,11 @@ export function startTracking({
   stabilizer = createStabilizer(),
 }) {
   if (!('geolocation' in navigator)) {
-    onError('این دستگاه موقعیت‌یابی (GPS) ندارد.');
+    onError(strings.real.noGps);
     return () => {};
   }
   if (!window.isSecureContext) {
-    onError('موقعیت‌یابی فقط روی HTTPS کار می‌کند؛ بازی را از نشانی https:// باز کنید.');
+    onError(strings.real.needsHttps);
     return () => {};
   }
   let fixes = 0;
@@ -160,17 +161,10 @@ export function startTracking({
    * @returns {*} Operation result, when applicable.
    */
   const fail = (error) => {
-    if (error.code === error.PERMISSION_DENIED)
-      onError(
-        'اجازهٔ دسترسی به موقعیت داده نشد. در تنظیمات مرورگر و گوشی، Location را برای این سایت مجاز کنید. (کد ۱)',
-      );
-    else if (error.code === error.POSITION_UNAVAILABLE)
-      onError(
-        'موقعیت در دسترس نیست. Location (GPS) گوشی را روشن کنید؛ روی کامپیوتر معمولاً موقعیت‌یابی کار نمی‌کند. (کد ۲)',
-      );
+    if (error.code === error.PERMISSION_DENIED) onError(strings.real.denied);
+    else if (error.code === error.POSITION_UNAVAILABLE) onError(strings.real.unavailable);
     // A timeout only means no fix yet; the watch keeps trying, so it is a status, not an error.
-    else if (!fixes)
-      onStatus('هنوز سیگنال GPS نرسیده… در فضای باز و کنار پنجره سریع‌تر پیدا می‌شود. (کد ۳)');
+    else if (!fixes) onStatus(strings.real.timeout);
   };
   // A quick coarse fix from Wi-Fi or the mobile network shows the player at once; GPS refines it.
   navigator.geolocation.getCurrentPosition(handle, () => {}, {

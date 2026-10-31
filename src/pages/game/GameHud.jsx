@@ -6,6 +6,7 @@ import { GameToolbar } from './GameToolbar.jsx';
 import { TouchControls } from './TouchControls.jsx';
 import { GameNode } from '@/components/shared/GameNode.jsx';
 import { ViewLists } from './ViewLists.jsx';
+import { strings } from '@/i18n/fa.js';
 /** @typedef {{nodes:object,actions:object}} GameHudProps */
 /** Presents the GameHud view using plain models and semantic native elements.
  * @param {GameHudProps} props - Interface snapshots and callbacks.
@@ -20,12 +21,12 @@ export function GameHud({ nodes, actions }) {
           as="button"
           id="minimap-button"
           type="button"
-          aria-label="باز کردن نقشهٔ شهر (M)"
+          aria-label={strings.hud.openMap}
           model={nodes['minimap-button']}
           onAction={() => actions.emit('minimap-button')}
         >
           <GameNode as="canvas" id="minimap" width="220" height="220" model={nodes['minimap']} />
-          <span className="map-hint">{'نقشه · M'}</span>
+          <span className="map-hint">{strings.hud.mapHint}</span>
         </GameNode>
         <LocationStatus nodes={nodes} actions={actions} />
         <MissionList nodes={nodes} actions={actions} />
@@ -39,7 +40,7 @@ export function GameHud({ nodes, actions }) {
           id="prompt"
           hidden
           type="button"
-          aria-label="تعامل با بازی"
+          aria-label={strings.hud.interact}
           model={nodes['prompt']}
           onAction={() => actions.emit('prompt')}
         ></GameNode>
@@ -68,7 +69,7 @@ export function GameHud({ nodes, actions }) {
         <TouchControls nodes={nodes} actions={actions} />
         <GameNode as="div" id="crosshair" model={nodes['crosshair']}></GameNode>
         <GameNode as="small" id="attribution" model={nodes['attribution']}>
-          {'نقشه: © مشارکت‌کنندگان OpenStreetMap'}
+          {strings.app.osmCredit}
         </GameNode>
       </GameNode>
     </>

@@ -1,5 +1,6 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
 import { ViewLists } from './ViewLists.jsx';
+import { strings } from '@/i18n/fa.js';
 /** @typedef {{nodes:object,actions:object}} EndDialogProps */
 /** Presents the EndDialog view using plain models and semantic native elements.
  * @param {EndDialogProps} props - Interface snapshots and callbacks.
@@ -10,7 +11,7 @@ export function EndDialog({ nodes, actions }) {
     <>
       <GameNode as="dialog" id="end" model={nodes['end']} onClose={() => actions.close('end')}>
         <GameNode as="small" id="end-tag" model={nodes['end-tag']}>
-          {'پایان عملیات'}
+          {strings.end.title}
         </GameNode>
         <GameNode as="h2" id="end-title" model={nodes['end-title']}></GameNode>
         <GameNode as="p" id="end-text" model={nodes['end-text']}></GameNode>
@@ -29,7 +30,7 @@ export function EndDialog({ nodes, actions }) {
             model={nodes['again']}
             onAction={() => actions.emit('again')}
           >
-            {'عملیات دوباره'}
+            {strings.end.again}
           </GameNode>
           <GameNode
             as="button"
@@ -39,7 +40,7 @@ export function EndDialog({ nodes, actions }) {
             model={nodes['continue']}
             onAction={() => actions.emit('continue')}
           >
-            {'ادامهٔ گشت در شهر'}
+            {strings.end.keepExploring}
           </GameNode>
         </div>
       </GameNode>

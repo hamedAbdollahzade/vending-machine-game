@@ -1,4 +1,6 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
+import { strings } from '@/i18n/fa.js';
+import { robotFace } from '@/config/assets.js';
 /** @typedef {{nodes:object,actions:object}} RealIntroDialogProps */
 /** Presents the RealIntroDialog view using plain models and semantic native elements.
  * @param {RealIntroDialogProps} props - Interface snapshots and callbacks.
@@ -13,18 +15,13 @@ export function RealIntroDialog({ nodes, actions }) {
         model={nodes['real-intro']}
         onClose={() => actions.close('real-intro')}
       >
-        <img src="./robot/serious.webp" alt="" width="72" height="68" />
-        <h2>{'بازی در دنیای واقعی'}</h2>
-        <p>
-          {
-            'با روشن کردن این حالت، موقعیت گوشی شما (GPS) روی نقشهٔ بازی نمایش داده می‌شود. وقتی واقعاً به محل یک دستگاه روبات مارکت برسید، می‌توانید خرید کنید و ۲۰۰ امتیاز اضافه بگیرید.'
-          }
-        </p>
+        <img src={robotFace('serious')} alt="" width="72" height="68" />
+        <h2>{strings.realIntro.title}</h2>
+        <p>{strings.realIntro.body}</p>
         <ul>
-          <li>{'هنگام راه رفتن به خیابان و ماشین‌ها نگاه کنید، نه به صفحه.'}</li>
-          <li>{'بچه‌ها فقط همراه یک بزرگ‌تر بازی کنند.'}</li>
-          <li>{'هنگام رانندگی از این حالت استفاده نکنید؛ در سرعت بالا خرید غیرفعال می‌شود.'}</li>
-          <li>{'موقعیت شما فقط روی همین گوشی می‌ماند و جایی ارسال نمی‌شود.'}</li>
+          {strings.realIntro.safety.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
         </ul>
         <div className="actions">
           <GameNode
@@ -34,7 +31,7 @@ export function RealIntroDialog({ nodes, actions }) {
             model={nodes['real-go']}
             onAction={() => actions.emit('real-go')}
           >
-            {'قبول دارم، شروع کن'}
+            {strings.realIntro.accept}
           </GameNode>
           <GameNode
             as="button"
@@ -44,7 +41,7 @@ export function RealIntroDialog({ nodes, actions }) {
             model={nodes['real-cancel']}
             onAction={() => actions.emit('real-cancel')}
           >
-            {'انصراف'}
+            {strings.common.cancel}
           </GameNode>
         </div>
       </GameNode>

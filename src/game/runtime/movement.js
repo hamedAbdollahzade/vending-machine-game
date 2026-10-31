@@ -4,6 +4,7 @@ import { resolveCircle } from '../world/collision.js';
 import { stepCar } from '../systems/vehicle.js';
 import { EXIT_MAX_SPEED } from '../../constants/vehicles.js';
 import { collideDriving, nearestRide, takeRide, walkAroundVehicles } from './garage.js';
+import { strings } from '../../i18n/fa.js';
 /**
  * Runs the look operation for this subsystem.
  * @param {*} context - context.
@@ -39,7 +40,7 @@ export // ---------- Car ----------
 function toggleCar(context) {
   if (context.payment.phase !== 'idle' || context.state.busy) return;
   if (context.real.on) {
-    context.say('father', 'توی حالت دنیای واقعی پیاده راه می‌ریم؛ ماشین مجازی لازم نیست.');
+    context.say('father', strings.real.noVirtualCar);
     return;
   }
   if (context.mode === 'walk') getIn(context);
@@ -58,10 +59,7 @@ function getIn(context) {
   context.mode = 'drive';
   context.cam.distance = Math.max(context.cam.distance, kind === 'bike' ? 6 : 8);
   context.tone(320, 0.2, 0.05, 'square');
-  const line =
-    kind === 'bike'
-      ? 'کلاه ایمنی سرت باشه! با موتور می‌شه از لای ماشین‌ها رد شد.'
-      : 'کمربندها رو ببندیم! مسیر طلایی روی زمین راه رو نشون می‌ده.';
+  const line = kind === 'bike' ? strings.dialogue.bikeOn : strings.dialogue.carOn;
   context.say('father', line);
 }
 
@@ -72,7 +70,7 @@ function getIn(context) {
 function getOut(context) {
   const { state, spec } = context.vehicle;
   if (Math.abs(state.speed) > EXIT_MAX_SPEED) {
-    context.say('father', 'اول نگه دار، بعد پیاده می‌شویم.');
+    context.say('father', strings.dialogue.stopFirst);
     return;
   }
   const left = { x: -Math.sin(state.heading), z: -Math.cos(state.heading) };

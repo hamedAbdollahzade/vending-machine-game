@@ -8,6 +8,11 @@ import { kmh } from '../systems/vehicle.js';
 import { nearestRide } from './garage.js';
 import { drawMinimap } from '../world/mapRender.js';
 import { bearing, formatDistance } from '../../utils/geo.js';
+import { strings } from '../../i18n/fa.js';
+import { COMPANY } from '../../config/company.js';
+
+// Brand colours for materials and canvas drawings.
+const BRAND = COMPANY.colors;
 /**
  * Runs the rebuild route mesh operation for this subsystem.
  * @param {*} context - context.
@@ -125,12 +130,7 @@ export function drawCompass(context, headingDeg, markers) {
   context.compass.fillRect(0, 10, w, 24);
   context.compass.textAlign = 'center';
   context.compass.textBaseline = 'middle';
-  const labels = {
-    0: 'شمال',
-    90: 'شرق',
-    180: 'جنوب',
-    270: 'غرب',
-  };
+  const labels = strings.hud.compass;
   for (let d = -100; d <= 100; d += 5) {
     const deg = (((Math.round(headingDeg / 5) * 5 + d) % 360) + 360) % 360,
       x = w / 2 + ((deg - headingDeg + 540) % 360) * 2.6 - 180 * 2.6;
@@ -204,9 +204,9 @@ export function refreshHUD(context) {
  * @returns {string} Persian label.
  */
 function modeLabel(context) {
-  if (context.mode !== 'drive') return 'پیاده';
-  if (context.vehicle.kind === 'bike') return 'روی موتور · F برای پیاده شدن';
-  return `در ${context.vehicle.label} · F برای پیاده شدن`;
+  if (context.mode !== 'drive') return strings.common.walking;
+  if (context.vehicle.kind === 'bike') return strings.travel.onBike;
+  return strings.travel.inVehicle(context.vehicle.label);
 }
 /**
  * Updates prompt from the active simulation.
@@ -217,7 +217,7 @@ export function updatePrompt(context) {
   const sample = context.nearShowroom();
   if (sample && !context.state.busy && context.payment.phase === 'idle') {
     context.ui.patch('prompt', {
-      text: `Q · معرفی ${sample.model.name} و پرسیدن قیمت`,
+      text: strings.prompts.showroom(sample.model.name),
       hidden: false,
     });
     return;
@@ -228,9 +228,9 @@ export function updatePrompt(context) {
   if (!context.state.busy && context.payment.phase === 'idle') {
     if (station)
       text = isOpen(station.def, context.state.minutes)
-        ? `E · خرید از روبات مارکت · ${station.def.name}`
-        : `دستگاه بسته است · ${context.hoursText(station.def)}`;
-    else if (ride) text = `F · سوار ${ride.label} شو`;
+        ? strings.prompts.buy(station.def.name)
+        : strings.prompts.closed(context.hoursText(station.def));
+    else if (ride) text = strings.prompts.getIn(ride.label);
     else if (
       context.mode === 'drive' &&
       Math.abs(context.car.speed) < 1 &&
@@ -238,7 +238,7 @@ export function updatePrompt(context) {
         (s) => Math.hypot(s.front.x - context.car.x, s.front.z - context.car.z) < 25,
       )
     )
-      text = 'F · پیاده شو؛ دستگاه نزدیک است';
+      text = strings.prompts.getOutNearMachine;
   }
   context.ui.patch('prompt', {
     text,
@@ -334,7 +334,7 @@ export function updateHUD(context, dt) {
     });
     for (const s of context.stations) {
       const isObjective = s === objective;
-      s.model.beacon.material.color.set(isObjective ? '#f2c94c' : '#3ee0c9');
+      s.model.beacon.material.color.set(isObjective ? '#f2c94c' : BRAND.primary);
       s.model.beacon.material.opacity =
         (isObjective ? 0.32 : 0.14) * Math.min(1, Math.hypot(s.x - pos.x, s.z - pos.z) / 40);
     }
@@ -346,10 +346,10 @@ export function updateHUD(context, dt) {
     const inFactory = Math.hypot(pos.x - FACTORY.center.x, pos.z - FACTORY.center.z) < 130;
     context.ui.patch('street', {
       text: inFactory
-        ? `کارخانهٔ ${FACTORY.name}`
+        ? strings.hud.factory(FACTORY.name)
         : street
-          ? `مشهد · ${data.names[street.name]}`
-          : 'حومهٔ مشهد',
+          ? strings.hud.street(data.names[street.name])
+          : strings.hud.outskirts,
     });
   }
   context.updatePrompt();

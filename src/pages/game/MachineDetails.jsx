@@ -1,4 +1,5 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
+import { strings } from '@/i18n/fa.js';
 /** @typedef {{nodes:object,actions:object}} MachineDetailsProps */
 /** Presents the MachineDetails using the current interface snapshot. */
 export function MachineDetails({ nodes, actions }) {
@@ -15,7 +16,7 @@ export function MachineDetails({ nodes, actions }) {
         model={nodes['route-button']}
         onAction={() => actions.emit('route-button')}
       >
-        {'مسیریابی تا اینجا'}
+        {strings.map.route}
       </GameNode>
     </GameNode>
   );

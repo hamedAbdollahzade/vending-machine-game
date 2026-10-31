@@ -1,5 +1,6 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
 import { ViewLists } from './ViewLists.jsx';
+import { strings } from '@/i18n/fa.js';
 /** @typedef {{nodes:object,actions:object}} ShopDialogProps */
 /** Presents the ShopDialog view using plain models and semantic native elements.
  * @param {ShopDialogProps} props - Interface snapshots and callbacks.
@@ -20,7 +21,7 @@ export function ShopDialog({ nodes, actions }) {
             type="button"
             className="close"
             id="shop-close"
-            aria-label="بستن"
+            aria-label={strings.shop.close}
             model={nodes['shop-close']}
             onAction={() => actions.emit('shop-close')}
           >
@@ -35,9 +36,7 @@ export function ShopDialog({ nodes, actions }) {
             onAction={(name, value) => actions.emit(name, value)}
           />
         </GameNode>
-        <p className="rate">
-          {'۱۰ هتومان = ۱۰۰٬۰۰۰ ریال · مبالغ نمایشی‌اند و پرداخت واقعی انجام نمی‌شود.'}
-        </p>
+        <p className="rate">{strings.shop.note}</p>
       </GameNode>
     </>
   );

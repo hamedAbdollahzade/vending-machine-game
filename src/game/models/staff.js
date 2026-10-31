@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import { textTexture } from './textures.js';
+import { COMPANY } from '../../config/company.js';
+
+// Brand colours for materials and canvas drawings.
+const BRAND = COMPANY.colors;
 
 // Factory staff. createPerson() builds one articulated office person (hoodie, suit, or manteau with
 // a headscarf) that can stand, walk, sit and type. createCrew() draws the production-line workers
@@ -264,7 +268,7 @@ export function nameTag(name, role = '') {
     c.beginPath();
     c.roundRect(6, 6, w - 12, h - 12, 26);
     c.fill();
-    c.fillStyle = '#3ee0c9';
+    c.fillStyle = BRAND.primary;
     c.fillRect(6, h - 18, w - 12, 8);
     c.textAlign = 'center';
     c.direction = 'rtl';
@@ -272,7 +276,7 @@ export function nameTag(name, role = '') {
     c.font = `bold ${role ? 58 : 66}px Vazirmatn, Tahoma, sans-serif`;
     c.fillText(name, w / 2, role ? 72 : 100);
     if (role) {
-      c.fillStyle = '#9fe9da';
+      c.fillStyle = BRAND.primaryLighter;
       c.font = '40px Vazirmatn, Tahoma, sans-serif';
       c.direction = 'ltr';
       c.fillText(role, w / 2, 126);

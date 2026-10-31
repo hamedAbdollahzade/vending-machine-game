@@ -1,4 +1,5 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
+import { strings } from '@/i18n/fa.js';
 /** @typedef {{nodes:object,actions:object}} GameToolbarProps */
 /** Presents the GameToolbar using the current interface snapshot. */
 export function GameToolbar({ nodes, actions }) {
@@ -12,7 +13,7 @@ export function GameToolbar({ nodes, actions }) {
         model={nodes['showroom-open']}
         onAction={() => actions.emit('showroom-open')}
       >
-        مدل‌های کارخانه · Q
+        {strings.toolbar.showroom}
       </GameNode>
       <GameNode
         as="button"
@@ -21,7 +22,7 @@ export function GameToolbar({ nodes, actions }) {
         model={nodes['gps-toggle']}
         onAction={() => actions.emit('gps-toggle')}
       >
-        {'📍 دنیای واقعی'}
+        {strings.toolbar.realWorld}
       </GameNode>
       <GameNode
         as="button"
@@ -31,7 +32,7 @@ export function GameToolbar({ nodes, actions }) {
         model={nodes['ar-toggle']}
         onAction={() => actions.emit('ar-toggle')}
       >
-        {'📷 دوربین'}
+        {strings.toolbar.camera}
       </GameNode>
       <GameNode
         as="button"
@@ -42,7 +43,7 @@ export function GameToolbar({ nodes, actions }) {
         model={nodes['stable-toggle']}
         onAction={() => actions.emit('stable-toggle')}
       >
-        {'🎯 پایدار: روشن'}
+        {strings.toolbar.stableOn}
       </GameNode>
       <GameNode
         as="button"
@@ -52,7 +53,7 @@ export function GameToolbar({ nodes, actions }) {
         model={nodes['sound']}
         onAction={() => actions.emit('sound')}
       >
-        {'صدا: خاموش'}
+        {strings.toolbar.soundOff}
       </GameNode>
       <GameNode
         as="button"
@@ -61,7 +62,7 @@ export function GameToolbar({ nodes, actions }) {
         model={nodes['quality']}
         onAction={() => actions.emit('quality')}
       >
-        {'گرافیک'}
+        {strings.toolbar.graphics}
       </GameNode>
       <GameNode
         as="button"
@@ -70,7 +71,7 @@ export function GameToolbar({ nodes, actions }) {
         model={nodes['restart']}
         onAction={() => actions.emit('restart')}
       >
-        {'شروع دوباره'}
+        {strings.toolbar.restart}
       </GameNode>
     </GameNode>
   );

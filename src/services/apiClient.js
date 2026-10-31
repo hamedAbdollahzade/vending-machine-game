@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { strings } from '../i18n/fa.js';
 
 /** Shared HTTP client; data paths resolve below the deployment directory. */
 export const apiClient = axios.create({
@@ -10,7 +11,7 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) =>
     Promise.reject(
-      Object.assign(new Error(error.message || 'بارگذاری داده ناموفق بود'), {
+      Object.assign(new Error(error.message || strings.app.dataFailed), {
         status: error.response?.status ?? null,
         code: error.code,
       }),

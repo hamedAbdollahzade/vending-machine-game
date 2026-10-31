@@ -1,4 +1,6 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
+import { strings } from '@/i18n/fa.js';
+import { robotFace } from '@/config/assets.js';
 /** @typedef {{nodes:object,actions:object}} BriefingPanelProps */
 /** Presents the BriefingPanel view using plain models and semantic native elements.
  * @param {BriefingPanelProps} props - Interface snapshots and callbacks.
@@ -14,14 +16,14 @@ export function BriefingPanel({ nodes, actions }) {
         <div className="brief-panel">
           <img
             className="brief-robot"
-            src="./robot/front.webp"
-            alt="روبات راهنمای روبات مارکت"
+            src={robotFace('front')}
+            alt={strings.briefing.robotAlt}
             width="136"
             height="223"
           />
-          <small className="tag">{'عملیات ۰۱ · خراسان رضوی'}</small>
-          <h1>{'عملیات مشهد'}</h1>
-          <p className="sub">{'روبات مارکت · شکار دستگاه‌های وندینگ'}</p>
+          <small className="tag">{strings.briefing.tag}</small>
+          <h1>{strings.briefing.title}</h1>
+          <p className="sub">{strings.briefing.subtitle}</p>
           <GameNode
             as="pre"
             id="brief-text"
@@ -35,7 +37,7 @@ export function BriefingPanel({ nodes, actions }) {
             model={nodes['start-mission']}
             onAction={() => actions.emit('start-mission')}
           >
-            {'شروع عملیات'}
+            {strings.briefing.start}
           </GameNode>
           <div className="brief-actions">
             <GameNode
@@ -46,7 +48,7 @@ export function BriefingPanel({ nodes, actions }) {
               model={nodes['real-mode']}
               onAction={() => actions.emit('real-mode')}
             >
-              {'📍 بازی در دنیای واقعی (GPS)'}
+              {strings.briefing.realWorld}
             </GameNode>
             <GameNode
               as="button"
@@ -57,14 +59,10 @@ export function BriefingPanel({ nodes, actions }) {
               model={nodes['install']}
               onAction={() => actions.emit('install')}
             >
-              {'⬇ نصب بازی روی گوشی'}
+              {strings.briefing.install}
             </GameNode>
           </div>
-          <p className="keys">
-            {
-              'حرکت: W A S D · دویدن: Shift · دوربین: ماوس · سوار و پیاده شدن: F · خرید: E · نقشه: M'
-            }
-          </p>
+          <p className="keys">{strings.briefing.keys}</p>
         </div>
       </GameNode>
     </>

@@ -1,3 +1,8 @@
+import { strings } from '../../i18n/fa.js';
+import { COMPANY } from '../../config/company.js';
+
+// Brand colours for materials and canvas drawings.
+const BRAND = COMPANY.colors;
 // Tactical 2D maps drawn from the same OSM data as the 3D city. The region is too large for one
 // raster, so detail is drawn in lazily rendered, cached tiles and an overview covers zoomed-out views.
 const SCALE = 0.75; // tile pixels per metre
@@ -271,7 +276,7 @@ function machineIcon(c, x, y, { objective, visited, open }) {
     c.fillRect(-7, -7, 14, 14);
     c.strokeRect(-7, -7, 14, 14);
   } else {
-    c.fillStyle = open ? (visited ? '#7fb8ad' : '#3ee0c9') : '#7b817f';
+    c.fillStyle = open ? (visited ? '#7fb8ad' : BRAND.primary) : '#7b817f';
     c.strokeStyle = '#08201c';
     c.lineWidth = 2;
     c.beginPath();
@@ -367,7 +372,7 @@ export function drawMinimap(ctx, assets, view) {
   ctx.font = 'bold 13px Vazirmatn, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('ش', (nx / nl) * (r - 12), (ny / nl) * (r - 12));
+  ctx.fillText(strings.hud.minimapNorth, (nx / nl) * (r - 12), (ny / nl) * (r - 12));
   ctx.restore();
   ctx.strokeStyle = 'rgba(230,240,235,.55)';
   ctx.lineWidth = 2;
@@ -461,11 +466,11 @@ export function drawFullMap(ctx, assets, view, state) {
       metro: '#ff8a80',
       mall: '#f5b8d9',
       industrial: '#a9b2ad',
-      factory: '#3ee0c9',
+      factory: BRAND.primary,
     }[l.kind];
     if (l.kind === 'factory') ctx.font = 'bold 14px Vazirmatn, sans-serif';
     ctx.fillText(
-      l.kind === 'metro' ? `Ⓜ ${l.name.replace('ایستگاه مترو ', '')}` : l.name,
+      l.kind === 'metro' ? `Ⓜ ${l.name.replace(strings.hud.metroPrefix, '')}` : l.name,
       sx,
       sy + 14,
     );
@@ -546,9 +551,9 @@ export function drawIran(
   for (const province of iran.provinces) {
     const active = province.id === highlight;
     ctx.fillStyle = active
-      ? `rgba(62,224,201,${0.35 + Math.sin(t * 3) * 0.12})`
+      ? `rgba(0,166,147,${0.35 + Math.sin(t * 3) * 0.12})`
       : 'rgba(40,56,50,.85)';
-    ctx.strokeStyle = active ? '#3ee0c9' : 'rgba(150,190,175,.35)';
+    ctx.strokeStyle = active ? BRAND.primary : 'rgba(150,190,175,.35)';
     ctx.lineWidth = active ? 2 : 1;
     for (const ring of province.rings) {
       ctx.beginPath();

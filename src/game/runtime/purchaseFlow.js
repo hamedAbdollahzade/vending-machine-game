@@ -24,6 +24,7 @@ import {
   activeMission,
   MISSIONS,
 } from '../economy/scoring.js';
+import { strings } from '../../i18n/fa.js';
 /**
  * Runs the open showroom operation for this subsystem.
  * @param {*} context - context.
@@ -40,7 +41,7 @@ export function openShowroom(context) {
     modelId: sample.model.id,
   });
   context.ui.patch('showroom-response', {
-    text: 'روبات: سلام! قیمت و امکانات هر سه مدل را می‌توانم توضیح بدهم.',
+    text: strings.showroom.allModels,
   });
   context.keys.clear();
   document.exitPointerLock?.();
@@ -55,13 +56,13 @@ export function interact(context) {
   const station = context.nearStation();
   if (!station || context.state.busy || context.payment.phase !== 'idle' || context.ended) return;
   if (context.real.on && (context.real.fix?.speed ?? 0) > MAX_WALKING_SPEED) {
-    context.say('father', 'داریم سریع حرکت می‌کنیم؛ اول بایستیم، بعد خرید کنیم.');
+    context.say('father', strings.dialogue.tooFastToBuy);
     return;
   }
   if (!isOpen(station.def, context.state.minutes)) {
     context.say(
       context.guideOut() ? 'robot' : 'father',
-      `این دستگاه الان بسته است. ساعت کاری: ${context.hoursText(station.def)}.`,
+      strings.dialogue.machineClosed(context.hoursText(station.def)),
       'serious',
     );
     return;
@@ -81,16 +82,20 @@ export function interact(context) {
 export function renderShop(context) {
   const def = context.shopStation.def;
   context.ui.patch('shop-category', {
-    text: `${CATEGORIES[def.category].icon} ${CATEGORIES[def.category].label} · ساعت کاری ${context.hoursText(def)}`,
+    text: strings.shop.category(
+      CATEGORIES[def.category].icon,
+      CATEGORIES[def.category].label,
+      context.hoursText(def),
+    ),
   });
   context.ui.patch('shop-name', {
-    text: `روبات مارکت · ${def.name}`,
+    text: strings.shop.title(def.name),
   });
   context.ui.patch('shop-address', {
     text: def.address,
   });
   context.ui.patch('shop-note', {
-    text: `${def.note} · موجودی شما: ${formatHetoman(context.state.balance)}`,
+    text: strings.shop.balance(def.note, formatHetoman(context.state.balance)),
   });
   context.ui.patch('products', {
     items: def.products.map((id) => ({
@@ -120,7 +125,7 @@ export function startPayment(context, productId) {
     text: `${p.icon} ${p.name} · ${formatHetoman(priceAt(context.shopStation.def, productId))}`,
   });
   context.ui.patch('payment-step', {
-    text: 'در حال نزدیک شدن به کارت‌خوان…',
+    text: strings.payment.approaching,
   });
   context.ui.patch('swipe', {
     disabled: true,
@@ -128,7 +133,7 @@ export function startPayment(context, productId) {
   context.ui.patch('cancel-payment', {
     hidden: false,
   });
-  context.say('child', 'بابا، کارت رو بده من بکشم!');
+  context.say('child', strings.dialogue.childSwipes);
 }
 /**
  * Runs the swipe operation for this subsystem.
@@ -146,7 +151,7 @@ export function swipe(context) {
     hidden: true,
   });
   context.ui.patch('payment-step', {
-    text: 'پرداخت موفق ✓ محصول در حال تحویل است',
+    text: strings.payment.success,
   });
   context.tone(1100, 0.3);
   context.refreshHUD();
@@ -178,7 +183,7 @@ export function updatePayment(context, dt) {
       disabled: false,
     });
     context.ui.patch('payment-step', {
-      text: 'کارت را بکشید: دکمهٔ «کشیدن کارت» یا کلید C',
+      text: strings.payment.swipeHint,
     });
   }
   if (context.payment.phase === 'approved') {
@@ -243,7 +248,7 @@ export function reward(context, record, product) {
     rankBefore = rankFor(context.state.xp).index;
   if (context.real.on)
     awards.push({
-      label: 'خرید در دنیای واقعی',
+      label: strings.payment.realPurchase,
       points: 200,
     });
   const total = awards.reduce((s, a) => s + a.points, 0);
@@ -260,13 +265,13 @@ export function reward(context, record, product) {
       }),
     3200,
   );
-  context.say('child', `${product.icon} ${product.name} گرفتم! مرسی بابا.`);
+  context.say('child', strings.dialogue.childGotIt(product.icon, product.name));
   const done = completeMissions(context.state);
   for (const m of done) {
     context.showBanner(
-      'مأموریت انجام شد',
+      strings.rewards.missionDone,
       m.title,
-      `+${fa(m.xp)} XP · +${formatHetoman(m.hetoman)} پاداش`,
+      strings.rewards.missionReward(fa(m.xp), formatHetoman(m.hetoman)),
     );
     context.tone(660, 0.5);
   }
@@ -274,9 +279,9 @@ export function reward(context, record, product) {
     context.setTimeout(
       () =>
         context.showBanner(
-          'ارتقای درجه',
+          strings.rewards.rankUp,
           rankFor(context.state.xp).name,
-          'دستگاه‌های بیشتری پیدا کن',
+          strings.rewards.findMore,
         ),
       done.length ? 3400 : 0,
     );
@@ -286,7 +291,11 @@ export function reward(context, record, product) {
     context.route = null;
     context.setTimeout(
       () =>
-        context.say(context.guideOut() ? 'robot' : 'father', `مأموریت بعدی: ${next.title}`, 'wink'),
+        context.say(
+          context.guideOut() ? 'robot' : 'father',
+          strings.dialogue.nextMission(next.title),
+          'wink',
+        ),
       1500,
     );
   }
@@ -328,25 +337,26 @@ export function checkEnd(context) {
   context.ended = true;
   document.exitPointerLock?.();
   context.ui.patch('end-tag', {
-    text: allDone ? 'عملیات موفق' : 'پایان بودجه',
+    text: allDone ? strings.end.success : strings.end.outOfBudget,
   });
   context.ui.patch('end-title', {
-    text: allDone ? 'عملیات مشهد کامل شد!' : 'بودجهٔ امروز تمام شد',
+    text: allDone ? strings.end.successHeading : strings.end.budgetHeading,
   });
   context.ui.patch('end-text', {
-    text: allDone
-      ? 'همهٔ مأموریت‌های محدودهٔ بوستان ملت انجام شد. مناطق دیگر مشهد به‌زودی باز می‌شوند.'
-      : 'دیگر نمی‌توانید از دستگاه‌ها خرید کنید. امتیاز امروز:',
+    text: allDone ? strings.end.successText : strings.end.budgetText,
   });
   const places = new Set(context.state.purchases.map((p) => p.machineId)).size;
   context.ui.patch('end-stats', {
     items: [
-      ['امتیاز', `${fa(context.state.xp)} XP`],
-      ['درجه', rankFor(context.state.xp).name],
-      ['خریدها', fa(context.state.purchases.length)],
-      ['مکان‌های کشف‌شده', `${fa(places)} از ${fa(machines.length)}`],
-      ['مأموریت‌ها', `${fa(context.state.missionsDone.length)} از ${fa(MISSIONS.length)}`],
-      ['باقی‌مانده', formatHetoman(context.state.balance)],
+      [strings.end.score, `${fa(context.state.xp)} XP`],
+      [strings.end.rank, rankFor(context.state.xp).name],
+      [strings.end.purchases, fa(context.state.purchases.length)],
+      [strings.end.places, strings.end.outOf(fa(places), fa(machines.length))],
+      [
+        strings.end.missions,
+        strings.end.outOf(fa(context.state.missionsDone.length), fa(MISSIONS.length)),
+      ],
+      [strings.end.remaining, formatHetoman(context.state.balance)],
     ],
   });
   context.ui.patch('continue', {

@@ -3,6 +3,11 @@ import { createState } from '../economy/gameState.js';
 import { createPayment } from '../economy/payment.js';
 import { createVendingMachine } from '../models/vending.js';
 import { resetGarage } from './garage.js';
+import { strings } from '../../i18n/fa.js';
+import { COMPANY } from '../../config/company.js';
+
+// Brand colours for materials and canvas drawings.
+const BRAND = COMPANY.colors;
 /**
  * Runs the place station operation for this subsystem.
  * @param {*} context - context.
@@ -53,7 +58,7 @@ export function updateReachCircles(context) {
     s.reach.visible = context.real.on;
     if (!context.real.on) continue;
     s.reach.scale.setScalar(radius);
-    s.reach.material.color.set(s === objective ? '#f2c94c' : '#3ee0c9');
+    s.reach.material.color.set(s === objective ? '#f2c94c' : BRAND.primary);
   }
 }
 // GPS test points only take part while real-world mode is on.
@@ -130,18 +135,12 @@ export function startMission(context) {
   context.ui.patch('hud', {
     hidden: false,
   });
-  context.say(
-    'robot',
-    'سه نمونهٔ ۳۵، ۴۸ و ۶۰ کانال توی حیاط کنار ماشین هستند. دکمهٔ مدل‌های کارخانه یا Q را بزن تا قیمت و امکاناتشان را بگویم.',
-    'wink',
-  );
-  context.say('child', 'بابا، اینجا همون کارخونه‌ایه که دستگاه‌های روبات مارکت رو می‌سازه؟');
-  context.say(
-    'father',
-    'آره! سالن تولید اون‌وره؛ دستگاه وندینگ هم توی دفتر فنی مهندسیه. بریم ببینیم!',
-  );
-  context.say('child', 'اون وانت سفیده کیه داره میاد تو؟');
-  context.say('father', 'آقای محمدیه، مدیر شرکت. بعداً بریم اتاقش سلام کنیم.');
+  const { dialogue } = strings;
+  context.say('robot', dialogue.showroomIntro, 'wink');
+  context.say('child', dialogue.childAsksFactory);
+  context.say('father', dialogue.fatherAnswersFactory);
+  context.say('child', dialogue.childAsksArrival);
+  context.say('father', dialogue.fatherAnswersArrival);
   if (!context.isTouch && !context.real.on)
     context.canvas.requestPointerLock?.()?.catch?.(() => {});
 }

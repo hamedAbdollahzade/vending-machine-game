@@ -1,4 +1,5 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
+import { strings } from '@/i18n/fa.js';
 /** @typedef {{nodes:object,actions:object}} TouchControlsProps */
 /** Presents the TouchControls using the current interface snapshot. */
 export function TouchControls({ nodes, actions }) {
@@ -36,7 +37,7 @@ export function TouchControls({ nodes, actions }) {
           model={nodes['touch-shift']}
           onAction={() => actions.emit('touch-shift')}
         >
-          {'دویدن'}
+          {strings.status.run}
         </GameNode>
       </div>
     </GameNode>

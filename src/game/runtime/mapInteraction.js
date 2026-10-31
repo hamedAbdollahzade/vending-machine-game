@@ -3,6 +3,7 @@ import { CATEGORIES, lockedPlaces } from '../../constants/locations.js';
 import { catalog, priceAt, isOpen, fa } from '../economy/gameState.js';
 import { drawFullMap, drawIran } from '../world/mapRender.js';
 import { formatDistance } from '../../utils/geo.js';
+import { strings } from '../../i18n/fa.js';
 /**
  * Runs the size canvas operation for this subsystem.
  * @param {*} context - context.
@@ -104,7 +105,7 @@ export function selectMachine(context, id, center = false) {
     text: `📍 ${def.address}`,
   });
   context.ui.patch('detail-meta', {
-    text: `🕒 ${context.hoursText(def)} · ${isOpen(def, context.state.minutes) ? 'الان باز است' : 'الان بسته است'} · ${def.note}`,
+    text: strings.map.details(context.hoursText(def), isOpen(def, context.state.minutes), def.note),
   });
   context.ui.patch('detail-products', {
     text: def.products
@@ -112,7 +113,7 @@ export function selectMachine(context, id, center = false) {
       .join(' · '),
   });
   context.ui.patch('route-button', {
-    text: context.waypoint === id ? 'مسیر فعال است ✓' : 'مسیریابی تا اینجا',
+    text: context.waypoint === id ? strings.map.routeActive : strings.map.route,
   });
   context.renderMachineList();
   context.renderMap();

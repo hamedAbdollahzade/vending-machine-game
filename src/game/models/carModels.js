@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import { COMPANY } from '../../config/company.js';
+
+// Brand colours for materials and canvas drawings.
+const BRAND = COMPANY.colors;
 
 // Detailed vehicles for the family and the factory, plus the shared helpers luxuryCars.js builds
 // on. All face local +X and sit on y = 0, like createCarModel in traffic.js; `wheels` lists rear wheels first, then the two front (steering) ones.
@@ -337,7 +341,7 @@ export function createTruck(color = '#e9eef0') {
   const black = mat('#1b1d1f', {
       roughness: 0.7,
     }),
-    teal = mat('#0b8f88', {
+    teal = mat(BRAND.primary, {
       metalness: 0.3,
       roughness: 0.4,
     });

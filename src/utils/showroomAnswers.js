@@ -1,4 +1,5 @@
 import { SHOWROOM_CATALOG } from '../constants/showroomCatalog.js';
+import { strings } from '../i18n/fa.js';
 
 /** Looks up a display model by its stable identifier.
  * @param {string} id - Model identifier.
@@ -13,7 +14,7 @@ export function showroomModelById(id) {
  * @returns {string} Persian rial price.
  */
 export function formatRial(price) {
-  return `${price.toLocaleString('fa-IR')} ریال`;
+  return strings.units.rial(price.toLocaleString('fa-IR'));
 }
 
 /** Builds the robot's deterministic answer from the shared showroom catalog.
@@ -24,8 +25,12 @@ export function showroomAnswer({ modelId, topic }) {
   const model = showroomModelById(modelId);
   if (!model) return null;
   if (topic === 'price')
-    return `قیمت ${model.name}، ${formatRial(model.priceNumeric)} است. این قیمت خود دستگاه به ریال است و از بودجهٔ بازی کم نمی‌شود.`;
+    return strings.showroom.priceAnswer(model.name, formatRial(model.priceNumeric));
   if (topic === 'features')
-    return `${model.name}: ${model.description} امکانات: ${model.highlights.join('، ')}.`;
+    return strings.showroom.featuresAnswer(
+      model.name,
+      model.description,
+      model.highlights.join(strings.showroom.featureSeparator),
+    );
   return null;
 }

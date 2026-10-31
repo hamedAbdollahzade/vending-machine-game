@@ -1,4 +1,5 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
+import { strings } from '@/i18n/fa.js';
 /** @typedef {{nodes:object,actions:object}} GameSurfacesProps */
 /** Presents the GameSurfaces view using plain models and semantic native elements.
  * @param {GameSurfacesProps} props - Interface snapshots and callbacks.
@@ -18,7 +19,7 @@ export function GameSurfaces({ nodes }) {
       ></GameNode>
       <GameNode as="canvas" id="world" model={nodes['world']} />
       <GameNode as="div" id="loading" model={nodes['loading']}>
-        {'در حال ساختن شهر مشهد…'}
+        {strings.app.buildingCity}
       </GameNode>
     </>
   );

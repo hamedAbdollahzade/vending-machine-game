@@ -1,3 +1,4 @@
+import { strings } from '../../i18n/fa.js';
 // Money is counted in whole hetoman: 10 hetoman = 100,000 rial.
 export const INITIAL_BALANCE = 500;
 export const START_MINUTES = 8 * 60 + 30;
@@ -12,7 +13,7 @@ export const fa = (n) => n.toLocaleString('fa-IR');
  * @param {*} value - value.
  * @returns {*} Operation result, when applicable.
  */
-export const formatHetoman = (value) => `${fa(value)} هتومان`;
+export const formatHetoman = (value) => strings.units.hetoman(fa(value));
 /**
  * Runs the hetoman to rial operation for this subsystem.
  * @param {*} value - value.
@@ -31,63 +32,63 @@ export const formatClock = (minutes) => {
 export const catalog = {
   juice: {
     id: 'juice',
-    name: 'آب‌میوه',
+    name: strings.snacks.juice,
     icon: '🧃',
     cost: 35,
     type: 'drink',
   },
   water: {
     id: 'water',
-    name: 'آب معدنی',
+    name: strings.snacks.water,
     icon: '💧',
     cost: 15,
     type: 'drink',
   },
   milk: {
     id: 'milk',
-    name: 'شیر کاکائو',
+    name: strings.snacks.milk,
     icon: '🥛',
     cost: 40,
     type: 'drink',
   },
   tea: {
     id: 'tea',
-    name: 'چای سرد',
+    name: strings.snacks.tea,
     icon: '🧋',
     cost: 45,
     type: 'drink',
   },
   lemonade: {
     id: 'lemonade',
-    name: 'لیموناد',
+    name: strings.snacks.lemonade,
     icon: '🍋',
     cost: 40,
     type: 'drink',
   },
   biscuit: {
     id: 'biscuit',
-    name: 'بیسکویت',
+    name: strings.snacks.biscuit,
     icon: '🍪',
     cost: 25,
     type: 'snack',
   },
   chocolate: {
     id: 'chocolate',
-    name: 'شکلات',
+    name: strings.snacks.chocolate,
     icon: '🍫',
     cost: 30,
     type: 'snack',
   },
   nuts: {
     id: 'nuts',
-    name: 'آجیل',
+    name: strings.snacks.nuts,
     icon: '🥜',
     cost: 65,
     type: 'snack',
   },
   cake: {
     id: 'cake',
-    name: 'کیک',
+    name: strings.snacks.cake,
     icon: '🧁',
     cost: 35,
     type: 'snack',

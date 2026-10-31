@@ -24,6 +24,11 @@ import { createTraffic } from '../systems/traffic.js';
 import { createGarage } from './garage.js';
 import { createMapAssets } from '../world/mapRender.js';
 import { formatDistance, toLocal } from '../../utils/geo.js';
+import { strings } from '../../i18n/fa.js';
+import { COMPANY } from '../../config/company.js';
+
+// Brand colours for materials and canvas drawings.
+const BRAND = COMPANY.colors;
 
 // City map zoom limits in metres per screen pixel (closest and furthest).
 const MAP_ZOOM_MIN = 0.35;
@@ -73,7 +78,7 @@ export async function initializeRenderer(context) {
     });
   } catch {
     context.ui.patch('loading', {
-      text: 'مرورگر شما گرافیک سه‌بعدی (WebGL) را اجرا نمی‌کند. شتاب‌دهی گرافیکی را فعال کنید.',
+      text: strings.app.noWebgl,
     });
     throw new Error('WebGL unavailable');
   }
@@ -281,7 +286,7 @@ export async function initializeStationById(context) {
     s.reach = new THREE.Mesh(
       new THREE.RingGeometry(0.96, 1, 96),
       new THREE.MeshBasicMaterial({
-        color: '#3ee0c9',
+        color: BRAND.primary,
         transparent: true,
         opacity: 0.55,
         depthWrite: false,
@@ -326,7 +331,7 @@ export async function initializeClosestStation(context) {
   });
   if (context.imagery.available)
     context.ui.patch('attribution', {
-      text: `نقشه: © مشارکت‌کنندگان OpenStreetMap · تصویر ماهواره‌ای: ${context.imageryIndex.attribution}`,
+      text: strings.app.osmImageryCredit(context.imageryIndex.attribution),
     });
   context.traffic = createTraffic(context.scene, data, 28);
   context.mapAssets = createMapAssets(data, [context.factory.label]);
@@ -357,7 +362,7 @@ export async function buildParkGate(context) {
     c.fillStyle = '#f4efd9';
     c.textAlign = 'center';
     c.font = 'bold 64px Vazirmatn, Tahoma, sans-serif';
-    c.fillText('بوستان ملت', 256, 86);
+    c.fillText(strings.places.parkSign, 256, 86);
     const texture = new THREE.CanvasTexture(sign);
     texture.colorSpace = THREE.SRGBColorSpace;
     const gate = context.parkGate,
@@ -598,11 +603,7 @@ export async function initializeAxis(context) {
   context.axis = (pos, neg) =>
     Number(pos.some((k) => context.keys.has(k))) - Number(neg.some((k) => context.keys.has(k)));
   // ---------- Subtitles ----------
-  context.SPEAKERS = {
-    robot: 'روبات',
-    father: 'پدر',
-    child: 'بچه',
-  };
+  context.SPEAKERS = { ...strings.speakers };
   // Factory staff speak under their own names.
   for (const t of context.factory.talks) if (t.label) context.SPEAKERS[t.speaker] = t.label;
   context.lines = [];
@@ -637,7 +638,7 @@ export async function registerSoundControl(context) {
         };
       }
       context.ui.patch('sound', {
-        text: context.soundOn ? 'صدا: روشن' : 'صدا: خاموش',
+        text: context.soundOn ? strings.toolbar.soundOn : strings.toolbar.soundOff,
       });
       context.ui.patch('sound', {
         pressed: String(context.soundOn),
@@ -645,7 +646,7 @@ export async function registerSoundControl(context) {
       context.tone(700);
     } catch {
       context.ui.patch('sound', {
-        text: 'صدا در دسترس نیست',
+        text: strings.toolbar.soundUnavailable,
       });
     }
   });
@@ -668,8 +669,8 @@ export async function initializeReachRadius(context) {
       : null;
   context.hoursText = (m) =>
     m.hours[1] - m.hours[0] >= 24 * 60
-      ? 'شبانه‌روزی'
-      : `${formatClock(m.hours[0])} تا ${formatClock(m.hours[1])}`;
+      ? strings.common.allDay
+      : strings.common.hours(formatClock(m.hours[0]), formatClock(m.hours[1]));
   context.shopStation = null;
   context.nearShowroom = () =>
     !context.real.on && context.mode === 'walk' ? context.showroom.nearest(context.player) : null;
@@ -679,7 +680,7 @@ export async function initializeReachRadius(context) {
       modelId: id,
     });
     context.ui.patch('showroom-response', {
-      text: 'روبات: دربارهٔ این مدل چی می‌خواهی بدانی؟',
+      text: strings.showroom.whatToKnow,
     });
   });
 }
@@ -699,7 +700,7 @@ export async function registerPurchaseControls(context) {
     const answer = showroomAnswer(question);
     if (!answer) return;
     context.ui.patch('showroom-response', {
-      text: `روبات: ${answer}`,
+      text: strings.showroom.robotSays(answer),
     });
     context.say('robot', answer, question.topic === 'price' ? 'happy' : 'wink');
   });
@@ -717,7 +718,7 @@ export async function registerPurchaseControls(context) {
   context.ui.on('cancel-payment', context.cancel);
   context.ui.on('shop-close', () => context.ui.close('shop'));
   context.ui.patch('quality', {
-    text: context.quality === 'low' ? 'گرافیک: سبک' : 'گرافیک: کامل',
+    text: context.quality === 'low' ? strings.toolbar.graphicsLow : strings.toolbar.graphicsHigh,
   });
 }
 /**
@@ -825,7 +826,10 @@ export async function registerRouteSelection(context) {
     const s = context.stationById(context.selected);
     context.say(
       'father',
-      `مسیر تا ${s.def.name} رو گذاشتم؛ ${context.route ? formatDistance(context.route.length) : ''}. دنبال خط طلایی بریم.`,
+      strings.dialogue.routeSet(
+        s.def.name,
+        context.route ? formatDistance(context.route.length) : '',
+      ),
     );
     context.selectMachine(context.selected);
   });
@@ -978,63 +982,63 @@ export async function registerMapSelectionAndZoom(context) {
 export async function initializeCities(context) {
   context.CITIES = [
     {
-      name: 'مشهد',
+      name: strings.cities.mashhad,
       lat: 36.3,
       lon: 59.6,
       active: true,
     },
     {
-      name: 'تهران',
+      name: strings.cities.tehran,
       lat: 35.69,
       lon: 51.39,
     },
     {
-      name: 'اصفهان',
+      name: strings.cities.isfahan,
       lat: 32.65,
       lon: 51.67,
     },
     {
-      name: 'شیراز',
+      name: strings.cities.shiraz,
       lat: 29.59,
       lon: 52.58,
     },
     {
-      name: 'تبریز',
+      name: strings.cities.tabriz,
       lat: 38.08,
       lon: 46.29,
     },
     {
-      name: 'اهواز',
+      name: strings.cities.ahvaz,
       lat: 31.32,
       lon: 48.67,
     },
     {
-      name: 'کرمان',
+      name: strings.cities.kerman,
       lat: 30.28,
       lon: 57.08,
     },
     {
-      name: 'رشت',
+      name: strings.cities.rasht,
       lat: 37.28,
       lon: 49.58,
     },
     {
-      name: 'یزد',
+      name: strings.cities.yazd,
       lat: 31.9,
       lon: 54.37,
     },
     {
-      name: 'زاهدان',
+      name: strings.cities.zahedan,
       lat: 29.5,
       lon: 60.86,
     },
     {
-      name: 'کرمانشاه',
+      name: strings.cities.kermanshah,
       lat: 34.31,
       lon: 47.07,
     },
     {
-      name: 'بندرعباس',
+      name: strings.cities.bandarAbbas,
       lat: 27.18,
       lon: 56.27,
     },
@@ -1046,14 +1050,7 @@ export async function initializeCities(context) {
  * @returns {*} Operation result, when applicable.
  */
 export async function initializeBriefingAndTracking(context) {
-  context.BRIEF = [
-    `نقطهٔ شروع: ${FACTORY.name}، بزرگراه مشهد–چناران`,
-    'تیم: پدر و فرزند · روبات راهنما در دستگاه‌ها منتظر شماست',
-    'هدف: از کارخانه تا بوستان ملت و دانشگاه فردوسی (حدود ۲۰ کیلومتر) بروید و دستگاه‌های روبات مارکت را در پارک، مدرسه، دانشگاه، ایستگاه مترو و مرکز خرید پیدا کنید.',
-    'هر خرید امتیاز دارد؛ کشف مکان تازه و ترکیب نوشیدنی و خوراکی امتیاز بیشتری دارد.',
-    'بودجه: ۵۰۰ هتومان · مأموریت‌ها پاداش نقدی دارند.',
-    'رفت‌وآمد: پیاده یا با ماشین. نقشهٔ گوشهٔ صفحه را بزنید تا آدرس دستگاه‌ها را ببینید.',
-  ].join('\n');
+  context.BRIEF = strings.briefing.lines.join('\n');
   context.briefChars = 0;
   context.ui.on('start-mission', context.startMission);
 
@@ -1099,7 +1096,7 @@ export async function initializeArMode(context) {
     context.real.stabilizer.stable = context.stableMode;
     context.ui.classState('stable-toggle', 'on', context.stableMode);
     context.ui.patch('stable-toggle', {
-      text: context.stableMode ? '🎯 پایدار: روشن' : '🎯 پایدار: خاموش',
+      text: context.stableMode ? strings.toolbar.stableOn : strings.toolbar.stableOff,
     });
   });
 

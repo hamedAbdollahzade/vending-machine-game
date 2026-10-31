@@ -1,6 +1,7 @@
 import { MachineDetails } from './MachineDetails.jsx';
 import { MachineList } from './MachineList.jsx';
 import { GameNode } from '@/components/shared/GameNode.jsx';
+import { strings } from '@/i18n/fa.js';
 /** @typedef {{nodes:object,actions:object}} MapDialogProps */
 /** Presents the MapDialog view using plain models and semantic native elements.
  * @param {MapDialogProps} props - Interface snapshots and callbacks.
@@ -27,7 +28,7 @@ export function MapDialog({ nodes, actions }) {
               model={nodes['tab-city']}
               onAction={() => actions.emit('tab-city')}
             >
-              {'مشهد'}
+              {strings.common.mashhad}
             </GameNode>
             <GameNode
               as="button"
@@ -39,7 +40,7 @@ export function MapDialog({ nodes, actions }) {
               model={nodes['tab-iran']}
               onAction={() => actions.emit('tab-iran')}
             >
-              {'ایران'}
+              {strings.common.iran}
             </GameNode>
           </div>
           <GameNode
@@ -47,7 +48,7 @@ export function MapDialog({ nodes, actions }) {
             type="button"
             className="close"
             id="map-close"
-            aria-label="بستن"
+            aria-label={strings.map.close}
             model={nodes['map-close']}
             onAction={() => actions.emit('map-close')}
           >
@@ -58,12 +59,10 @@ export function MapDialog({ nodes, actions }) {
           <div className="map-view">
             <GameNode as="canvas" id="fullmap" model={nodes['fullmap']} />
             <GameNode as="canvas" id="iran-map" hidden model={nodes['iran-map']} />
-            <p className="map-help">
-              {'کشیدن: جابه‌جایی · دو انگشت یا چرخ ماوس: زوم · لمس یا کلیک روی دستگاه: انتخاب'}
-            </p>
+            <p className="map-help">{strings.map.help}</p>
           </div>
           <aside className="map-side">
-            <h3>{'دستگاه‌های روبات مارکت'}</h3>
+            <h3>{strings.map.machines}</h3>
             <MachineDetails nodes={nodes} actions={actions} />
             <MachineList nodes={nodes} actions={actions} />
           </aside>

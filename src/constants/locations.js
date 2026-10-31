@@ -1,40 +1,43 @@
+import { COMPANY } from '../config/company.js';
+import { strings } from '../i18n/fa.js';
+
 // Robot Market machines in the playable Park Mellat area. Positions are path points taken from
 // the OpenStreetMap data (local metres, see geo.js); the machine is placed beside that path.
 export const CATEGORIES = {
   factory: {
-    label: 'کارخانه',
+    label: strings.categories.factory,
     icon: '🏭',
   },
   park: {
-    label: 'پارک',
+    label: strings.categories.park,
     icon: '🌳',
   },
   university: {
-    label: 'دانشگاه',
+    label: strings.categories.university,
     icon: '🎓',
   },
   school: {
-    label: 'مدرسه',
+    label: strings.categories.school,
     icon: '🏫',
   },
   metro: {
-    label: 'ایستگاه مترو',
+    label: strings.categories.metro,
     icon: 'Ⓜ',
   },
   mall: {
-    label: 'مرکز خرید',
+    label: strings.categories.mall,
     icon: '🛍',
   },
   test: {
-    label: 'نقطهٔ آزمایشی GPS',
+    label: strings.categories.test,
     icon: '🧪',
   },
 };
 const ALL_DAY = [7 * 60, 23 * 60];
 export const FACTORY = {
-  name: 'شرکت روبات مارکت',
-  tagline: 'سازندهٔ دستگاه‌های وندینگ هوشمند',
-  address: 'بزرگراه مشهد–چناران، خیابان کاله، کنار پارک علم و فناوری خراسان',
+  name: COMPANY.name,
+  tagline: COMPANY.tagline,
+  address: COMPANY.contact.address,
   // Centre of the compound and the direction of its driveway (towards the gate on Kaleh Street).
   center: {
     x: -10308.4,
@@ -48,14 +51,14 @@ export const FACTORY = {
 export const machines = [
   {
     id: 'factory',
-    name: 'دستگاه دفتر فنی مهندسی',
+    name: strings.places.officeMachine,
     category: 'factory',
-    address: `${FACTORY.address}، ساختمان اداری، دفتر فنی مهندسی`,
+    address: strings.places.officeAddress(FACTORY.address),
     anchor: null,
     hours: [0, 24 * 60],
     priceFactor: 0.5,
     products: ['water', 'juice', 'tea', 'biscuit', 'chocolate'],
-    note: 'دستگاه دفتر برنامه‌نویس‌ها؛ نصف قیمت برای مهمان‌های کارخانه',
+    note: strings.places.officeNote,
   },
   {
     id: 'mellat-park',
@@ -168,10 +171,10 @@ export const machines = [
  */
 const testPoint = (n, lat, lon) => ({
   id: `test-${n}`,
-  name: `نقطهٔ آزمایشی ${['۱', '۲', '۳'][n - 1]}`,
+  name: strings.places.testPoint(n.toLocaleString('fa-IR')),
   category: 'test',
   test: true,
-  address: `کنار کارخانهٔ روبات مارکت · ${lat.toFixed(6)}, ${lon.toFixed(6)}`,
+  address: strings.places.testAddress(`${lat.toFixed(6)}, ${lon.toFixed(6)}`),
   anchor: null,
   spot: {
     lat,
@@ -180,7 +183,7 @@ const testPoint = (n, lat, lon) => ({
   hours: [0, 24 * 60],
   priceFactor: 0.5,
   products: ['water', 'biscuit'],
-  note: 'برای آزمایش حالت دنیای واقعی: با گوشی تا اینجا راه بروید',
+  note: strings.places.testNote,
 });
 machines.push(
   testPoint(1, 36.450276, 59.423431),
@@ -192,11 +195,11 @@ machines.push(
 export const lockedPlaces = [
   {
     name: 'پارک کوهسنگی',
-    note: 'خارج از محدودهٔ فعلی · به‌زودی',
+    note: strings.places.comingSoon,
   },
   {
     name: 'حرم و مرکز شهر',
-    note: 'خارج از محدودهٔ فعلی · به‌زودی',
+    note: strings.places.comingSoon,
   },
 ];
 export const START = {

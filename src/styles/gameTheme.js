@@ -1,20 +1,47 @@
+import { COMPANY } from '../config/company.js';
+
 // Tailwind base layer preserves the established game presentation during the React migration.
+const { colors } = COMPANY;
+
+/**
+ * Converts a #rrggbb colour to an rgba() string.
+ * @param {string} hex - Colour such as '#00a693'.
+ * @param {number} alpha - Opacity from 0 to 1.
+ * @returns {string} CSS rgba() value.
+ */
+const withAlpha = (hex, alpha) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 export const gameTheme = {
   ':root': {
+    // Brand palette from config/company.js; every accent below refers to these.
+    '--color-primary': colors.primary,
+    '--color-primary-light': colors.primaryLight,
+    '--color-primary-lighter': colors.primaryLighter,
+    '--color-primary-dark': colors.primaryDark,
+    '--color-primary-darker': colors.primaryDarker,
+    '--color-on-primary': colors.onPrimary,
+    '--color-surface': colors.surface,
+    '--color-surface-raised': colors.surfaceRaised,
+    '--color-surface-deep': colors.surfaceDeep,
+    '--color-text': colors.text,
+    '--color-text-muted': colors.textMuted,
     '--game-token-1': 'rgba(236, 242, 238, 0.92)',
     '--game-token-2': 'rgba(200, 214, 207, 0.65)',
     '--game-token-3': 'rgba(10, 16, 14, 0.62)',
     '--game-token-4': 'rgba(10, 16, 14, 0.9)',
     '--game-token-5': 'rgba(220, 235, 228, 0.2)',
     '--game-token-6': '#f2c94c',
-    '--game-token-7': '#3ee0c9',
+    '--game-token-7': 'var(--color-primary)',
     '--game-token-8': '#ff6b5e',
     '--game-token-9': '0px',
-    '--game-token-10': '#0d1412',
+    '--game-token-10': 'var(--color-surface)',
     '--game-token-11': '18px',
     '--game-token-12': '0.5px',
-    '--game-token-13': '#16231f',
-    '--game-token-14': '#070b0a',
+    '--game-token-13': 'var(--color-surface-raised)',
+    '--game-token-14': 'var(--color-surface-deep)',
     '--game-token-15': 'rgba(255, 255, 255, 0.025)',
     '--game-token-16': '1px',
     '--game-token-17': '4px',
@@ -59,7 +86,7 @@ export const gameTheme = {
     '--game-token-56': '96px',
     '--game-token-57': '380px',
     '--game-token-58': 'rgba(255, 255, 255, 0.15)',
-    '--game-token-59': '#04201b',
+    '--game-token-59': 'var(--color-on-primary)',
     '--game-token-60': 'rgba(0, 0, 0, 0.45)',
     '--game-token-61': '1180px',
     '--game-token-62': '760px',
@@ -68,7 +95,7 @@ export const gameTheme = {
     '--game-token-65': 'rgba(255, 255, 255, 0.05)',
     '--game-token-66': '620px',
     '--game-token-67': '140px',
-    '--game-token-68': 'rgba(62, 224, 201, 0.1)',
+    '--game-token-68': withAlpha(colors.primary, 0.1),
     '--game-token-69': '30px',
     '--game-token-70': '480px',
     '--game-token-71': '90px',
@@ -83,7 +110,7 @@ export const gameTheme = {
     '--game-token-80': '198px',
     '--game-token-81': '70px',
     '--game-token-82': '110px',
-    '--game-token-83': 'rgba(62, 224, 201, 0.25)',
+    '--game-token-83': withAlpha(colors.primary, 0.25),
     '--game-token-84': '420px',
     '--game-token-85': '460px',
     '--game-token-86': 'rgba(0, 0, 0, 0.7)',

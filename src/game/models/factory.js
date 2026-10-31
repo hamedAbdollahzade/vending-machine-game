@@ -6,6 +6,11 @@ import { MANAGER_CAR_BRAND, MOTORCYCLE_COUNT, VEHICLE_BLACK } from '../../consta
 import { createPerson, createCrew, nameTag } from './staff.js';
 import { FACTORY } from '../../constants/locations.js';
 import { textTexture } from './textures.js';
+import { strings } from '../../i18n/fa.js';
+import { COMPANY } from '../../config/company.js';
+
+// Brand colours for materials and canvas drawings.
+const BRAND = COMPANY.colors;
 /**
  * Runs the stripes operation for this subsystem.
  * @param {*} c - c.
@@ -32,9 +37,9 @@ function stripes(c, w, h, base, line, every) {
  */
 const sign = (text, sub = '') =>
   textTexture(512, 160, (c, w, h) => {
-    c.fillStyle = '#0d2f2c';
+    c.fillStyle = BRAND.primaryDarker;
     c.fillRect(0, 0, w, h);
-    c.fillStyle = '#3ee0c9';
+    c.fillStyle = BRAND.primary;
     c.fillRect(0, h - 12, w, 12);
     c.textAlign = 'center';
     c.direction = 'rtl';
@@ -42,7 +47,7 @@ const sign = (text, sub = '') =>
     c.font = `bold ${sub ? 58 : 66}px Vazirmatn, Tahoma, sans-serif`;
     c.fillText(text, w / 2, sub ? 72 : 100);
     if (sub) {
-      c.fillStyle = '#9fe9da';
+      c.fillStyle = BRAND.primaryLighter;
       c.font = '36px Vazirmatn, Tahoma, sans-serif';
       c.fillText(sub, w / 2, 128);
     }
@@ -113,25 +118,20 @@ const CODE = {
   ),
   sheet: screen(
     [
-      ['فاکتور   دستگاه        مبلغ', '#1d3b2f'],
-      ['۱۰۴۲    بوستان ملت     ۴۸۰', '#333'],
-      ['۱۰۴۳    دانشگاه فردوسی  ۳۲۰', '#333'],
-      ['۱۰۴۴    مترو آزادی     ۲۹۰', '#333'],
-      ['۱۰۴۵    مشهد مال       ۶۱۰', '#333'],
-      ['۱۰۴۶    مدرسه راحیل    ۱۸۰', '#333'],
-      ['جمع                 ۱۸۸۰', '#0b8f88'],
+      // Header, five invoice rows, then the total in the brand colour.
+      ...strings.factory.decor.invoices.map((line, i, all) => [
+        line,
+        ['#1d3b2f', ...Array(all.length - 2).fill('#333'), COMPANY.colors.primaryDark][i],
+      ]),
     ],
     '#f4f7f2',
   ),
   dashboard: screen(
     [
-      ['فروش امروز: ۱۲۸ دستگاه', '#3ee0c9'],
-      ['تولید هفته: ۴۶ دستگاه', '#f2c94c'],
-      ['ارسال شده: ۳۸', '#eeffff'],
-      ['', '#fff'],
-      ['▇▇▇▇▇▇▇▇▇▇▇ خم', '#82aaff'],
-      ['▇▇▇▇▇▇▇▇▇ برش', '#82aaff'],
-      ['▇▇▇▇▇▇▇ رنگ', '#82aaff'],
+      ...strings.factory.decor.dashboard.map((line, i) => [
+        line,
+        [COMPANY.colors.primary, '#f2c94c', '#eeffff', '#fff'][i] ?? '#82aaff',
+      ]),
     ],
     '#101820',
   ),
@@ -507,7 +507,7 @@ function factoryBuildFlat(build) {
   build.steel = build.mat('#59646b', {
     metalness: 0.5,
   });
-  build.teal = build.mat('#0b8f88', {
+  build.teal = build.mat(BRAND.primary, {
     metalness: 0.3,
     roughness: 0.4,
   });
@@ -563,16 +563,16 @@ function factoryBuildAnimated(build) {
  */
 function factoryBuildNameSign(build) {
   build.nameSign = textTexture(1024, 320, (c, w, h) => {
-    c.fillStyle = '#0d2f2c';
+    c.fillStyle = BRAND.primaryDarker;
     c.fillRect(0, 0, w, h);
-    c.fillStyle = '#3ee0c9';
+    c.fillStyle = BRAND.primary;
     c.fillRect(0, h - 18, w, 18);
     c.textAlign = 'center';
     c.direction = 'rtl';
     c.fillStyle = '#ffffff';
     c.font = 'bold 66px Vazirmatn, Tahoma, sans-serif';
     c.fillText(FACTORY.name, w / 2, 120);
-    c.fillStyle = '#9fe9da';
+    c.fillStyle = BRAND.primaryLighter;
     c.font = '44px Vazirmatn, Tahoma, sans-serif';
     c.fillText(FACTORY.tagline, w / 2, 210);
     c.font = 'bold 34px sans-serif';
@@ -716,12 +716,8 @@ function factoryBuildGeometry3(build) {
     for (const du of [-2.2, 2.2])
       build.box(u + du - 0.03, u + du + 0.03, 20.97, 21.03, 7.45, build.H, build.steel, false);
   };
-  build.zone('خم‌کاری', 'ورق‌کاری بدنهٔ دستگاه', -93);
-  build.zone('برش لیزر', 'برش ورق و قطعات', -71);
-  build.zone('رنگ‌کاری', 'کابین رنگ پودری', -52);
-  build.zone('یخچال‌سازی', 'کمپرسور و عایق‌کاری', -31);
-  build.zone('مونتاژ', 'خط مونتاژ نهایی', -13);
-  build.zone('بسته‌بندی', 'ارسال به شهر', -3);
+  // Work areas along the hall, from the press brakes to packing (u of each sign).
+  [-93, -71, -52, -31, -13, -3].forEach((u, i) => build.zone(...strings.factory.zones[i], u));
 
   // Bending: two press brakes with a moving ram, sheet stacks behind.
 }
@@ -942,7 +938,7 @@ function factoryBuildGeometry6(build) {
  */
 function factoryBuildFrames(build) {
   build.frames = [];
-  build.frameMaterial = build.mat('#0b8f88', {
+  build.frameMaterial = build.mat(BRAND.primary, {
     wireframe: true,
   });
   for (let i = 0; i < 4; i++) {
@@ -990,7 +986,7 @@ function factoryBuildGeometry7(build) {
 function factoryBuildGeometry8(build) {
   for (let i = 0; i < 4; i++) {
     const finished = createVendingMachine({
-      name: 'آمادهٔ نصب',
+      name: strings.factory.readyToInstall,
       products: ['water', 'juice', 'biscuit', 'chocolate'],
     });
     finished.beacon.visible = finished.ring.visible = false;
@@ -1014,7 +1010,7 @@ function factoryBuildCarton(build) {
     c.fillRect(0, 0, w, h);
     c.fillStyle = 'rgba(255,255,255,.18)';
     for (let y = 0; y < h; y += 40) c.fillRect(0, y, w, 14);
-    c.fillStyle = '#0b8f88';
+    c.fillStyle = BRAND.primary;
     c.fillRect(0, h * 0.42, w, 34);
     c.fillStyle = '#1d2a2a';
     c.textAlign = 'center';
@@ -1294,9 +1290,9 @@ function factoryBuildGeometry9(build) {
   ])
     build.box(u0, u1, -36, -34, build.OH - 0.08, build.OH - 0.02, build.lamp, false).castShadow =
       false;
-  build.panel(sign('دفتر فنی مهندسی', 'Engineering'), 3.6, 1.1, 15.5, 3.25, build.F + 0.05);
-  build.panel(sign('واحد حسابداری', 'Accounting'), 3.6, 1.1, 32.5, 3.25, build.F + 0.05);
-  build.panel(sign('مدیریت', 'آقای محمدی'), 3.6, 1.1, 45, 3.25, build.F + 0.05);
+  build.panel(sign(...strings.factory.signs.engineering), 3.6, 1.1, 15.5, 3.25, build.F + 0.05);
+  build.panel(sign(...strings.factory.signs.accounting), 3.6, 1.1, 32.5, 3.25, build.F + 0.05);
+  build.panel(sign(...strings.factory.signs.management), 3.6, 1.1, 45, 3.25, build.F + 0.05);
   build.wood = build.mat('#c8a477', {
     roughness: 0.6,
   });
@@ -1322,7 +1318,7 @@ function factoryBuildFabric(build) {
 function factoryBuildDevelopers(build) {
   build.developers = [
     {
-      name: 'حامد',
+      name: strings.factory.staff.hamed.name,
       role: 'React',
       u: 11,
       v: -31.6,
@@ -1333,13 +1329,10 @@ function factoryBuildDevelopers(build) {
       },
       code: CODE.react,
       speaker: 'hamed',
-      lines: [
-        'سلام! من حامدم. رابط کاربری صفحهٔ لمسی دستگاه‌ها رو با React می‌سازم.',
-        'هر چی روی صفحهٔ دستگاه می‌بینین، از همین مانیتور اومده!',
-      ],
+      lines: strings.factory.staff.hamed.lines,
     },
     {
-      name: 'رایان',
+      name: strings.factory.staff.ryan.name,
       role: 'Go',
       u: 16,
       v: -31.6,
@@ -1351,10 +1344,10 @@ function factoryBuildDevelopers(build) {
       },
       code: CODE.go,
       speaker: 'ryan',
-      lines: ['سلام! من رایانم. سرور پرداخت و گزارش فروش دستگاه‌ها رو با Go می‌نویسم.'],
+      lines: strings.factory.staff.ryan.lines,
     },
     {
-      name: 'علیرضا',
+      name: strings.factory.staff.alireza.name,
       role: 'C++',
       u: 21,
       v: -31.6,
@@ -1366,12 +1359,10 @@ function factoryBuildDevelopers(build) {
       },
       code: CODE.cpp,
       speaker: 'alireza',
-      lines: [
-        'سلام! علیرضام. فریمور بُرد کنترل دستگاه با C++ ـه؛ الان دارم موتورهای تحویل کالا رو تنظیم می‌کنم.',
-      ],
+      lines: strings.factory.staff.alireza.lines,
     },
     {
-      name: 'رضا',
+      name: strings.factory.staff.reza.name,
       role: 'C++',
       u: 13.5,
       v: -38.6,
@@ -1384,13 +1375,10 @@ function factoryBuildDevelopers(build) {
       },
       code: CODE.cpp,
       speaker: 'reza',
-      lines: [
-        'سلام، خوش اومدین. من رضام؛ کد C++ سنسورها و دمای یخچال دستگاه با منه.',
-        'دستگاه وندینگ همین دفتر کنار دره؛ از اون خرید کنین!',
-      ],
+      lines: strings.factory.staff.reza.lines,
     },
     {
-      name: 'محمد',
+      name: strings.factory.staff.mohammad.name,
       role: '',
       u: 18.5,
       v: -38.6,
@@ -1402,7 +1390,7 @@ function factoryBuildDevelopers(build) {
       },
       code: CODE.terminal,
       speaker: 'mohammad',
-      lines: ['سلام! من محمدم. به دفتر فنی مهندسی روبات مارکت خوش اومدین!'],
+      lines: strings.factory.staff.mohammad.lines,
     },
   ];
 }
@@ -1444,12 +1432,10 @@ function factoryBuildBoard(build) {
     c.direction = 'rtl';
     c.fillStyle = '#1d4f91';
     c.font = 'bold 40px Vazirmatn, Tahoma, sans-serif';
-    c.fillText('اسپرینت ۱۴: دستگاه نسل جدید', w / 2, 56);
+    c.fillText(strings.factory.decor.sprintTitle, w / 2, 56);
     c.font = '28px Vazirmatn, Tahoma, sans-serif';
     c.fillStyle = '#333';
-    ['صفحهٔ لمسی جدید ← React', 'سرویس پرداخت ← Go', 'فریمور موتور و سنسور ← C++'].forEach((t, i) =>
-      c.fillText(t, w / 2, 110 + i * 44),
-    );
+    strings.factory.decor.sprintItems.forEach((t, i) => c.fillText(t, w / 2, 110 + i * 44));
   });
   build.panel(build.board, 4, 2, 16, 1.9, build.B + 0.05);
   build.officeMachine = {
@@ -1538,10 +1524,10 @@ function factoryBuildGeometry11(build) {
     );
   build.talks.push({
     speaker: 'accountant',
-    label: 'واحد حسابداری',
+    label: strings.factory.accounting.label,
     radius: 4,
     pos: () => build.toWorld(33, -29),
-    lines: ['سلام! اینجا فروش همهٔ دستگاه‌ها ثبت می‌شه. هر خریدی بکنین، فاکتورش این‌جا میاد!'],
+    lines: strings.factory.accounting.lines,
   });
 
   // Management: the manager's desk facing the door, guest chairs, bookshelf and flag.
@@ -1576,7 +1562,15 @@ function factoryBuildGeometry12(build) {
   build.leaves = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 8), build.mat('#3e7a3e'));
   build.leaves.position.set(49.25, 1.0, -26.75);
   build.group.add(build.leaves);
-  build.nameplate = build.panel(sign('محمدی', 'مدیر شرکت'), 0.6, 0.19, 45, 0.87, -39.2, 1);
+  build.nameplate = build.panel(
+    sign(...strings.factory.signs.nameplate),
+    0.6,
+    0.19,
+    45,
+    0.87,
+    -39.2,
+    1,
+  );
   build.nameplate.rotation.x = -0.3;
 
   // ---------- Staff car park ----------
@@ -1618,7 +1612,7 @@ function factoryBuildManager(build) {
     glasses: true,
     shoes: '#111',
   });
-  build.managerTag = nameTag('آقای محمدی', 'مدیر شرکت');
+  build.managerTag = nameTag(strings.factory.manager.name, strings.factory.manager.role);
   build.managerTag.position.y = 2.15;
   build.manager.root.add(build.managerTag);
   build.group.add(build.manager.root);
@@ -1652,15 +1646,11 @@ function factoryBuildArrival(build) {
   };
   build.talks.push({
     speaker: 'mohammadi',
-    label: 'آقای محمدی',
+    label: strings.factory.manager.name,
     radius: 3.4,
     pos: () => build.toWorld(build.manager.root.position.x, build.manager.root.position.z),
     ready: () => build.arrival.stage === 'seated',
-    lines: [
-      'سلام، خوش اومدین! من محمدی‌ام، مدیر روبات مارکت.',
-      'امروز چهل نفر توی سالن تولید کار می‌کنن: خم‌کاری، برش، رنگ، یخچال‌سازی و مونتاژ.',
-      'یه سر به دفتر فنی بزنین و از دستگاهش خرید کنین؛ بعد برین سراغ دستگاه‌های شهر!',
-    ],
+    lines: strings.factory.managerLines,
   });
 
   // Position and direction a distance `s` along a polyline of [u, v] points.
@@ -1751,7 +1741,7 @@ function factoryBuildDelivery(build) {
     radius: 9,
     pos: () => build.toWorld(4, 31),
     once: true,
-    lines: ['بابا ببین! کامیون داره دستگاه‌های بسته‌بندی‌شده رو بار می‌زنه که ببره شهر!'],
+    lines: [strings.factory.truck],
   });
   // The family comments on each work area the first time they walk into it.
 }
@@ -1761,23 +1751,20 @@ function factoryBuildDelivery(build) {
  * @returns {*} Operation result, when applicable.
  */
 function factoryBuildGeometry14(build) {
-  for (const [u, text, speaker] of [
-    [-93, 'اینجا خم‌کاریه؛ ورق‌های فلزی بدنهٔ دستگاه رو با پرس خم می‌کنن.', 'father'],
-    [-71, 'دستگاه برش لیزر رو ببین! ورق رو مثل کاغذ می‌بُره.', 'child'],
-    [-52, 'این کابین رنگه؛ بدنه‌ها اینجا رنگ فیروزه‌ای روبات مارکت می‌گیرن.', 'father'],
-    [-31, 'یخچال‌سازی! برای همینه که نوشیدنی‌های دستگاه همیشه خنکن.', 'child'],
-    [
-      -13,
-      'خط مونتاژ: روبات‌ها و کارگرها قطعه‌ها رو کنار هم می‌ذارن و دستگاه کامل می‌شه.',
-      'father',
-    ],
-  ])
+  // u of each production area and who comments on it; the lines come from the strings file.
+  for (const [i, [u, speaker]] of [
+    [-93, 'father'],
+    [-71, 'child'],
+    [-52, 'father'],
+    [-31, 'child'],
+    [-13, 'father'],
+  ].entries())
     build.talks.push({
       speaker,
       radius: 8,
       pos: () => build.toWorld(u, 25),
       once: true,
-      lines: [text],
+      lines: [strings.factory.areaTalks[i]],
     });
 
   // ---------- Key positions ----------

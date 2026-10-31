@@ -1,3 +1,4 @@
+import { strings } from '../i18n/fa.js';
 // Local tangent-plane projection around the playable Park Mellat area.
 // World axes: +x east, -z north, 1 unit = 1 metre.
 export const ORIGIN = {
@@ -48,6 +49,6 @@ export function bearing(dx, dz) {
  */
 export function formatDistance(metres) {
   return metres < 1000
-    ? `${Math.round(metres).toLocaleString('fa-IR')} متر`
-    : `${(Math.round(metres / 100) / 10).toLocaleString('fa-IR')} کیلومتر`;
+    ? strings.units.metres(Math.round(metres).toLocaleString('fa-IR'))
+    : strings.units.kilometres((Math.round(metres / 100) / 10).toLocaleString('fa-IR'));
 }

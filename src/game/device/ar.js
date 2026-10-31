@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { strings } from '../../i18n/fa.js';
 
 // Location-based AR: the phone's rear camera is the background and the 3D camera stands where the
 // phone is (GPS) and points where the phone points (orientation sensors), so machines and the
@@ -119,8 +120,7 @@ export function createArView(video) {
     // Opens the rear camera. Resolves to null on success or to a message explaining the failure.
     async start() {
       if (stream) return null;
-      if (!navigator.mediaDevices?.getUserMedia)
-        return 'این مرورگر به دوربین دسترسی نمی‌دهد (HTTPS لازم است).';
+      if (!navigator.mediaDevices?.getUserMedia) return strings.real.cameraNeedsHttps;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
@@ -139,8 +139,8 @@ export function createArView(video) {
       } catch (error) {
         stream = null;
         return error?.name === 'NotAllowedError'
-          ? 'اجازهٔ دوربین داده نشد؛ از تنظیمات مرورگر اجازه بدهید.'
-          : 'دوربین باز نشد؛ برنامهٔ دیگری از آن استفاده نمی‌کند؟';
+          ? strings.real.cameraDenied
+          : strings.real.cameraBusy;
       }
       video.srcObject = stream;
       video.hidden = false;

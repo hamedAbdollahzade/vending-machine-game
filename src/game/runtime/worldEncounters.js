@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { FACTORY } from '../../constants/locations.js';
 import { isOpen } from '../economy/gameState.js';
+import { strings } from '../../i18n/fa.js';
 /**
  * Updates talks from the active simulation.
  * @param {*} context - context.
@@ -33,36 +34,20 @@ export function greet(context, station) {
     first = !context.guideState.greeted.has(def.id);
   context.guideState.greeted.add(def.id);
   if (def.id === 'factory' && first) {
-    context.say(
-      'robot',
-      'سلام! من روبات راهنمای روبات مارکتم؛ تو دستگاه دفتر فنی زندگی می‌کنم!',
-      'excited',
-    );
-    context.say(
-      'robot',
-      `به ${FACTORY.name} خوش اومدین. بچه‌های همین دفتر نرم‌افزار دستگاه‌ها رو می‌نویسن.`,
-      'happy',
-    );
-    context.say('robot', 'اول از همین دستگاه یه چیزی بخرین؛ کلید E رو بزنین.', 'wink');
-    context.say(
-      'robot',
-      'ماشینتون جلوی همین ساختمونه. با F سوار شین و برین بوستان ملت؛ من توی همهٔ دستگاه‌ها منتظرتونم!',
-      'love',
-    );
+    context.say('robot', strings.dialogue.robotHello, 'excited');
+    context.say('robot', strings.dialogue.robotWelcome(FACTORY.name), 'happy');
+    context.say('robot', strings.dialogue.robotFirstBuy, 'wink');
+    context.say('robot', strings.dialogue.robotGoToPark, 'love');
     return;
   }
   if (!isOpen(def, context.state.minutes)) {
-    context.say(
-      'robot',
-      `سلام! متأسفم، این دستگاه الان بسته است. ساعت کاری: ${context.hoursText(def)}.`,
-      'serious',
-    );
+    context.say('robot', strings.dialogue.robotClosed(context.hoursText(def)), 'serious');
     return;
   }
   if (first) {
-    context.say('robot', `سلام دوباره! به دستگاه ${def.name} خوش اومدین.`, 'excited');
-    context.say('robot', `${def.note}. برای خرید E رو بزنین.`, 'happy');
-  } else context.say('robot', 'باز هم خوش اومدین! برای خرید E رو بزنین.', 'wink');
+    context.say('robot', strings.dialogue.robotWelcomeBack(def.name), 'excited');
+    context.say('robot', strings.dialogue.robotNote(def.note), 'happy');
+  } else context.say('robot', strings.dialogue.robotAgain, 'wink');
 }
 /**
  * Updates guide from the active simulation.
@@ -95,7 +80,7 @@ export function updateGuide(context, dt) {
     context.tone(990, 0.15);
     context.tone(1320, 0.2);
   }
-  if (wasOut && near !== s) context.say('robot', 'خداحافظ! مسیر طلایی رو دنبال کنین.', 'happy');
+  if (wasOut && near !== s) context.say('robot', strings.dialogue.robotBye, 'happy');
   if (!context.guideState.t) {
     context.guideState.station = null;
     context.guide.group.visible = false;
@@ -149,7 +134,7 @@ export function updateHints(context) {
     context.hints.closed = true;
     context.say(
       'robot',
-      `${target.def.name} الان بسته است (${context.hoursText(target.def)}). از نقشه مقصد دیگری انتخاب کن.`,
+      strings.dialogue.targetClosed(target.def.name, context.hoursText(target.def)),
     );
   }
   if (
@@ -159,6 +144,6 @@ export function updateHints(context) {
     !context.hints.car
   ) {
     context.hints.car = true;
-    context.say('father', 'راه طولانیه؛ بهتره با ماشین بریم.');
+    context.say('father', strings.dialogue.longWay);
   }
 }

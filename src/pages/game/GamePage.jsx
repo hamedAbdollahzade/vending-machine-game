@@ -9,6 +9,7 @@ import { GameSurfaces } from './GameSurfaces.jsx';
 import { BriefingPanel } from './BriefingPanel.jsx';
 import { GameHud } from './GameHud.jsx';
 import { GameDialogs } from './GameDialogs.jsx';
+import { strings } from '@/i18n/fa.js';
 
 /** Composes React views around the isolated Three.js runtime. */
 export function GamePage() {
@@ -49,9 +50,9 @@ export function GamePage() {
           role="alert"
           className="fixed inset-0 z-[100] grid place-content-center bg-surface p-8 text-hud"
         >
-          <p>بازی اجرا نشد: {error}</p>
+          <p>{strings.app.failed(error)}</p>
           <button type="button" onClick={() => location.reload()}>
-            تلاش دوباره
+            {strings.app.retry}
           </button>
         </div>
       )}

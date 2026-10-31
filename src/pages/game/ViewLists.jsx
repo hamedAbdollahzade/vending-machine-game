@@ -1,4 +1,5 @@
 import { formatHetoman } from '@/game/economy/gameState.js';
+import { strings } from '@/i18n/fa.js';
 
 /** @typedef {{id:string,model?:object,onAction:function}} ViewListsProps */
 /** Renders structured game lists as JSX; strings are never interpreted as HTML.
@@ -20,8 +21,8 @@ export function ViewLists({ id, model = {}, onAction }) {
         <span className="price">{formatHetoman(item.price)}</span>
         {item.price !== item.cost && <s>{formatHetoman(item.cost)}</s>}
         <small>
-          {item.type === 'drink' ? 'نوشیدنی' : 'خوراکی'}
-          {item.blocked === 'funds' ? ' · موجودی کافی نیست' : ''}
+          {item.type === 'drink' ? strings.lists.drink : strings.lists.snack}
+          {item.blocked === 'funds' ? strings.lists.noFunds : ''}
         </small>
       </button>
     ));
@@ -52,7 +53,7 @@ export function ViewLists({ id, model = {}, onAction }) {
             {item.name}
             {item.visited ? ' ✓' : ''}
             <span className="meta">
-              {item.locked ? item.note : `${item.category} · ${item.open ? 'باز' : 'بسته'}`}
+              {item.locked ? item.note : strings.lists.machineState(item.category, item.open)}
             </span>
           </span>
           <span className="dist">{item.distance}</span>

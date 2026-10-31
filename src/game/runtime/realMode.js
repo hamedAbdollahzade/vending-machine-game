@@ -9,6 +9,7 @@ import data from '../../data/mellat.json';
 import { resolveCircle } from '../world/collision.js';
 import { fa } from '../economy/gameState.js';
 import { formatDistance } from '../../utils/geo.js';
+import { strings } from '../../i18n/fa.js';
 /**
  * Runs the set real mode operation for this subsystem.
  * @param {*} context - context.
@@ -59,10 +60,7 @@ export function setRealMode(context, on) {
     stabilizer: (context.real.stabilizer = createStabilizer()),
   });
   context.real.stabilizer.stable = context.stableMode;
-  context.say(
-    'father',
-    'حالت دنیای واقعی روشن شد؛ از چشم خودمون می‌بینیم و هر جا راه بریم، توی بازی هم همون‌جاییم.',
-  );
+  context.say('father', strings.real.on);
   context.setArMode(true);
 }
 
@@ -80,21 +78,17 @@ export async function setArMode(context, on) {
   if (on && !context.arMode) {
     const problem = await context.arView.start();
     if (problem) {
-      context.say('father', `${problem} فعلاً شهر سه‌بعدی رو از چشم خودمون می‌بینیم.`);
+      context.say('father', strings.real.cameraFailed(problem));
       return;
     }
     if (!context.real.on) {
       context.arView.stop();
       return;
     }
-    context.say(
-      'robot',
-      'دوربین روشن شد! گوشی رو صاف جلوی خودت بگیر؛ ستون نورانی طلایی جای دستگاهه.',
-      'excited',
-    );
+    context.say('robot', strings.real.cameraOn, 'excited');
     context.setTimeout(() => {
       if (context.real.on && !context.arView.hasOrientation)
-        context.say('father', 'حسگر جهت گوشی جواب نمی‌ده؛ برای چرخیدن، صفحه رو با انگشت بکش.');
+        context.say('father', strings.real.noOrientation);
     }, 3000);
   } else if (!on && context.arMode) context.arView.stop();
   else return;
@@ -133,16 +127,19 @@ function askRealMode(context, thenStart) {
 export function updateReal(context, dt) {
   let uiStatus;
   if (context.real.error) uiStatus = `⚠ ${context.real.error}`;
-  else if (!context.real.fix) uiStatus = `📍 ${context.real.waiting ?? 'در حال یافتن موقعیت…'}`;
+  else if (!context.real.fix) uiStatus = `📍 ${context.real.waiting ?? strings.real.locating}`;
   else if (!insideWorld(data.bounds, context.real.fix.x, context.real.fix.z)) {
     const nearest = Math.min(
       ...context
         .activeStations()
         .map((s) => Math.hypot(s.x - context.real.fix.x, s.z - context.real.fix.z)),
     );
-    uiStatus = `📍 خارج از محدودهٔ بازی · ${formatDistance(nearest)} تا نزدیک‌ترین دستگاه`;
+    uiStatus = strings.real.outOfArea(formatDistance(nearest));
   } else
-    uiStatus = `📍 GPS ±${fa(Math.round(context.real.fix.accuracy))} متر${context.real.fix.speed > MAX_WALKING_SPEED ? ' · حرکت سریع' : ''}`;
+    uiStatus = strings.real.accuracy(
+      fa(Math.round(context.real.fix.accuracy)),
+      context.real.fix.speed > MAX_WALKING_SPEED,
+    );
   context.ui.patch('gps-status', {
     text: uiStatus,
   });

@@ -1,9 +1,8 @@
 import { apiClient } from './apiClient.js';
 import { SATELLITE_GROUND } from '../constants/world.js';
-const WORLD_FILES = {
-  buildings: './data/buildings.bin',
-  imagery: './imagery/index.json',
-};
+import { ASSETS } from '../config/assets.js';
+
+const WORLD_FILES = ASSETS.world;
 
 /** Loads optional world assets without preventing the OSM fallback on network failure.
  * @param {AbortSignal} signal - Cancels startup when the game unmounts.

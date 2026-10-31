@@ -1,4 +1,5 @@
 import { CATEGORIES } from '../../constants/locations.js';
+import { strings } from '../../i18n/fa.js';
 
 // The bonus for visiting every kind of place counts city locations, not the factory.
 const CITY_CATEGORIES = Object.keys(CATEGORIES).filter((c) => c !== 'factory' && c !== 'test');
@@ -10,27 +11,27 @@ export const POINTS = {
 };
 export const RANKS = [
   {
-    name: 'تازه‌وارد',
+    name: strings.ranks[0],
     xp: 0,
   },
   {
-    name: 'کاوشگر',
+    name: strings.ranks[1],
     xp: 600,
   },
   {
-    name: 'راه‌بلد',
+    name: strings.ranks[2],
     xp: 1400,
   },
   {
-    name: 'شکارچی دستگاه',
+    name: strings.ranks[3],
     xp: 2600,
   },
   {
-    name: 'استاد نقشه',
+    name: strings.ranks[4],
     xp: 4200,
   },
   {
-    name: 'افسانهٔ مشهد',
+    name: strings.ranks[5],
     xp: 6500,
   },
 ];
@@ -45,21 +46,21 @@ export const RANKS = [
 export function awardsFor(previous, record) {
   const awards = [
     {
-      label: 'خرید موفق',
+      label: strings.bonuses.purchase,
       points: POINTS.purchase,
     },
   ];
   const here = previous.filter((p) => p.machineId === record.machineId);
   if (!here.length)
     awards.push({
-      label: 'کشف مکان جدید',
+      label: strings.bonuses.newPlace,
       points: POINTS.discovery,
     });
   // Paid once per machine: the first time it has sold both a drink and a snack.
   const typesHere = new Set(here.map((p) => p.type));
   if (typesHere.size === 1 && !typesHere.has(record.type))
     awards.push({
-      label: 'ترکیب نوشیدنی و خوراکی',
+      label: strings.bonuses.combo,
       points: POINTS.combo,
     });
   const categories = new Set(
@@ -71,7 +72,7 @@ export function awardsFor(previous, record) {
     categories.size === CITY_CATEGORIES.length - 1
   )
     awards.push({
-      label: 'همهٔ انواع مکان',
+      label: strings.bonuses.allCategories,
       points: POINTS.allCategories,
     });
   return awards;
@@ -102,7 +103,7 @@ const placesVisited = (purchases) => new Set(purchases.map((p) => p.machineId)).
 export const MISSIONS = [
   {
     id: 'factory',
-    title: 'در دفتر فنی مهندسی کارخانه از دستگاه وندینگ خرید کن',
+    title: strings.missions.factory,
     target: 'factory',
     xp: 100,
     hetoman: 20,
@@ -110,7 +111,7 @@ export const MISSIONS = [
   },
   {
     id: 'first',
-    title: 'با ماشین تا بوستان ملت برو و اولین خرید شهری را انجام بده',
+    title: strings.missions.first,
     target: 'mellat-park',
     xp: 150,
     hetoman: 30,
@@ -118,7 +119,7 @@ export const MISSIONS = [
   },
   {
     id: 'school',
-    title: 'قبل از تعطیلی مدرسه (۱۳:۳۰) از دستگاه مدرسه خرید کن',
+    title: strings.missions.school,
     target: 'school-rahil',
     xp: 200,
     hetoman: 40,
@@ -126,7 +127,7 @@ export const MISSIONS = [
   },
   {
     id: 'campus',
-    title: 'به دانشگاه فردوسی برو و یک خوراکی بخر',
+    title: strings.missions.campus,
     target: 'ferdowsi-university',
     xp: 200,
     hetoman: 40,
@@ -134,7 +135,7 @@ export const MISSIONS = [
   },
   {
     id: 'metro',
-    title: 'از دستگاه ایستگاه مترو آزادی خرید کن',
+    title: strings.missions.metro,
     target: 'azadi-metro',
     xp: 150,
     hetoman: 30,
@@ -142,7 +143,7 @@ export const MISSIONS = [
   },
   {
     id: 'mall',
-    title: 'با ماشین تا مشهد مال برو و خرید کن',
+    title: strings.missions.mall,
     target: 'mashhad-mall',
     xp: 250,
     hetoman: 50,
@@ -150,7 +151,7 @@ export const MISSIONS = [
   },
   {
     id: 'explorer',
-    title: 'از ۵ مکان متفاوت شهر خرید کن',
+    title: strings.missions.explorer,
     target: null,
     xp: 400,
     hetoman: 80,

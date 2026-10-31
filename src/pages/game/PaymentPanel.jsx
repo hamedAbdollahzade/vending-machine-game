@@ -1,4 +1,5 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
+import { strings } from '@/i18n/fa.js';
 /** @typedef {{nodes:object,actions:object}} PaymentPanelProps */
 /** Presents the PaymentPanel view using plain models and semantic native elements.
  * @param {PaymentPanelProps} props - Interface snapshots and callbacks.
@@ -8,7 +9,7 @@ export function PaymentPanel({ nodes, actions }) {
   return (
     <>
       <GameNode as="section" id="payment" hidden model={nodes['payment']}>
-        <small>{'کارت‌خوان روبات مارکت'}</small>
+        <small>{strings.payment.reader}</small>
         <GameNode as="h2" id="payment-title" model={nodes['payment-title']}></GameNode>
         <GameNode as="p" id="payment-step" model={nodes['payment-step']}></GameNode>
         <div className="actions">
@@ -20,7 +21,7 @@ export function PaymentPanel({ nodes, actions }) {
             model={nodes['swipe']}
             onAction={() => actions.emit('swipe')}
           >
-            {'کشیدن کارت · C'}
+            {strings.payment.swipe}
           </GameNode>
           <GameNode
             as="button"
@@ -30,7 +31,7 @@ export function PaymentPanel({ nodes, actions }) {
             model={nodes['cancel-payment']}
             onAction={() => actions.emit('cancel-payment')}
           >
-            {'انصراف'}
+            {strings.common.cancel}
           </GameNode>
         </div>
       </GameNode>
