@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createState, purchase } from '../src/game/economy/gameState.js';
 import { machineById, machines } from '../src/constants/locations.js';
-import { MISSIONS } from '../src/game/missions/missions.js';
+import { MISSIONS, missionOrder } from '../src/game/missions/missions.js';
+import { FACTORY_POINT_IDS } from '../src/constants/factoryPoints.js';
+import { boardLines } from '../src/game/models/aboutBoards.js';
+import { COMPANY } from '../src/config/company.js';
 import {
   applyMissionEvent,
   currentMission,
@@ -24,18 +27,24 @@ function buyAt(state, id) {
   return applyMissionEvent(state, { type: 'buy', machineId: id });
 }
 
-test('Every mission step points at a real machine and has text', () => {
+test('Every mission step points at a real machine or factory place and has text', () => {
   for (const mission of MISSIONS) {
     assert.ok(strings.missions[mission.id], `title for ${mission.id}`);
     for (const step of mission.steps) {
       assert.ok(strings.steps[step.type], `text for ${step.type}`);
-      if (step.target) assert.ok(machineById(step.target), `machine ${step.target}`);
+      if (!step.target) continue;
+      const known = machineById(step.target) || FACTORY_POINT_IDS.includes(step.target);
+      assert.ok(known, `target ${step.target}`);
     }
   }
   const parkSites = machines.filter((m) => m.category === 'park').map((m) => m.id);
   assert.deepEqual(parkSites, ['mellat-park', 'mellat-lake', 'mellat-sports']);
   const parkMissions = MISSIONS.filter((m) => m.steps.some((s) => parkSites.includes(s.target)));
-  assert.ok(parkMissions.length > MISSIONS.length / 2, 'most missions are about park machines');
+  // The About Us and products tours stay in the factory; out in the city, the park leads.
+  const cityMissions = MISSIONS.filter((m) =>
+    m.steps.every((s) => !FACTORY_POINT_IDS.includes(s.target)),
+  );
+  assert.ok(parkMissions.length > cityMissions.length / 2, 'most city missions are in the park');
 });
 
 test('The first mission is: go to the factory, then buy there', () => {
@@ -54,12 +63,12 @@ test('The first mission is: go to the factory, then buy there', () => {
   assert.equal(state.xp, xp + result.mission.reward.xp);
   assert.ok(state.balance > balance, 'reward paid after the purchase');
   assert.deepEqual(state.missionsDone, ['firstBuy']);
-  assert.equal(stepTarget(state), 'mellat-park');
+  assert.equal(stepTarget(state), 'board-about', 'then the About Us tour, still in the factory');
 });
 
 test('Park missions chain locate, goto, inspect, order and buy steps', () => {
   const state = createState();
-  state.missionIndex = 1;
+  state.missionIndex = state.missionOrder.indexOf('parkGate');
   const steps = [
     ['locate', 'mellat-park'],
     ['arrive', 'mellat-park'],
@@ -94,4 +103,43 @@ test('The explorer mission counts different city machines and shows progress', (
   assert.equal(currentStepText(state), strings.steps.allDone);
   const items = missionListItems(state);
   assert.ok(items.every((item) => !item.active && item.steps.length === 0));
+});
+
+test('Each start mode leads with its own mission and keeps all the others', () => {
+  assert.equal(missionOrder('offline')[0], 'firstBuy');
+  assert.equal(missionOrder('real')[0], 'firstBuy');
+  assert.equal(missionOrder('about')[0], 'aboutTour');
+  assert.equal(missionOrder('products')[0], 'productsTour');
+  const all = MISSIONS.map((m) => m.id).sort();
+  for (const mode of ['real', 'offline', 'about', 'products', undefined])
+    assert.deepEqual([...missionOrder(mode)].sort(), all);
+});
+
+test('The About Us tour: read the boards and meet Mr Mohammadi', () => {
+  const state = createState();
+  state.missionOrder = missionOrder('about');
+  assert.equal(currentStepText(state), strings.steps.read(strings.points['board-about']));
+  const read = (id) => applyMissionEvent(state, { type: 'read', machineId: id });
+  assert.equal(read('board-contact').stepDone, false, 'boards are read in order');
+  assert.equal(read('board-about').stepDone, true);
+  assert.equal(stepTarget(state), 'mohammadi');
+  assert.equal(applyMissionEvent(state, { type: 'meet', machineId: 'mohammadi' }).stepDone, true);
+  assert.equal(read('board-contact').mission.id, 'aboutTour');
+  assert.equal(currentMission(state).id, 'firstBuy', 'the rest follow in list order');
+  assert.equal(missionListItems(state)[0].title, strings.missions.aboutTour);
+});
+
+test('The products tour: open the hall, ask the robot, send a purchase request', () => {
+  const state = createState();
+  state.missionOrder = missionOrder('products');
+  for (const type of ['view', 'ask']) applyMissionEvent(state, { type, machineId: 'showroom' });
+  const result = applyMissionEvent(state, { type: 'request', machineId: 'showroom' });
+  assert.equal(result.mission.id, 'productsTour');
+});
+
+test('Boards show the company details from the config', () => {
+  assert.equal(boardLines('about')[0], COMPANY.about.history);
+  assert.equal(boardLines('about').length, 1 + COMPANY.about.values.length);
+  assert.ok(boardLines('contact').some((line) => line.includes(COMPANY.contact.phone)));
+  assert.ok(boardLines('address')[0].includes(COMPANY.contact.address));
 });

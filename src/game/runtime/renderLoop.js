@@ -72,14 +72,8 @@ export function frame(context) {
   context.last = now;
   context.elapsed += dt;
   const playing = context.ui.read('landing').hidden;
-  const paused =
-    !playing ||
-    context.ui.read('shop').open ||
-    context.ui.read('map-dialog').open ||
-    context.ui.read('end').open ||
-    context.ui.read('showroom').open ||
-    context.ui.read('machine-card').open ||
-    document.hidden;
+  // Any open dialog (or the start screen) pauses the world.
+  const paused = context.anyDialogOpen() || document.hidden;
   const steps = Math.max(1, Math.ceil(dt / (1 / 30))),
     step = dt / steps;
   if (!paused) {

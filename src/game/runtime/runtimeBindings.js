@@ -35,9 +35,11 @@ import {
   updateMissions,
   openMachineCard,
   orderFromCard,
+  orderFromShowroom,
 } from './missionRuntime.js';
 import { resize, updateCamera, frame } from './renderLoop.js';
 import { updateTalks, greet, updateGuide, updateHints } from './worldEncounters.js';
+import { initializeFactoryPoints, pointById, nearBoard, openBoard } from './factoryPoints.js';
 import {
   initializeTimers,
   initializeRenderer,
@@ -115,6 +117,10 @@ const RUNTIME_METHODS = {
   updateMissions,
   openMachineCard,
   orderFromCard,
+  orderFromShowroom,
+  pointById,
+  nearBoard,
+  openBoard,
   restartGame,
   backToMenu,
   offerOffline,
@@ -142,6 +148,7 @@ export const RUNTIME_INITIALIZERS = [
   initializeLightingAndWorldFiles,
   initializeCollisionAndRoads,
   initializeFactory,
+  initializeFactoryPoints,
   initializeStations,
   initializeStationById,
   initializeClosestStation,

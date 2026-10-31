@@ -8,6 +8,7 @@ import { UpdateNotice } from './UpdateNotice.jsx';
 import { EndDialog } from './EndDialog.jsx';
 import { GpsFallbackDialog } from './GpsFallbackDialog.jsx';
 import { MachineCard } from './MachineCard.jsx';
+import { AboutBoardSheet } from './AboutBoardSheet.jsx';
 /** Composes independently managed game dialogs. */
 export function GameDialogs(props) {
   return (
@@ -22,6 +23,7 @@ export function GameDialogs(props) {
       <EndDialog {...props} />
       <GpsFallbackDialog {...props} />
       <MachineCard {...props} />
+      <AboutBoardSheet {...props} />
     </>
   );
 }

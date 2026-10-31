@@ -26,6 +26,7 @@ import { createMapAssets } from '../world/mapRender.js';
 import { formatDistance, toLocal } from '../../utils/geo.js';
 import { strings } from '../../i18n/fa.js';
 import { COMPANY } from '../../config/company.js';
+import { SHOWROOM_POINT_ID } from '../../constants/factoryPoints.js';
 import { createObjectiveArrow } from '../models/objectiveArrow.js';
 
 // Brand colours for materials and canvas drawings.
@@ -438,6 +439,7 @@ export async function initializeSpawnCar(context) {
     context.ui.read('end').open ||
     context.ui.read('showroom').open ||
     context.ui.read('machine-card').open ||
+    context.ui.read('about-board').open ||
     !context.ui.read('landing').hidden;
   // Physical key codes, so the controls also work with a Persian keyboard layout.
   context.keyName = (e) =>
@@ -705,12 +707,19 @@ export async function registerPurchaseControls(context) {
       text: strings.showroom.robotSays(answer),
     });
     context.say('robot', answer, question.topic === 'price' ? 'happy' : 'wink');
+    context.reportMissionEvent({ type: 'ask', machineId: SHOWROOM_POINT_ID });
   });
+  context.ui.on('showroom-order', context.orderFromShowroom);
   context.ui.on('swipe', context.swipe);
   // On phones the prompt itself is the button: tap it to buy, swipe the card, or get in/out of the car.
   context.ui.on('prompt', () => {
     if (context.nearShowroom()) {
       context.openShowroom();
+      return;
+    }
+    const board = context.nearBoard();
+    if (board) {
+      context.openBoard(board);
       return;
     }
     if (context.payment.phase === 'ready') context.swipe();
@@ -762,9 +771,9 @@ export async function registerPreferences(context) {
 
   // ---------- Objective, route and HUD ----------
   context.objectiveStation = () => {
-    if (context.waypoint) return context.stationById(context.waypoint);
+    if (context.waypoint) return context.pointById(context.waypoint);
     const target = stepTarget(context.state);
-    if (target) return context.stationById(target);
+    if (target) return context.pointById(target);
     // Open-ended missions point to the nearest place not bought from yet.
     const visited = new Set(context.state.purchases.map((p) => p.machineId));
     return (
@@ -1185,6 +1194,9 @@ export async function exposeDebugTools(context) {
         return context.cam;
       },
       factory: context.factory,
+      get points() {
+        return context.factoryPoints;
+      },
       get car() {
         return context.car;
       },

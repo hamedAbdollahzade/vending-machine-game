@@ -1,4 +1,5 @@
 import { strings } from '../../i18n/fa.js';
+import { missionOrder } from '../missions/missions.js';
 // Money is counted in whole hetoman: 10 hetoman = 100,000 rial.
 export const INITIAL_BALANCE = 500;
 export const START_MINUTES = 8 * 60 + 30;
@@ -123,7 +124,8 @@ export function createState() {
     purchases: [],
     xp: 0,
     missionsDone: [],
-    // Current mission and step (see game/missions).
+    // Mission order for the start mode, and the current mission and step (see game/missions).
+    missionOrder: missionOrder(),
     missionIndex: 0,
     missionStep: 0,
     minutes: START_MINUTES,

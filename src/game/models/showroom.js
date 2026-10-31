@@ -1,19 +1,7 @@
-import { FACTORY } from '../../constants/locations.js';
 import { SHOWROOM_CATALOG, SHOWROOM_REACH } from '../../constants/showroomCatalog.js';
 import { createVendingMachine } from './vending.js';
 import { createFamily } from './characters.js';
-
-/** Projects factory-local coordinates into the shared world metre system.
- * @param {number} u - Position along the factory axis.
- * @param {number} v - Position normal to the factory axis.
- * @returns {{x:number,z:number}} World position.
- */
-function showroomPosition(u, v) {
-  return {
-    x: FACTORY.center.x + FACTORY.axis.x * u - FACTORY.axis.z * v,
-    z: FACTORY.center.z + FACTORY.axis.z * u + FACTORY.axis.x * v,
-  };
-}
+import { FACTORY_ROTATION, factoryFootprint, factoryToWorld } from '../world/factoryFrame.js';
 
 /** Creates one display-only sample, with a footprint and interaction position.
  * @param {{scene:object,model:object,index:number}} options - Sample placement context.
@@ -27,19 +15,14 @@ function createSample({ scene, model, index }) {
     channels: model.channels,
     products: ['water', 'juice', 'biscuit', 'chocolate'],
   });
-  const position = showroomPosition(u, v),
-    front = showroomPosition(u, v + 2);
+  const position = factoryToWorld(u, v),
+    front = factoryToWorld(u, v + 2);
   machine.group.name = `showroom-${model.id}`;
   machine.group.position.set(position.x, 0, position.z);
-  machine.group.rotation.y = Math.atan2(-FACTORY.axis.z, FACTORY.axis.x);
+  machine.group.rotation.y = FACTORY_ROTATION;
   machine.beacon.visible = machine.ring.visible = false;
   scene.add(machine.group);
-  const footprint = [
-    [-1, -0.6],
-    [1, -0.6],
-    [1, 0.6],
-    [-1, 0.6],
-  ].flatMap(([x, z]) => Object.values(showroomPosition(u + x, v + z)));
+  const footprint = factoryFootprint({ u, v, halfU: 1, halfV: 0.6 });
   return {
     model,
     machine,

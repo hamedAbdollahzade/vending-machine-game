@@ -172,6 +172,8 @@ export const strings = {
     /** @type {(vehicle: string) => string} */
     getIn: (vehicle) => `F · سوار ${vehicle} شو`,
     getOutNearMachine: 'F · پیاده شو؛ دستگاه نزدیک است',
+    /** @type {(board: string) => string} */
+    board: (board) => `E · خواندن ${board}`,
   },
   vehicles: {
     bmw: 'بی‌ام‌و',
@@ -301,6 +303,12 @@ export const strings = {
     greeting: 'روبات: سلام! دربارهٔ قیمت و امکانات این مدل از من بپرس.',
     allModels: 'روبات: سلام! قیمت و امکانات هر سه مدل را می‌توانم توضیح بدهم.',
     whatToKnow: 'روبات: دربارهٔ این مدل چی می‌خواهی بدانی؟',
+    order: 'ثبت درخواست خرید',
+    ordered: 'درخواست ثبت شد ✓',
+    contact: 'تماس با فروش',
+    /** @type {(model: string) => string} */
+    orderThanks: (model) =>
+      `درخواست خرید ${model} ثبت شد؛ کارشناس فروش به‌زودی با شما تماس می‌گیرد.`,
     /** @type {(answer: string) => string} */
     robotSays: (answer) => `روبات: ${answer}`,
     noImage: 'نمای سه‌بعدی این مدل داخل کارخانه موجود است؛ فایل تصویر هنوز اضافه نشده.',
@@ -330,7 +338,7 @@ export const strings = {
       `به ${company} خوش اومدین. بچه‌های همین دفتر نرم‌افزار دستگاه‌ها رو می‌نویسن.`,
     robotFirstBuy: 'اول از همین دستگاه یه چیزی بخرین؛ کلید E رو بزنین.',
     robotGoToPark:
-      'ماشینتون جلوی همین ساختمونه. با F سوار شین و برین بوستان ملت؛ من توی همهٔ دستگاه‌ها منتظرتونم!',
+      'بعدش تابلوهای حیاط رو بخونین و با آقای محمدی آشنا شین؛ بعد با ماشین برین بوستان ملت. من توی همهٔ دستگاه‌ها منتظرتونم!',
     /** @type {(hours: string) => string} */
     robotClosed: (hours) => `سلام! متأسفم، این دستگاه الان بسته است. ساعت کاری: ${hours}.`,
     /** @type {(machine: string) => string} */
@@ -369,6 +377,8 @@ export const strings = {
   // Mission titles, keyed by mission id (game/missions/missions.js).
   missions: {
     firstBuy: 'اولین خرید در کارخانه',
+    aboutTour: `آشنایی با ${COMPANY.shortName}`,
+    productsTour: 'نمایشگاه محصولات',
     parkGate: 'دستگاه ورودی بوستان ملت',
     parkLake: 'بازدید از دستگاه کنار دریاچه',
     parkSports: 'سفارش دستگاه برای زمین ورزشی',
@@ -389,7 +399,28 @@ export const strings = {
     buy: (place) => `از ${place} خرید کن`,
     /** @type {(done: string, count: string) => string} */
     places: (done, count) => `از ${count} مکان شهر خرید کن (${done}/${count})`,
+    /** @type {(board: string) => string} */
+    read: (board) => `${board} را بخوان`,
+    /** @type {(person: string) => string} */
+    meet: (person) => `در دفتر مدیریت با ${person} آشنا شو`,
+    view: () => 'به نمایشگاه دستگاه‌ها برو و مدل‌ها را ببین',
+    ask: () => 'قیمت یا امکانات یک مدل را از روبات بپرس',
+    request: () => 'درخواست خرید یک دستگاه را ثبت کن',
     allDone: 'همهٔ مأموریت‌ها انجام شد',
+  },
+  // Names of the factory places missions point at (constants/factoryPoints.js).
+  points: {
+    'board-about': 'تابلوی دربارهٔ ما',
+    'board-contact': 'تابلوی تماس با ما',
+    'board-address': 'تابلوی آدرس کارخانه',
+    mohammadi: 'آقای محمدی',
+    showroom: 'نمایشگاه دستگاه‌ها',
+  },
+  // Information boards in the factory yard.
+  boards: {
+    titles: { about: 'دربارهٔ ما', contact: 'تماس با ما', address: 'آدرس کارخانه' },
+    readMore: 'برای خواندن کامل، نزدیک شو و E را بزن',
+    bullet: '•',
   },
   machineCard: {
     title: 'مشخصات دستگاه',
@@ -502,10 +533,13 @@ export const strings = {
       label: 'واحد حسابداری',
       lines: ['سلام! اینجا فروش همهٔ دستگاه‌ها ثبت می‌شه. هر خریدی بکنین، فاکتورش این‌جا میاد!'],
     },
+    // Mr Mohammadi's welcome; he says it each time the family comes to his desk.
     managerLines: [
       `سلام، خوش اومدین! من محمدی‌ام، مدیر ${COMPANY.shortName}.`,
+      COMPANY.about.history,
+      `چیزهایی که برامون مهمه: ${COMPANY.about.values.join('، ')}.`,
       'امروز چهل نفر توی سالن تولید کار می‌کنن: خم‌کاری، برش، رنگ، یخچال‌سازی و مونتاژ.',
-      'یه سر به دفتر فنی بزنین و از دستگاهش خرید کنین؛ بعد برین سراغ دستگاه‌های شهر!',
+      'مدل‌های دستگاه رو توی نمایشگاه حیاط ببینین؛ روبات اونجا قیمت‌ها رو می‌گه.',
     ],
     truck: 'بابا ببین! کامیون داره دستگاه‌های بسته‌بندی‌شده رو بار می‌زنه که ببره شهر!',
     // One comment per production area, spoken the first time the family walks in.

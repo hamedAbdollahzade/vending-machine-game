@@ -20,6 +20,7 @@ import {
 import { awardsFor, rankFor } from '../economy/scoring.js';
 import { strings } from '../../i18n/fa.js';
 import { MISSIONS } from '../missions/missions.js';
+import { SHOWROOM_POINT_ID } from '../../constants/factoryPoints.js';
 /**
  * Runs the open showroom operation for this subsystem.
  * @param {*} context - context.
@@ -41,6 +42,7 @@ export function openShowroom(context) {
   context.keys.clear();
   document.exitPointerLock?.();
   context.ui.open('showroom');
+  context.reportMissionEvent({ type: 'view', machineId: SHOWROOM_POINT_ID });
 }
 /**
  * Runs the interact operation for this subsystem.
@@ -48,6 +50,11 @@ export function openShowroom(context) {
  * @returns {*} Operation result, when applicable.
  */
 export function interact(context) {
+  const board = context.nearBoard();
+  if (board && !context.state.busy && context.payment.phase === 'idle') {
+    context.openBoard(board);
+    return;
+  }
   const station = context.nearStation();
   if (!station || context.state.busy || context.payment.phase !== 'idle' || context.ended) return;
   if (context.real.on && (context.real.fix?.speed ?? 0) > MAX_WALKING_SPEED) {

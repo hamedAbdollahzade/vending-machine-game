@@ -1,7 +1,7 @@
 import { machineById } from '../../constants/locations.js';
 import { strings } from '../../i18n/fa.js';
 import { fa } from '../economy/gameState.js';
-import { MISSIONS } from './missions.js';
+import { missionById } from './missions.js';
 import { cityPlacesVisited, currentStep } from './missionProgress.js';
 
 /**
@@ -16,8 +16,15 @@ export function stepText(step, state) {
       fa(Math.min(step.count, cityPlacesVisited(state.purchases))),
       fa(step.count),
     );
-  return strings.steps[step.type](machineById(step.target)?.name ?? '');
+  return strings.steps[step.type](targetName(step.target));
 }
+
+/**
+ * Display name of a step target: a machine site or a factory point.
+ * @param {string} [target] - Machine or factory point id.
+ * @returns {string} Name, or an empty string for steps without a target.
+ */
+export const targetName = (target) => machineById(target)?.name ?? strings.points[target] ?? '';
 
 /**
  * The current instruction, or a note that everything is done.
@@ -36,7 +43,7 @@ export function currentStepText(state) {
  * @returns {object[]} List items for ViewLists.
  */
 export function missionListItems(state) {
-  return MISSIONS.map((mission, index) => ({
+  return state.missionOrder.map(missionById).map((mission, index) => ({
     id: mission.id,
     title: strings.missions[mission.id],
     done: state.missionsDone.includes(mission.id),

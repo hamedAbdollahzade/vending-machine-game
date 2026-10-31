@@ -5,6 +5,7 @@ import { createLuxuryCar } from './luxuryCars.js';
 import { MANAGER_CAR_BRAND, VEHICLE_BLACK } from '../../constants/vehicles.js';
 import { createPerson, createCrew, nameTag } from './staff.js';
 import { FACTORY } from '../../constants/locations.js';
+import { MANAGER_POINT } from '../../constants/factoryPoints.js';
 import { textTexture } from './textures.js';
 import { strings } from '../../i18n/fa.js';
 import { COMPANY } from '../../config/company.js';
@@ -1640,6 +1641,9 @@ function factoryBuildArrival(build) {
     sat: false,
   };
   build.talks.push({
+    // He welcomes the family on every visit; meeting him is an About Us mission step.
+    id: MANAGER_POINT.id,
+    repeat: true,
     speaker: 'mohammadi',
     label: strings.factory.manager.name,
     radius: 3.4,

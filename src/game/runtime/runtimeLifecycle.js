@@ -116,7 +116,8 @@ export function reset(context) {
     s.model.delivery.visible = s.model.card.visible = false;
     s.model.flap.rotation.x = 0;
   }
-  for (const id of ['shop', 'map-dialog', 'end', 'showroom']) context.ui.close(id);
+  for (const id of ['shop', 'map-dialog', 'end', 'showroom', 'machine-card', 'about-board'])
+    context.ui.close(id);
   context.keys.clear();
   context.refreshHUD();
 }

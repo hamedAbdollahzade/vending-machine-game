@@ -136,7 +136,9 @@ export function openMap(context) {
     mpp: 2.2,
   });
   context.ui.open('map-dialog');
-  context.selected ??= context.objectiveStation()?.def.id ?? null;
+  // Factory points (boards, the manager) are not on the machine map, so they are not selected.
+  const objective = context.objectiveStation();
+  context.selected ??= objective && !objective.def.poi ? objective.def.id : null;
   if (context.selected) context.selectMachine(context.selected);
   context.renderMachineList();
   context.renderMap();

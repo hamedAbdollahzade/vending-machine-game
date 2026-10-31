@@ -10,6 +10,14 @@
 // - order:   send an order request from the machine card of `target`.
 // - buy:     buy anything from `target`.
 // - places:  buy from `count` different machines in the city (not the factory).
+// - read:    read the information board `target` in the factory yard.
+// - meet:    meet Mr Mohammadi (`target`) at his desk; he tells the company story.
+// - view:    open the products hall (`target` is 'showroom').
+// - ask:     ask the robot in the products hall about a model's price or features.
+// - request: send a purchase request for a model from the products hall.
+//
+// Targets are machine ids (constants/locations.js) or factory point ids
+// (constants/factoryPoints.js).
 
 export const MISSIONS = [
   {
@@ -19,6 +27,24 @@ export const MISSIONS = [
       { type: 'buy', target: 'factory' },
     ],
     reward: { xp: 100, hetoman: 20 },
+  },
+  {
+    id: 'aboutTour',
+    steps: [
+      { type: 'read', target: 'board-about' },
+      { type: 'meet', target: 'mohammadi' },
+      { type: 'read', target: 'board-contact' },
+    ],
+    reward: { xp: 150, hetoman: 20 },
+  },
+  {
+    id: 'productsTour',
+    steps: [
+      { type: 'view', target: 'showroom' },
+      { type: 'ask', target: 'showroom' },
+      { type: 'request', target: 'showroom' },
+    ],
+    reward: { xp: 150, hetoman: 20 },
   },
   {
     id: 'parkGate',
@@ -65,3 +91,25 @@ export const MISSIONS = [
 export const ARRIVE_RADIUS = 12;
 export const INSPECT_RADIUS = 6;
 export const INSPECT_SECONDS = 3;
+
+// The mission each start mode leads with; the others follow in list order.
+const LEAD_MISSION = { about: 'aboutTour', products: 'productsTour' };
+
+/**
+ * Mission ids in the order a start mode plays them: its lead mission first, then the rest.
+ * @param {string} [mode] - Start mode; unknown or missing modes use the list order.
+ * @returns {string[]} Mission ids.
+ */
+export function missionOrder(mode) {
+  const ids = MISSIONS.map((mission) => mission.id);
+  const lead = LEAD_MISSION[mode];
+  if (!lead) return ids;
+  return [lead, ...ids.filter((id) => id !== lead)];
+}
+
+/**
+ * Finds a mission by id.
+ * @param {string} id - Mission id.
+ * @returns {object | null} The mission, or null.
+ */
+export const missionById = (id) => MISSIONS.find((mission) => mission.id === id) ?? null;

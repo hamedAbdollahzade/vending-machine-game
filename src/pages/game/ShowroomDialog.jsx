@@ -1,6 +1,7 @@
 import { GameNode } from '@/components/shared/GameNode.jsx';
 import { SHOWROOM_CATALOG } from '@/constants/showroomCatalog.js';
 import { robotFace } from '@/config/assets.js';
+import { COMPANY } from '@/config/company.js';
 import { showroomModelById, formatRial } from '@/utils/showroomAnswers.js';
 import { ShowroomImage } from './ShowroomImage.jsx';
 import { strings } from '@/i18n/fa.js';
@@ -13,6 +14,7 @@ import { strings } from '@/i18n/fa.js';
 export function ShowroomDialog({ nodes, actions }) {
   const model = showroomModelById(nodes.showroom?.modelId);
   if (!model) return null;
+  const isOrdered = nodes.showroom.ordered?.includes(model.id) ?? false;
   return (
     <GameNode
       as="dialog"
@@ -86,6 +88,19 @@ export function ShowroomDialog({ nodes, actions }) {
         >
           {strings.showroom.askFeatures}
         </button>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-3">
+        <button
+          type="button"
+          className="start-option start-option-primary"
+          disabled={isOrdered}
+          onClick={() => actions.emit('showroom-order')}
+        >
+          {isOrdered ? strings.showroom.ordered : strings.showroom.order}
+        </button>
+        <a className="start-chip" href={`tel:${COMPANY.contact.phone}`}>
+          {strings.showroom.contact}
+        </a>
       </div>
       <div className="mt-4 flex items-start gap-3 border-s-2 border-gold ps-4">
         <img

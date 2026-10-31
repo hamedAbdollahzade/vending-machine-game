@@ -1,5 +1,7 @@
+import { SHOWROOM_POINT_ID } from '../../constants/factoryPoints.js';
 import { machineById } from '../../constants/locations.js';
 import { strings } from '../../i18n/fa.js';
+import { showroomModelById } from '../../utils/showroomAnswers.js';
 import { fa, formatHetoman } from '../economy/gameState.js';
 import { applyMissionEvent, currentStep } from '../missions/missionProgress.js';
 import { ARRIVE_RADIUS, INSPECT_RADIUS, INSPECT_SECONDS } from '../missions/missions.js';
@@ -62,7 +64,7 @@ function announceMission(context, mission) {
  * @returns {number} Metres, or Infinity for an unknown machine.
  */
 function distanceTo(context, machineId) {
-  const station = context.stationById(machineId);
+  const station = context.pointById(machineId);
   if (!station) return Infinity;
   return Math.hypot(station.front.x - context.player.x, station.front.z - context.player.z);
 }
@@ -115,4 +117,20 @@ export function orderFromCard(context) {
   context.ui.patch('machine-card', { ordered: true });
   context.say('robot', strings.machineCard.orderThanks, 'happy');
   reportMissionEvent(context, { type: 'order', machineId });
+}
+
+/**
+ * Handles the purchase request button in the products hall: thanks the player and records the
+ * model as requested.
+ * @param {object} context - Game context.
+ */
+export function orderFromShowroom(context) {
+  const { open, modelId, ordered = [] } = context.ui.read('showroom');
+  const model = showroomModelById(modelId);
+  if (!open || !model) return;
+  const thanks = strings.showroom.orderThanks(model.name);
+  context.ui.patch('showroom', { ordered: [...new Set([...ordered, model.id])] });
+  context.ui.patch('showroom-response', { text: strings.showroom.robotSays(thanks) });
+  context.say('robot', thanks, 'happy');
+  reportMissionEvent(context, { type: 'request', machineId: SHOWROOM_POINT_ID });
 }

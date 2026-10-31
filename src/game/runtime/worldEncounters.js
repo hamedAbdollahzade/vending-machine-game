@@ -3,21 +3,41 @@ import { FACTORY } from '../../constants/locations.js';
 import { isOpen } from '../economy/gameState.js';
 import { strings } from '../../i18n/fa.js';
 /**
- * Updates talks from the active simulation.
- * @param {*} context - context.
- * @returns {*} Operation result, when applicable.
+ * Distance from the player to someone who talks.
+ * @param {object} context - Game context.
+ * @param {object} talk - Factory talk.
+ * @returns {number} Metres.
  */
-export // People in the factory say their lines once, when the family walks up to them.
-function updateTalks(context) {
-  if (context.mode !== 'walk' || context.real.on || context.lines.length > 2) return;
+function talkDistance(context, talk) {
+  const p = talk.pos();
+  return Math.hypot(p.x - context.player.x, p.z - context.player.z);
+}
+
+/**
+ * Lets people who repeat their lines (the manager) talk again once the family has walked away.
+ * @param {object} context - Game context.
+ */
+function rearmTalks(context) {
   for (const t of context.factory.talks) {
-    if (t.done || (t.ready && !t.ready())) continue;
-    const p = t.pos();
-    if (Math.hypot(p.x - context.player.x, p.z - context.player.z) > t.radius) continue;
-    t.done = true;
-    for (const text of t.lines) context.say(t.speaker, text);
-    return;
+    if (t.repeat && t.done && talkDistance(context, t) > t.radius * 2) t.done = false;
   }
+}
+
+/**
+ * People in the factory say their lines when the family walks up to them. A talk with an `id`
+ * (the manager) also counts as meeting that person for the missions.
+ * @param {object} context - Game context.
+ */
+export function updateTalks(context) {
+  if (context.mode !== 'walk' || context.real.on || context.lines.length > 2) return;
+  rearmTalks(context);
+  const talk = context.factory.talks.find(
+    (t) => !t.done && (!t.ready || t.ready()) && talkDistance(context, t) <= t.radius,
+  );
+  if (!talk) return;
+  talk.done = true;
+  for (const text of talk.lines) context.say(talk.speaker, text);
+  if (talk.id) context.reportMissionEvent({ type: 'meet', machineId: talk.id });
 }
 
 // ---------- Robot guide ----------
@@ -130,7 +150,9 @@ export function updateGuide(context, dt) {
  */
 export function updateHints(context) {
   const target = context.objectiveStation();
-  if (target && !isOpen(target.def, context.state.minutes) && !context.hints.closed) {
+  // Only machines have opening hours; factory points are always open.
+  const closed = target?.def.hours && !isOpen(target.def, context.state.minutes);
+  if (closed && !context.hints.closed) {
     context.hints.closed = true;
     context.say(
       'robot',

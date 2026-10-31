@@ -7,6 +7,7 @@ import {
   START_MODES,
 } from '../../constants/startModes.js';
 import { strings } from '../../i18n/fa.js';
+import { missionOrder } from '../missions/missions.js';
 import { resolveCircle } from '../world/collision.js';
 import { parkFamilyCar } from './garage.js';
 
@@ -83,11 +84,13 @@ function introduce(context, mode) {
 }
 
 /**
- * Places the player for a mode, without touching the interface.
+ * Sets up a fresh game for a mode, without touching the interface: where the player stands and
+ * which mission comes first.
  * @param {object} context - Game context.
  * @param {string} mode - Start mode.
  */
 function placeForMode(context, mode) {
+  context.state.missionOrder = missionOrder(mode);
   if (mode === 'offline') placeAtPark(context);
   if (mode === 'products') placeAtShowroom(context);
 }
@@ -127,7 +130,8 @@ export function restartGame(context) {
  */
 export function backToMenu(context) {
   context.setRealMode(false);
-  for (const id of ['shop', 'map-dialog', 'end', 'showroom', 'gps-fallback']) context.ui.close(id);
+  const dialogs = ['shop', 'map-dialog', 'end', 'showroom', 'machine-card', 'about-board'];
+  for (const id of [...dialogs, 'gps-fallback']) context.ui.close(id);
   document.exitPointerLock?.();
   context.reset();
   context.ui.patch('hud', { hidden: true });

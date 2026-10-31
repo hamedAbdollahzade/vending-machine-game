@@ -1,4 +1,4 @@
-import { MISSIONS } from './missions.js';
+import { missionById } from './missions.js';
 
 // Pure mission bookkeeping on the game state: which step is current, and what an event (arriving,
 // buying, inspecting…) completes. No rendering or timing here; the runtime reports events.
@@ -10,6 +10,11 @@ const EVENT_FOR_STEP = {
   inspect: 'inspect',
   order: 'order',
   buy: 'buy',
+  read: 'read',
+  meet: 'meet',
+  view: 'view',
+  ask: 'ask',
+  request: 'request',
 };
 
 /**
@@ -17,7 +22,7 @@ const EVENT_FOR_STEP = {
  * @param {object} state - Game state.
  * @returns {object | null} Mission, or null when all are done.
  */
-export const currentMission = (state) => MISSIONS[state.missionIndex] ?? null;
+export const currentMission = (state) => missionById(state.missionOrder[state.missionIndex]);
 
 /**
  * The step the player is working on.

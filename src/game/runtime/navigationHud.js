@@ -178,6 +178,11 @@ export function updatePrompt(context) {
     });
     return;
   }
+  const board = context.nearBoard();
+  if (board && !context.state.busy && context.payment.phase === 'idle') {
+    context.ui.patch('prompt', { text: strings.prompts.board(board.def.name), hidden: false });
+    return;
+  }
   let text = '';
   const station = context.nearStation();
   const ride = context.mode === 'walk' ? nearestRide(context) : null;
