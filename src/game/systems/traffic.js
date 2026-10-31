@@ -314,8 +314,8 @@ export function createTraffic(scene, data, count = 28) {
           const ox = o.x - car.x,
             oz = o.z - car.z,
             along = ox * fx + oz * fz;
-          // Only something that really overlaps the lane stops the car, so a motorcycle
-          // filtering between two lanes doesn't bring traffic to a halt.
+          // Only something that really overlaps the lane stops the car, so a car or walker
+          // beside the lane doesn't bring traffic to a halt.
           const reach =
             TRAFFIC_CAR.halfWidth + (o.halfWidth ?? DEFAULT_OBSTACLE_HALF_WIDTH) + PASSING_MARGIN;
           return along > 0 && along < 9 && Math.abs(ox * fz - oz * fx) < reach;

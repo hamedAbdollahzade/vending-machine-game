@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { createVendingMachine } from './vending.js';
 import { createTruck } from './carModels.js';
 import { createLuxuryCar } from './luxuryCars.js';
-import { MANAGER_CAR_BRAND, MOTORCYCLE_COUNT, VEHICLE_BLACK } from '../../constants/vehicles.js';
+import { MANAGER_CAR_BRAND, VEHICLE_BLACK } from '../../constants/vehicles.js';
 import { createPerson, createCrew, nameTag } from './staff.js';
 import { FACTORY } from '../../constants/locations.js';
 import { textTexture } from './textures.js';
@@ -1581,15 +1581,10 @@ function factoryBuildGeometry12(build) {
  * @returns {*} Operation result, when applicable.
  */
 function factoryBuildGeometry13(build) {
-  // Bay centres for the staff cars and the motorcycle row; the garage puts drivable vehicles there.
+  // Bay centres for the staff cars; the garage parks drivable cars there.
   const heading = build.worldHeading(0, -1);
   build.parking = {
     cars: [58, 62, 66].map((u) => ({ ...build.toWorld(u, -19), heading })),
-    // Motorcycles barely reverse, so they stand facing out towards the driveway.
-    bikes: Array.from({ length: MOTORCYCLE_COUNT }, (_, i) => ({
-      ...build.toWorld(36.6 + i * 1.1, -19.5),
-      heading: build.worldHeading(0, 1),
-    })),
   };
 
   // ---------- The manager arrives in his Bugatti ----------

@@ -3,10 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Scene } from 'three';
 import { boxOverlap, circleOutOfBox, vehicleBox } from '../src/game/world/vehicleCollision.js';
-import { BIKE, CAR, createCar, kmh, stepCar } from '../src/game/systems/vehicle.js';
 import { createTraffic, TRAFFIC_CAR } from '../src/game/systems/traffic.js';
 import { createLuxuryCar } from '../src/game/models/luxuryCars.js';
-import { createMotorcycle } from '../src/game/models/motorcycle.js';
 
 const data = JSON.parse(readFileSync(new URL('../src/data/mellat.json', import.meta.url)));
 
@@ -14,12 +12,12 @@ const data = JSON.parse(readFileSync(new URL('../src/data/mellat.json', import.m
 const leftCar = vehicleBox({ x: 0, z: -2.25, heading: 0 }, TRAFFIC_CAR);
 const rightCar = vehicleBox({ x: 0, z: 2.25, heading: Math.PI }, TRAFFIC_CAR);
 
-test('A motorcycle filters between two cars without touching them', () => {
-  const bike = createMotorcycle();
-  const between = vehicleBox({ x: 0, z: 0, heading: 0 }, bike.size);
+test('A car drives between two traffic cars without touching them', () => {
+  const car = createLuxuryCar('mazda');
+  const between = vehicleBox({ x: 0, z: 0, heading: 0 }, car.size);
   assert.equal(boxOverlap(between, leftCar), null);
   assert.equal(boxOverlap(between, rightCar), null);
-  // Regression: the old 3.4 m circle test counted this as a crash and stopped the rider.
+  // Regression: the old 3.4 m circle test counted this as a crash and stopped the driver.
   assert.ok(Math.hypot(0, 2.25) < 3.4);
 });
 
@@ -50,29 +48,13 @@ test('A walker is pushed out of a parked vehicle, even from inside it', () => {
   }
 });
 
-test('Motorcycles top out at 130 km/h and turn tighter than cars', () => {
-  const bike = createCar(0, 0, 0),
-    car = createCar(0, 0, 0);
-  for (let i = 0; i < 900; i++) stepCar(bike, { throttle: 1 }, 1 / 30, BIKE);
-  assert.equal(kmh(bike), 130);
-  bike.speed = car.speed = 8;
-  for (let i = 0; i < 15; i++) {
-    stepCar(bike, { steer: 1 }, 1 / 30, BIKE);
-    stepCar(car, { steer: 1 }, 1 / 30, CAR);
-  }
-  assert.ok(bike.heading < car.heading, 'the shorter wheelbase turns faster');
-});
-
-test('Luxury cars and the motorcycle report footprints that match their size', () => {
+test('Luxury cars report footprints that match their size', () => {
   for (const brand of ['bugatti', 'lamborghini', 'mazda', 'nissan']) {
     const model = createLuxuryCar(brand);
     assert.equal(model.wheels.length, 4, brand);
     assert.ok(model.size.halfLength > 2.1 && model.size.halfLength < 2.6, brand);
     assert.ok(model.size.halfWidth > 0.9 && model.size.halfWidth < 1.15, brand);
   }
-  const bike = createMotorcycle();
-  assert.equal(bike.wheels.length, 2);
-  assert.ok(bike.size.halfWidth < 0.45 && bike.size.halfLength < 1.1);
 });
 
 /**
@@ -87,7 +69,7 @@ function loneCar(traffic) {
   );
 }
 
-test('Traffic stops for what blocks its lane but keeps going past a filtering motorcycle', () => {
+test('Traffic stops for what blocks its lane but keeps going past what is beside it', () => {
   const traffic = createTraffic(new Scene(), data, 28),
     around = { x: -10008, z: -15049 };
   for (let i = 0; i < 200; i++) traffic.update(1 / 30, [], around);
@@ -103,10 +85,11 @@ test('Traffic stops for what blocks its lane but keeps going past a filtering mo
     halfWidth,
   });
   const before = car.d;
-  traffic.update(1 / 30, [at(0.5, BIKE.halfWidth)], around);
-  assert.equal(car.d, before, 'a bike in the lane stops the car');
-  traffic.update(1 / 30, [at(1.8, BIKE.halfWidth)], around);
-  assert.notEqual(car.d, before, 'a bike on the lane edge does not');
+  // A walker (0.45 m half width) in the lane stops the car; one at the lane edge does not.
+  traffic.update(1 / 30, [at(0.5, 0.45)], around);
+  assert.equal(car.d, before, 'a walker in the lane stops the car');
+  traffic.update(1 / 30, [at(1.8, 0.45)], around);
+  assert.notEqual(car.d, before, 'a walker on the lane edge does not');
 });
 
 test('Taking a traffic car hands its model to the player and refills the slot', () => {
@@ -118,4 +101,12 @@ test('Taking a traffic car hands its model to the player and refills the slot', 
   assert.notEqual(car.model, model);
   assert.equal(car.model.group.parent, traffic.group);
   assert.equal(car.road, null, 'the slot respawns elsewhere later');
+});
+
+test('The motorcycle is gone from the game', () => {
+  const src = new URL('../src/', import.meta.url);
+  const vehicleSource = ['game/runtime/garage.js', 'game/systems/vehicle.js', 'i18n/fa.js']
+    .map((file) => readFileSync(new URL(file, src), 'utf8'))
+    .join('\n');
+  assert.doesNotMatch(vehicleSource, /motorcycle|BIKE|apache/i);
 });

@@ -205,7 +205,6 @@ export function refreshHUD(context) {
  */
 function modeLabel(context) {
   if (context.mode !== 'drive') return strings.common.walking;
-  if (context.vehicle.kind === 'bike') return strings.travel.onBike;
   return strings.travel.inVehicle(context.vehicle.label);
 }
 /**

@@ -1,5 +1,5 @@
 // Oriented-box collisions between vehicles, so two bodies only touch when their outlines really
-// meet. A narrow motorcycle can therefore pass between two cars with a hand's width to spare.
+// meet. A car can therefore pass through any gap it actually fits, without slowing down.
 
 /**
  * Builds the footprint box of a vehicle on the ground plane.

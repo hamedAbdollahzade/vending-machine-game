@@ -8,12 +8,11 @@ import {
 } from '../../constants/vehicles.js';
 import { createSportSedan, measureFootprint } from '../models/carModels.js';
 import { createLuxuryCar } from '../models/luxuryCars.js';
-import { createMotorcycle } from '../models/motorcycle.js';
 import { TRAFFIC_CAR } from '../systems/traffic.js';
-import { BIKE, CAR, createCar } from '../systems/vehicle.js';
+import { CAR, createCar } from '../systems/vehicle.js';
 import { boxOverlap, circleOutOfBox, vehicleBox } from '../world/vehicleCollision.js';
 
-// Every vehicle the player can drive: the family BMW, the staff cars, the Apache motorcycles,
+// Every vehicle the player can drive: the family BMW, the staff cars,
 // Mr Mohammadi's Bugatti once he has parked it, and any traffic car the player has taken over.
 // `context.vehicle` is the one in use (or last used); `context.car` is its moving state.
 
@@ -25,26 +24,22 @@ const WALKER_RADIUS = 0.45;
 const HEAD_ON_SPEED_KEPT = 0.4;
 // A traffic car the player keeps pushing against pulls away (respawns) after this many seconds.
 const TRAFFIC_GIVE_WAY = 0.8;
-// How far a motorcycle leans per radian of steering at speed, and the speed of full lean.
-const LEAN_PER_STEER = 0.8;
-const FULL_LEAN_SPEED = 12;
 
 /**
  * Adds a vehicle to the garage and the scene.
  * @param {object} context - Game context.
- * @param {{brand: string, kind: 'car' | 'bike', model: object, slot: object}} vehicle - Vehicle
+ * @param {{brand: string, model: object, slot: object}} vehicle - Vehicle
  * fields; `slot` is where it is parked on reset (null for vehicles that are not reset).
  * @returns {object} The garage record.
  */
-function addVehicle(context, { brand, kind, model, slot, ...extra }) {
+function addVehicle(context, { brand, model, slot, ...extra }) {
   const record = {
     brand,
-    kind,
     model,
     slot,
     label: VEHICLE_LABELS[brand],
-    // Handling from the kind, collision box from the model itself, so contact is exact.
-    spec: { ...(kind === 'bike' ? BIKE : CAR), ...model.size },
+    // Car handling, with the collision box measured from the model itself so contact is exact.
+    spec: { ...CAR, ...model.size },
     state: createCar(slot.x, slot.z, slot.heading),
     ...extra,
   };
@@ -93,20 +88,16 @@ export function createGarage(context) {
   const { car: familySlot, parking } = context.factory;
   addVehicle(context, {
     brand: 'bmw',
-    kind: 'car',
     model: withSize(createSportSedan(VEHICLE_BLACK)),
     slot: familySlot,
   });
   STAFF_CAR_BRANDS.forEach((brand, i) =>
     addVehicle(context, {
       brand,
-      kind: 'car',
       model: createLuxuryCar(brand),
       slot: parking.cars[i],
     }),
   );
-  for (const slot of parking.bikes)
-    addVehicle(context, { brand: 'apache', kind: 'bike', model: createMotorcycle(), slot });
   setActive(context, context.garage.vehicles[0]);
 }
 
@@ -125,7 +116,6 @@ export function resetGarage(context) {
   for (const record of garage.vehicles) {
     record.state = createCar(record.slot.x, record.slot.z, record.slot.heading);
     placeModel(record);
-    if (record.model.rider) record.model.rider.root.visible = false;
   }
   setActive(context, garage.vehicles[0]);
 }
@@ -145,7 +135,6 @@ export function updateGarage(context) {
   const heading = Math.atan2(-(nose.z - at.z), nose.x - at.x);
   const record = addVehicle(context, {
     brand: MANAGER_CAR_BRAND,
-    kind: 'car',
     model: manager.model,
     slot: { x: at.x, z: at.z, heading },
   });
@@ -187,7 +176,7 @@ export function takeRide(context, { record, npc }) {
   if (npc) {
     const slot = { x: npc.x, z: npc.z, heading: npc.model.group.rotation.y };
     const model = { ...context.traffic.adopt(npc), size: TRAFFIC_CAR };
-    record = addVehicle(context, { brand: 'traffic', kind: 'car', model, slot });
+    record = addVehicle(context, { brand: 'traffic', model, slot });
     // Taken traffic cars stay where they are left until the next reset, which removes them.
     record.slot = null;
   }
@@ -196,25 +185,18 @@ export function takeRide(context, { record, npc }) {
 }
 
 /**
- * Updates the active vehicle's model: position, wheel spin and steering, motorcycle lean and rider.
+ * Updates the active vehicle's model: position, wheel spin and front-wheel steering.
  * @param {object} context - Game context.
  * @param {number} dt - Frame time in seconds.
  */
 export function syncActiveVehicle(context, dt) {
-  const { model, state, spec, kind } = context.vehicle;
+  const { model, state, spec } = context.vehicle;
   placeModel(context.vehicle);
-  const firstFront = kind === 'bike' ? 1 : 2;
+  // Wheels list the rear pair first, then the two front (steering) wheels.
   for (const [i, wheel] of model.wheels.entries()) {
     wheel.rotation.z -= (state.speed * dt) / spec.wheelRadius;
-    if (i >= firstFront) wheel.rotation.y = -state.steer;
+    if (i >= 2) wheel.rotation.y = -state.steer;
   }
-  if (kind !== 'bike') return;
-  const riding = context.mode === 'drive';
-  model.rider.root.visible = riding;
-  // Lean into the turn (towards local +z, the right-hand side, when steering right).
-  const speedShare = Math.min(1, Math.abs(state.speed) / FULL_LEAN_SPEED);
-  const lean = riding ? state.steer * LEAN_PER_STEER * speedShare * Math.sign(state.speed) : 0;
-  model.body.rotation.x += (lean - model.body.rotation.x) * Math.min(1, dt * 8);
 }
 
 /**

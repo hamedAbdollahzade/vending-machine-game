@@ -15,6 +15,3 @@ export const VEHICLE_LABELS = strings.vehicles;
 // Brands parked in the staff bays, in bay order. Mr Mohammadi arrives in the Bugatti.
 export const STAFF_CAR_BRANDS = ['lamborghini', 'mazda', 'nissan'];
 export const MANAGER_CAR_BRAND = 'bugatti';
-
-// Apache motorcycles lined up in the yard.
-export const MOTORCYCLE_COUNT = 6;

@@ -104,7 +104,6 @@ export const strings = {
     metroPrefix: 'ایستگاه مترو ',
   },
   travel: {
-    onBike: 'روی موتور · F برای پیاده شدن',
     /** @type {(vehicle: string) => string} */
     inVehicle: (vehicle) => `در ${vehicle} · F برای پیاده شدن`,
   },
@@ -125,7 +124,6 @@ export const strings = {
     lamborghini: 'لامبورگینی',
     mazda: 'مزدا',
     nissan: 'نیسان',
-    apache: 'موتور آپاچی',
     traffic: 'ماشین',
   },
   map: {
@@ -287,7 +285,6 @@ export const strings = {
     targetClosed: (machine, hours) =>
       `${machine} الان بسته است (${hours}). از نقشه مقصد دیگری انتخاب کن.`,
     longWay: 'راه طولانیه؛ بهتره با ماشین بریم.',
-    bikeOn: 'کلاه ایمنی سرت باشه! با موتور می‌شه از لای ماشین‌ها رد شد.',
     carOn: 'کمربندها رو ببندیم! مسیر طلایی روی زمین راه رو نشون می‌ده.',
     stopFirst: 'اول نگه دار، بعد پیاده می‌شویم.',
     tooFastToBuy: 'داریم سریع حرکت می‌کنیم؛ اول بایستیم، بعد خرید کنیم.',

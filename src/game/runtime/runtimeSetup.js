@@ -427,7 +427,7 @@ export async function initializeFamily(context) {
  */
 export async function initializeSpawnCar(context) {
   // The family car waits in the factory yard right beside them, pointing at the gate; the staff
-  // cars and motorcycles are parked in front of the office.
+  // cars are parked in front of the office.
   createGarage(context);
   // ---------- Input ----------
   context.isTouch = matchMedia('(pointer: coarse)').matches;

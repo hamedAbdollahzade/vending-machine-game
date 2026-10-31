@@ -22,25 +22,6 @@ export const CAR = {
   ],
 };
 
-// Apache motorcycle: 130 km/h top speed, quick off the line, narrow enough to filter between cars.
-export const BIKE = {
-  maxSpeed: 36.1,
-  maxReverse: 1.5,
-  accel: 11,
-  brake: 13,
-  drag: 1.4,
-  maxSteer: 0.6,
-  wheelBase: 1.35,
-  radius: 0.6,
-  halfLength: 1.0,
-  halfWidth: 0.4,
-  wheelRadius: 0.31,
-  probes: [
-    { along: 0.55, radius: 0.42 },
-    { along: -0.55, radius: 0.42 },
-  ],
-};
-
 /**
  * Creates the moving state of a vehicle.
  * @param {number} x - World x.

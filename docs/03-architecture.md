@@ -18,8 +18,7 @@ JavaScript ES Modules، Three.js/WebGL، Vite، HTML و CSS فارسی RTL و Ca
 | staff.js | مدل کارکنان مفصلی و crew به شکل InstancedMesh |
 | car-models.js | سدان خانواده، کامیون و helperهای مشترک بدنه |
 | luxuryCars.js | ماشین‌های لوکس مشکی به سبک بوگاتی، لامبورگینی، مزدا و نیسان |
-| motorcycle.js | موتور آپاچی با راکب و بدنهٔ خم‌شونده |
-| vehicle.js | state و فیزیک آرکید ماشین (`CAR`) و موتور (`BIKE`) |
+| vehicle.js | state و فیزیک آرکید ماشین (`CAR`) |
 | vehicleCollision.js | برخورد جعبهٔ جهت‌دار وسیله‌ها و هل‌دادن پیاده از وسیلهٔ پارک‌شده |
 | garage.js | فهرست وسیله‌های سوارشدنی، سوار/پیاده، برخورد رانندگی و reset |
 | traffic.js | ماشین‌های NPC، spawn و حرکت روی شبکهٔ اصلی و one-way داده |

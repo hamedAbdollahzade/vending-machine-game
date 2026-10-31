@@ -49,18 +49,17 @@ function toggleCar(context) {
 }
 
 /**
- * Gets on or in the closest vehicle within reach, if there is one.
+ * Gets into the closest vehicle within reach, if there is one.
  * @param {object} context - Game context.
  */
 function getIn(context) {
   const ride = nearestRide(context);
   if (!ride) return;
-  const { kind } = takeRide(context, ride);
+  takeRide(context, ride);
   context.mode = 'drive';
-  context.cam.distance = Math.max(context.cam.distance, kind === 'bike' ? 6 : 8);
+  context.cam.distance = Math.max(context.cam.distance, 8);
   context.tone(320, 0.2, 0.05, 'square');
-  const line = kind === 'bike' ? strings.dialogue.bikeOn : strings.dialogue.carOn;
-  context.say('father', line);
+  context.say('father', strings.dialogue.carOn);
 }
 
 /**
