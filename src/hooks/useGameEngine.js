@@ -3,9 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 /** Mounts one game runtime and releases its GPU, input, sensor and timer resources.
  * @param {object} root - React ref containing all render surfaces.
  * @param {object} bridge - Interface publisher owned by this page.
+ * @param {string} [startMode] - Mode to start in directly, skipping the start screen.
  * @returns {{error:string|null}} Startup failure for the accessible loading surface.
  */
-export function useGameEngine(root, bridge) {
+export function useGameEngine(root, bridge, startMode) {
   const [error, setError] = useState(null);
   const disposeRef = useRef(null);
   useEffect(() => {
@@ -23,6 +24,7 @@ export function useGameEngine(root, bridge) {
           root: root.current,
           ui: bridge,
           signal: controller.signal,
+          startMode,
         });
         if (controller.signal.aborted) dispose();
         else disposeRef.current = dispose;
@@ -40,7 +42,7 @@ export function useGameEngine(root, bridge) {
       disposeRef.current?.();
       disposeRef.current = null;
     };
-  }, [root, bridge]);
+  }, [root, bridge, startMode]);
   return {
     error,
   };

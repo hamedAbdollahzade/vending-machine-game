@@ -4,6 +4,7 @@ import { defineConfig } from 'vite';
 import { readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { createHash } from 'node:crypto';
+import { seoHead, seoStructuredData, seoSummary } from './src/utils/seoSummary.js';
 
 const listFiles = (dir) =>
   readdirSync(dir).flatMap((name) => {
@@ -62,11 +63,23 @@ self.addEventListener('fetch', event => {
   };
 }
 
+// Writes the company's title, description, structured data and a hidden Persian summary into
+// index.html, so search engines and link previews see real content without running the game.
+function companySeo() {
+  return {
+    name: 'company-seo',
+    transformIndexHtml: (html) =>
+      html
+        .replace('<!--seo-head-->', `${seoHead()}\n    ${seoStructuredData()}`)
+        .replace('<!--seo-summary-->', seoSummary()),
+  };
+}
+
 export default defineConfig({
   // Relative assets also load under a GitHub Pages repository path.
   base: './',
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
-  plugins: [react(), offlineServiceWorker()],
+  plugins: [react(), companySeo(), offlineServiceWorker()],
   // Top-level await loads the building and imagery files before the world is built.
   build: { target: 'es2022' },
   server: {

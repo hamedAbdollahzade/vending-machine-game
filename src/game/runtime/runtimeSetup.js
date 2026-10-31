@@ -27,6 +27,11 @@ import { formatDistance, toLocal } from '../../utils/geo.js';
 import { strings } from '../../i18n/fa.js';
 import { COMPANY } from '../../config/company.js';
 import { SHOWROOM_POINT_ID } from '../../constants/factoryPoints.js';
+import {
+  PIXEL_RATIO_DESKTOP,
+  PIXEL_RATIO_LOW,
+  PIXEL_RATIO_MOBILE,
+} from '../../constants/graphics.js';
 import { createObjectiveArrow } from '../models/objectiveArrow.js';
 
 // Brand colours for materials and canvas drawings.
@@ -95,7 +100,10 @@ export async function initializeRenderer(context) {
       }
     })() ??
     (matchMedia('(pointer: coarse)').matches ? 'low' : 'high');
-  context.renderer.setPixelRatio(context.quality === 'low' ? 1 : Math.min(devicePixelRatio, 1.75));
+  const cap = matchMedia('(pointer: coarse)').matches ? PIXEL_RATIO_MOBILE : PIXEL_RATIO_DESKTOP;
+  context.renderer.setPixelRatio(
+    context.quality === 'low' ? PIXEL_RATIO_LOW : Math.min(devicePixelRatio, cap),
+  );
 }
 /**
  * Initializes scene in dependency order.
@@ -1247,6 +1255,10 @@ export async function startGameLoop(context) {
     hidden: true,
   });
   context.frameId = requestAnimationFrame(context.frame);
+  // An embedding page may ask for a mode directly (CompanyGame's startMode, or ?mode=). Real-world
+  // play still shows its safety notice first, and asks for location from the tap on it.
+  if (context.requestedMode === 'real') context.askRealMode(true);
+  else if (context.requestedMode) context.startGame(context.requestedMode);
 }
 /**
  * Initializes dispose in dependency order.

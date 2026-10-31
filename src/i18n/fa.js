@@ -31,9 +31,24 @@ export const strings = {
     hetomanName: 'هتومان',
     speed: 'km/h',
   },
+  // Search-engine text written into index.html at build time (utils/seoSummary.js).
+  seo: {
+    title: `${COMPANY.name} | بازی سه‌بعدی دستگاه‌های وندینگ`,
+    description: `${COMPANY.tagline}. کارخانه، محصولات و دستگاه‌های نصب‌شدهٔ ${COMPANY.shortName} را در یک بازی سه‌بعدی در مشهد ببینید.`,
+    summaryLabel: 'خلاصهٔ معرفی شرکت',
+    productsHeading: 'محصولات',
+  },
+  // Poster shown before the 3D game loads, and instead of it when the browser cannot draw 3D.
+  poster: {
+    enter: 'ورود به بازی',
+    noWebgl:
+      'مرورگر یا دستگاه شما بازی سه‌بعدی را اجرا نمی‌کند. اطلاعات شرکت را این‌جا ببینید یا با مرورگر دیگری امتحان کنید.',
+    heroAlt: `نمای کارخانهٔ ${COMPANY.shortName}`,
+  },
   app: {
-    preparing: 'در حال آماده‌سازی بازی…',
     buildingCity: 'در حال ساختن شهر مشهد…',
+    /** @type {(percent: string) => string} */
+    loadingPercent: (percent) => `${percent}٪`,
     /** @type {(error: string) => string} */
     failed: (error) => `بازی اجرا نشد: ${error}`,
     retry: 'تلاش دوباره',

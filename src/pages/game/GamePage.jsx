@@ -6,18 +6,23 @@ import { createInterfaceBridge } from '@/game/interfaceBridge.js';
 import { useGameEngine } from '@/hooks/useGameEngine.js';
 import { setupPwa } from '@/game/device/pwa.js';
 import { GameSurfaces } from './GameSurfaces.jsx';
+import { GameLoader } from './GameLoader.jsx';
 import { StartScreen } from './startScreen/StartScreen.jsx';
 import { GameHud } from './GameHud.jsx';
 import { GameDialogs } from './GameDialogs.jsx';
 import { strings } from '@/i18n/fa.js';
 
-/** Composes React views around the isolated Three.js runtime. */
-export function GamePage() {
+/**
+ * Composes React views around the isolated Three.js runtime.
+ * @param {{startMode?: string}} props - Mode to start in directly, skipping the start screen.
+ * @returns {import('react').ReactElement} Game page.
+ */
+export function GamePage({ startMode }) {
   const root = useRef(null),
     store = useStore();
   const bridge = useMemo(() => createInterfaceBridge(store), [store]);
   const nodes = useAppSelector(selectNodes);
-  const { error } = useGameEngine(root, bridge);
+  const { error } = useGameEngine(root, bridge, startMode);
   useEffect(() => {
     bridge.activate();
     const dispose = setupPwa(bridge);
@@ -41,6 +46,7 @@ export function GamePage() {
   return (
     <main ref={root}>
       <GameSurfaces {...props} />
+      <GameLoader {...props} />
       <StartScreen {...props} />
       <GameHud {...props} />
       <GameDialogs {...props} />
