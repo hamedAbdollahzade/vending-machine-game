@@ -51,6 +51,7 @@ export const FACTORY = {
 export const machines = [
   {
     id: 'factory',
+    model: 'rm-35',
     name: strings.places.officeMachine,
     category: 'factory',
     address: strings.places.officeAddress(FACTORY.address),
@@ -62,7 +63,8 @@ export const machines = [
   },
   {
     id: 'mellat-park',
-    name: 'بوستان ملت',
+    model: 'rm-48',
+    name: 'بوستان ملت · ورودی جنوبی',
     category: 'park',
     address: 'بزرگراه وکیل‌آباد، ورودی جنوبی بوستان ملت، نزدیک ایستگاه مترو پارک ملت',
     anchor: {
@@ -75,7 +77,38 @@ export const machines = [
     note: 'نوشیدنی‌های خنک برای پیاده‌روی در پارک',
   },
   {
+    id: 'mellat-lake',
+    model: 'rm-35',
+    name: 'بوستان ملت · کنار دریاچه',
+    category: 'park',
+    address: 'بوستان ملت، مسیر پیاده‌روی کنار دریاچه',
+    anchor: {
+      x: -210.6,
+      z: -484.8,
+    },
+    hours: ALL_DAY,
+    priceFactor: 1,
+    products: ['water', 'juice', 'lemonade', 'tea', 'biscuit', 'cake'],
+    note: 'دستگاه کنار دریاچه؛ مناسب پیک‌نیک خانوادگی',
+  },
+  {
+    id: 'mellat-sports',
+    model: 'rm-60',
+    name: 'بوستان ملت · زمین‌های ورزشی',
+    category: 'park',
+    address: 'بوستان ملت، مسیر کنار زمین‌های ورزشی',
+    anchor: {
+      x: -401.8,
+      z: -713,
+    },
+    hours: ALL_DAY,
+    priceFactor: 1,
+    products: ['water', 'juice', 'lemonade', 'nuts', 'chocolate', 'biscuit'],
+    note: 'نوشیدنی خنک برای بعد از ورزش',
+  },
+  {
     id: 'school-rahil',
+    model: 'rm-35',
     name: 'مجموعه آموزشی راحیل',
     category: 'school',
     address: 'بولوار امامت، کوچهٔ امامت ۲، کنار در ورودی مدرسه',
@@ -90,6 +123,7 @@ export const machines = [
   },
   {
     id: 'ferdowsi-university',
+    model: 'rm-60',
     name: 'دانشگاه فردوسی مشهد',
     category: 'university',
     address: 'میدان آزادی، پردیس دانشگاه فردوسی، مسیر پیاده‌روی مرکزی',
@@ -104,6 +138,7 @@ export const machines = [
   },
   {
     id: 'literature-faculty',
+    model: 'rm-48',
     name: 'دانشکدهٔ ادبیات دکتر شریعتی',
     category: 'university',
     address: 'پردیس دانشگاه فردوسی، بولوار دانش، جلوی دانشکدهٔ ادبیات',
@@ -118,6 +153,7 @@ export const machines = [
   },
   {
     id: 'medical-university',
+    model: 'rm-48',
     name: 'دانشگاه علوم پزشکی مشهد',
     category: 'university',
     address: 'میدان آزادی، پردیس دانشگاه علوم پزشکی مشهد',
@@ -132,6 +168,7 @@ export const machines = [
   },
   {
     id: 'azadi-metro',
+    model: 'rm-60',
     name: 'ایستگاه مترو آزادی',
     category: 'metro',
     address: 'بولوار ملک‌آباد، ورودی ایستگاه مترو آزادی',
@@ -146,6 +183,7 @@ export const machines = [
   },
   {
     id: 'mashhad-mall',
+    model: 'rm-60',
     name: 'مشهد مال',
     category: 'mall',
     address: 'خیابان اخوان ثالث، کنار ورودی پارکینگ مشهد مال',
@@ -171,6 +209,7 @@ export const machines = [
  */
 const testPoint = (n, lat, lon) => ({
   id: `test-${n}`,
+  model: 'rm-35',
   name: strings.places.testPoint(n.toLocaleString('fa-IR')),
   category: 'test',
   test: true,

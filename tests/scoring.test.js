@@ -1,13 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  awardsFor,
-  rankFor,
-  completeMissions,
-  activeMission,
-  POINTS,
-  RANKS,
-} from '../src/game/economy/scoring.js';
+import { awardsFor, rankFor, POINTS, RANKS } from '../src/game/economy/scoring.js';
 import { createState, purchase } from '../src/game/economy/gameState.js';
 import { machineById } from '../src/constants/locations.js';
 
@@ -33,23 +26,8 @@ test('Discovery, combo and all-category bonuses are paid once', () => {
   assert.ok(last.some((a) => a.points === POINTS.allCategories));
 });
 
-test('Ranks and missions advance with progress', () => {
+test('Ranks advance with experience', () => {
   assert.equal(rankFor(0).name, RANKS[0].name);
   assert.equal(rankFor(RANKS[1].xp).index, 1);
   assert.equal(rankFor(1e6).progress, 1);
-  const state = createState();
-  assert.equal(activeMission(state).id, 'factory');
-  purchase(state, machineById('factory'), 'water');
-  assert.deepEqual(
-    completeMissions(state).map((m) => m.id),
-    ['factory'],
-  );
-  assert.equal(state.balance, 500 - 8 + 20, 'factory sells at half price');
-  purchase(state, machineById('mellat-park'), 'water');
-  assert.deepEqual(
-    completeMissions(state).map((m) => m.id),
-    ['first'],
-  );
-  assert.deepEqual(completeMissions(state), [], 'rewards are not repeated');
-  assert.equal(activeMission(state).id, 'school');
 });

@@ -17,14 +17,9 @@ import {
   swipePayment,
   cancelPayment,
 } from '../economy/payment.js';
-import {
-  awardsFor,
-  rankFor,
-  completeMissions,
-  activeMission,
-  MISSIONS,
-} from '../economy/scoring.js';
+import { awardsFor, rankFor } from '../economy/scoring.js';
 import { strings } from '../../i18n/fa.js';
+import { MISSIONS } from '../missions/missions.js';
 /**
  * Runs the open showroom operation for this subsystem.
  * @param {*} context - context.
@@ -266,15 +261,7 @@ export function reward(context, record, product) {
     3200,
   );
   context.say('child', strings.dialogue.childGotIt(product.icon, product.name));
-  const done = completeMissions(context.state);
-  for (const m of done) {
-    context.showBanner(
-      strings.rewards.missionDone,
-      m.title,
-      strings.rewards.missionReward(fa(m.xp), formatHetoman(m.hetoman)),
-    );
-    context.tone(660, 0.5);
-  }
+  const { mission } = context.reportMissionEvent({ type: 'buy', machineId: record.machineId });
   if (rankFor(context.state.xp).index > rankBefore)
     context.setTimeout(
       () =>
@@ -283,22 +270,8 @@ export function reward(context, record, product) {
           rankFor(context.state.xp).name,
           strings.rewards.findMore,
         ),
-      done.length ? 3400 : 0,
+      mission ? 3400 : 0,
     );
-  const next = activeMission(context.state);
-  if (next) {
-    context.waypoint = null;
-    context.route = null;
-    context.setTimeout(
-      () =>
-        context.say(
-          context.guideOut() ? 'robot' : 'father',
-          strings.dialogue.nextMission(next.title),
-          'wink',
-        ),
-      1500,
-    );
-  }
   context.refreshHUD();
   context.checkEnd();
 }

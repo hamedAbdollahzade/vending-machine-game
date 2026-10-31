@@ -353,6 +353,8 @@ export const strings = {
     childGotIt: (icon, product) => `${icon} ${product} گرفتم! مرسی بابا.`,
     /** @type {(mission: string) => string} */
     nextMission: (mission) => `مأموریت بعدی: ${mission}`,
+    /** @type {(step: string) => string} */
+    nextStep: (step) => `خب! حالا: ${step}`,
     /** @type {(machine: string, distance: string) => string} */
     routeSet: (machine, distance) =>
       `مسیر تا ${machine} رو گذاشتم؛ ${distance}. دنبال خط طلایی بریم.`,
@@ -364,15 +366,44 @@ export const strings = {
     combo: 'ترکیب نوشیدنی و خوراکی',
     allCategories: 'همهٔ انواع مکان',
   },
+  // Mission titles, keyed by mission id (game/missions/missions.js).
   missions: {
-    factory: 'در دفتر فنی مهندسی کارخانه از دستگاه وندینگ خرید کن',
-    first: 'با ماشین تا بوستان ملت برو و اولین خرید شهری را انجام بده',
-    school: 'قبل از تعطیلی مدرسه (۱۳:۳۰) از دستگاه مدرسه خرید کن',
-    campus: 'به دانشگاه فردوسی برو و یک خوراکی بخر',
-    metro: 'از دستگاه ایستگاه مترو آزادی خرید کن',
-    mall: 'با ماشین تا مشهد مال برو و خرید کن',
-    explorer: 'از ۵ مکان متفاوت شهر خرید کن',
+    firstBuy: 'اولین خرید در کارخانه',
+    parkGate: 'دستگاه ورودی بوستان ملت',
+    parkLake: 'بازدید از دستگاه کنار دریاچه',
+    parkSports: 'سفارش دستگاه برای زمین ورزشی',
+    parkTour: 'گشت دستگاه‌های بوستان',
+    explorer: 'کاشف شهر',
   },
+  // One short line per step type, shown on the objective chip.
+  steps: {
+    /** @type {(place: string) => string} */
+    goto: (place) => `برو به ${place}`,
+    /** @type {(place: string) => string} */
+    locate: (place) => `${place} را روی نقشه پیدا کن`,
+    /** @type {(place: string) => string} */
+    inspect: () => 'کنار دستگاه بایست تا معرفی‌اش کنم',
+    /** @type {(place: string) => string} */
+    order: () => 'از کارت دستگاه سفارش بده',
+    /** @type {(place: string) => string} */
+    buy: (place) => `از ${place} خرید کن`,
+    /** @type {(done: string, count: string) => string} */
+    places: (done, count) => `از ${count} مکان شهر خرید کن (${done}/${count})`,
+    allDone: 'همهٔ مأموریت‌ها انجام شد',
+  },
+  machineCard: {
+    title: 'مشخصات دستگاه',
+    installedAt: 'محل نصب',
+    model: 'مدل',
+    price: 'قیمت',
+    order: 'ثبت درخواست سفارش',
+    ordered: 'درخواست ثبت شد ✓',
+    contact: 'تماس با فروش',
+    close: 'بستن',
+    orderThanks: 'درخواستت ثبت شد؛ کارشناس فروش با تو تماس می‌گیرد.',
+    robotIntro: (model) => `این دستگاه ${model} است. مشخصاتش را روی صفحه ببین!`,
+  },
+
   snacks: {
     juice: 'آب‌میوه',
     water: 'آب معدنی',

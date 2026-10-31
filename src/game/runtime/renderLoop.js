@@ -78,6 +78,7 @@ export function frame(context) {
     context.ui.read('map-dialog').open ||
     context.ui.read('end').open ||
     context.ui.read('showroom').open ||
+    context.ui.read('machine-card').open ||
     document.hidden;
   const steps = Math.max(1, Math.ceil(dt / (1 / 30))),
     step = dt / steps;
@@ -89,6 +90,7 @@ export function frame(context) {
       else context.updateWalk(step);
       context.updatePayment(step);
       context.updateDelivery(step);
+      context.updateMissions(step);
       context.traffic.update(step, trafficObstacles(context), context.player);
     }
     context.updateRoute(dt);

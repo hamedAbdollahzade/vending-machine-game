@@ -30,6 +30,12 @@ import {
   openMap,
 } from './mapInteraction.js';
 import { setRealMode, setArMode, askRealMode, updateReal } from './realMode.js';
+import {
+  reportMissionEvent,
+  updateMissions,
+  openMachineCard,
+  orderFromCard,
+} from './missionRuntime.js';
 import { resize, updateCamera, frame } from './renderLoop.js';
 import { updateTalks, greet, updateGuide, updateHints } from './worldEncounters.js';
 import {
@@ -105,6 +111,10 @@ const RUNTIME_METHODS = {
   selectMachine,
   openMap,
   startGame,
+  reportMissionEvent,
+  updateMissions,
+  openMachineCard,
+  orderFromCard,
   restartGame,
   backToMenu,
   offerOffline,

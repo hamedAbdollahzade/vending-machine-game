@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import { routeBetween } from '../world/routing.js';
 import { FACTORY } from '../../constants/locations.js';
 import { isOpen, formatClock, fa } from '../economy/gameState.js';
-import { rankFor, activeMission, MISSIONS } from '../economy/scoring.js';
+import { rankFor } from '../economy/scoring.js';
+import { stepTarget } from '../missions/missionProgress.js';
+import { currentStepText, missionListItems } from '../missions/missionText.js';
 import { kmh } from '../systems/vehicle.js';
 import { nearestRide } from './garage.js';
 import { drawMinimap } from '../world/mapRender.js';
@@ -122,10 +124,9 @@ export function updateRoute(context, dt) {
  * Objective station, player position and camera bearing.
  */
 function updateObjectiveChip(context, { objective, pos, headingDeg }) {
-  const mission = activeMission(context.state);
-  // A route the player picked on the map shows the place; otherwise show the mission itself.
-  const ownRoute = context.waypoint && context.waypoint !== mission?.target;
-  const title = ownRoute ? objective?.def.name : (mission?.title ?? objective?.def.name);
+  // A route the player picked on the map shows the place; otherwise show the current step.
+  const ownRoute = context.waypoint && context.waypoint !== stepTarget(context.state);
+  const title = ownRoute ? objective?.def.name : currentStepText(context.state);
   context.ui.patch('objective', { hidden: !title });
   if (!title) return;
   context.ui.patch('objective-title', { text: title });
@@ -157,15 +158,7 @@ export function refreshHUD(context) {
   context.ui.style('xp-bar', {
     width: `${Math.round(rank.progress * 100)}%`,
   });
-  const active = activeMission(context.state);
-  context.ui.patch('mission-list', {
-    items: MISSIONS.map((m) => ({
-      id: m.id,
-      title: m.title,
-      done: context.state.missionsDone.includes(m.id),
-      active: m === active,
-    })),
-  });
+  context.ui.patch('mission-list', { items: missionListItems(context.state) });
   context.ui.publishGame(context.state);
   context.ui.patch('speed-stat', {
     hidden: context.mode !== 'drive',
@@ -245,6 +238,7 @@ export function updateHUD(context) {
         };
   const headingDeg = bearing(forward.x, forward.z);
   const objective = context.objectiveStation();
+  context.objectiveArrow.update(objective, context.elapsed);
   updateObjectiveChip(context, { objective, pos, headingDeg });
   // The minimap is optional (floating menu); skip drawing it while it is hidden.
   if (context.showMinimap)

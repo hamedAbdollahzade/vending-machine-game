@@ -449,6 +449,18 @@ export const gameTheme = {
   '.mission-list li.hidden': {
     display: 'none',
   },
+  // Steps of the current mission, indented under it; finished ones are ticked.
+  '.mission-steps': {
+    margin: 'var(--game-token-17) 0 var(--game-token-45)',
+    'padding-inline-start': 'var(--game-token-42)',
+    'list-style': 'none',
+    'font-weight': '400',
+    'font-size': 'var(--game-token-30)',
+  },
+  '.mission-steps li:not(.done)::before': {
+    content: "'○ '",
+    color: 'var(--color-primary)',
+  },
   '#waypoint': {
     transform: 'translate(-50%, -100%)',
     display: 'grid',

@@ -17,7 +17,7 @@ import {
 } from '../world/routing.js';
 import { machines, CITY_START, FACTORY } from '../../constants/locations.js';
 import { isOpen, formatClock } from '../economy/gameState.js';
-import { activeMission } from '../economy/scoring.js';
+import { stepTarget } from '../missions/missionProgress.js';
 import { createFamily } from '../models/characters.js';
 import { createFactory } from '../models/factory.js';
 import { createTraffic } from '../systems/traffic.js';
@@ -26,6 +26,7 @@ import { createMapAssets } from '../world/mapRender.js';
 import { formatDistance, toLocal } from '../../utils/geo.js';
 import { strings } from '../../i18n/fa.js';
 import { COMPANY } from '../../config/company.js';
+import { createObjectiveArrow } from '../models/objectiveArrow.js';
 
 // Brand colours for materials and canvas drawings.
 const BRAND = COMPANY.colors;
@@ -436,6 +437,7 @@ export async function initializeSpawnCar(context) {
     context.ui.read('map-dialog').open ||
     context.ui.read('end').open ||
     context.ui.read('showroom').open ||
+    context.ui.read('machine-card').open ||
     !context.ui.read('landing').hidden;
   // Physical key codes, so the controls also work with a Persian keyboard layout.
   context.keyName = (e) =>
@@ -737,6 +739,8 @@ export async function registerPreferences(context) {
   context.ui.on('continue', () => context.ui.close('end'));
   context.ui.on('restart', context.restartGame);
   context.ui.on('back-to-menu', context.backToMenu);
+  context.ui.on('machine-order', context.orderFromCard);
+  context.ui.on('machine-card-close', () => context.ui.close('machine-card'));
   // The minimap is off by default to keep the screen clear; the floating menu toggles it.
   try {
     context.showMinimap = localStorage.getItem('minimap') === 'on';
@@ -759,8 +763,8 @@ export async function registerPreferences(context) {
   // ---------- Objective, route and HUD ----------
   context.objectiveStation = () => {
     if (context.waypoint) return context.stationById(context.waypoint);
-    const mission = activeMission(context.state);
-    if (mission?.target) return context.stationById(mission.target);
+    const target = stepTarget(context.state);
+    if (target) return context.stationById(target);
     // Open-ended missions point to the nearest place not bought from yet.
     const visited = new Set(context.state.purchases.map((p) => p.machineId));
     return (
@@ -793,6 +797,9 @@ export async function initializeRouteMaterial(context) {
   });
   context.routeMesh = null;
   context.routeTarget = null;
+  // Arrow hovering over the current objective machine.
+  context.objectiveArrow = createObjectiveArrow();
+  context.scene.add(context.objectiveArrow.group);
   context.routeFrom = {
     x: 0,
     z: 0,

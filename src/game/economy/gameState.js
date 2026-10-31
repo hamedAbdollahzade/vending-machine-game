@@ -123,6 +123,9 @@ export function createState() {
     purchases: [],
     xp: 0,
     missionsDone: [],
+    // Current mission and step (see game/missions).
+    missionIndex: 0,
+    missionStep: 0,
     minutes: START_MINUTES,
     busy: false,
   };

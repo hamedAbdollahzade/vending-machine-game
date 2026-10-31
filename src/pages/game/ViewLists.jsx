@@ -1,6 +1,33 @@
 import { formatHetoman } from '@/game/economy/gameState.js';
 import { strings } from '@/i18n/fa.js';
 
+// Class for a mission row: finished, current or still to come.
+const MISSION_STATE = { done: 'done', active: 'active' };
+
+/**
+ * One mission row; the current mission also lists its steps with ticks.
+ * @param {{item: {title: string, done: boolean, active: boolean, steps: object[]}}} props -
+ * Mission list item.
+ * @returns {import('react').ReactElement} List item.
+ */
+function MissionItem({ item }) {
+  const state = (item.done && MISSION_STATE.done) || (item.active && MISSION_STATE.active) || '';
+  return (
+    <li className={state}>
+      {item.title}
+      {item.steps?.length > 0 && (
+        <ol className="mission-steps">
+          {item.steps.map((step) => (
+            <li key={step.text} className={step.done ? 'done' : ''}>
+              {step.text}
+            </li>
+          ))}
+        </ol>
+      )}
+    </li>
+  );
+}
+
 /** @typedef {{id:string,model?:object,onAction:function}} ViewListsProps */
 /** Renders structured game lists as JSX; strings are never interpreted as HTML.
  * @param {ViewListsProps} props - List identifier, snapshot, and command callback.
@@ -26,12 +53,7 @@ export function ViewLists({ id, model = {}, onAction }) {
         </small>
       </button>
     ));
-  if (id === 'mission-list')
-    return items.map((item) => (
-      <li key={item.id} className={item.done ? 'done' : item.active ? 'active' : ''}>
-        {item.title}
-      </li>
-    ));
+  if (id === 'mission-list') return items.map((item) => <MissionItem key={item.id} item={item} />);
   if (id === 'end-stats')
     return items.map(([label, value]) => (
       <li key={label}>

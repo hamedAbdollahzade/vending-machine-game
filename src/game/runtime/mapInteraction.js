@@ -88,6 +88,8 @@ export function renderMachineList(context) {
  */
 export function selectMachine(context, id, center = false) {
   context.selected = id;
+  // Finding the machine on the map is a mission step ("locate").
+  context.reportMissionEvent({ type: 'locate', machineId: id });
   const s = context.stationById(id),
     def = s.def;
   if (center) {
