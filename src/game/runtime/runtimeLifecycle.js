@@ -3,7 +3,6 @@ import { createState } from '../economy/gameState.js';
 import { createPayment } from '../economy/payment.js';
 import { createVendingMachine } from '../models/vending.js';
 import { resetGarage } from './garage.js';
-import { strings } from '../../i18n/fa.js';
 import { COMPANY } from '../../config/company.js';
 
 // Brand colours for materials and canvas drawings.
@@ -120,27 +119,4 @@ export function reset(context) {
   for (const id of ['shop', 'map-dialog', 'end', 'showroom']) context.ui.close(id);
   context.keys.clear();
   context.refreshHUD();
-}
-
-// ---------- Input ----------
-/**
- * Runs the start mission operation for this subsystem.
- * @param {*} context - context.
- * @returns {*} Operation result, when applicable.
- */
-export function startMission(context) {
-  context.ui.patch('briefing', {
-    hidden: true,
-  });
-  context.ui.patch('hud', {
-    hidden: false,
-  });
-  const { dialogue } = strings;
-  context.say('robot', dialogue.showroomIntro, 'wink');
-  context.say('child', dialogue.childAsksFactory);
-  context.say('father', dialogue.fatherAnswersFactory);
-  context.say('child', dialogue.childAsksArrival);
-  context.say('father', dialogue.fatherAnswersArrival);
-  if (!context.isTouch && !context.real.on)
-    context.canvas.requestPointerLock?.()?.catch?.(() => {});
 }

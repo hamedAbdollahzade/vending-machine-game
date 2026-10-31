@@ -1,4 +1,5 @@
-import { placeStation, updateReachCircles, reset, startMission } from './runtimeLifecycle.js';
+import { placeStation, updateReachCircles, reset } from './runtimeLifecycle.js';
+import { startGame, restartGame, offerOffline, switchToOffline } from './startModes.js';
 import { look, toggleCar, updateWalk, updateDrive } from './movement.js';
 import { say, updateSubtitles, tone } from './audioAndDialogue.js';
 import {
@@ -105,7 +106,10 @@ const RUNTIME_METHODS = {
   renderMachineList,
   selectMachine,
   openMap,
-  startMission,
+  startGame,
+  restartGame,
+  offerOffline,
+  switchToOffline,
   setRealMode,
   setArMode,
   askRealMode,

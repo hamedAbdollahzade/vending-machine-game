@@ -165,87 +165,97 @@ export const gameTheme = {
     'font-size': 'var(--game-token-11)',
     'letter-spacing': 'var(--game-token-12)',
   },
-  // The briefing can be taller than a phone screen (portrait text, or any landscape phone), so it
-  // scrolls; otherwise the start and install buttons end up below the edge, out of reach.
-  '#briefing': {
+  // Start screen over the slowly orbiting 3D factory. The gradient keeps the menu readable while
+  // the scene shows through on the far side (in RTL the menu sits on the right).
+  '#landing': {
     position: 'fixed',
     inset: '0',
     'z-index': '40',
     'overflow-y': 'auto',
-    display: 'grid',
-    'grid-template-columns': '1.3fr 1fr',
+    display: 'flex',
+    padding:
+      'max(var(--game-token-42), env(safe-area-inset-top)) max(var(--game-token-42), env(safe-area-inset-right)) max(var(--game-token-42), env(safe-area-inset-bottom)) max(var(--game-token-42), env(safe-area-inset-left))',
     background:
-      'radial-gradient(circle at 30% 40%, var(--game-token-13) 0%, var(--game-token-14) 75%)',
+      'linear-gradient(to left, var(--color-surface) 0%, var(--game-token-54) 45%, transparent 100%)',
+    color: 'var(--color-text)',
   },
-  '#briefing[hidden]': {
+  '#landing[hidden]': {
     display: 'none',
   },
-  '.brief-map': {
-    position: 'relative',
+  // Auto margins centre the menu but, unlike align-items, still let a tall menu scroll to its top.
+  '.landing-panel': {
+    'margin-block': 'auto',
+    width: 'min(100%, var(--game-token-70))',
+    'margin-inline-start': 'clamp(0px, 5vw, var(--game-token-77))',
   },
-  '.brief-map::after': {
-    content: "''",
-    position: 'absolute',
-    inset: '0',
-    'pointer-events': 'none',
-    background:
-      'repeating-linear-gradient(\n    0deg,\n    var(--game-token-15) 0 var(--game-token-16),\n    transparent var(--game-token-16) var(--game-token-17)\n  )',
-  },
-  '#iran': {
-    width: '100%',
-    height: '100%',
-    display: 'block',
-  },
-  '.brief-panel': {
-    'align-self': 'center',
-    margin: 'var(--game-token-18)',
-    padding: 'var(--game-token-19)',
-    'max-width': 'var(--game-token-20)',
-    background: 'var(--panel)',
-    border: 'var(--game-token-16) solid var(--line)',
-    'border-inline-start': 'var(--game-token-21) solid var(--gold)',
-  },
-  '.tag': {
-    color: 'var(--gold)',
-    'letter-spacing': 'var(--game-token-16)',
-    'font-weight': '600',
-  },
-  '.brief-panel h1': {
-    margin: 'var(--game-token-22) 0 0',
-    'font-size': 'clamp(var(--game-token-23), 5vw, var(--game-token-24))',
-    'font-weight': '800',
-  },
-  '.sub': {
-    margin: '0 0 var(--game-token-11)',
-    color: 'var(--teal)',
-  },
-  '#brief-text': {
-    'min-height': 'var(--game-token-25)',
-    margin: '0 0 var(--game-token-26)',
-    'white-space': 'pre-wrap',
+  '.start-option': {
+    display: 'flex',
+    'align-items': 'center',
+    gap: 'var(--game-token-30)',
+    'min-height': 'var(--game-token-77)',
+    padding: 'var(--game-token-30) var(--game-token-28)',
+    'border-radius': 'var(--game-token-28)',
+    border: 'var(--game-token-16) solid transparent',
     'font-family': 'var(--font)',
-    'font-size': 'var(--game-token-27)',
-    'line-height': '1.9',
-    color: 'var(--hud)',
+    'text-align': 'start',
+    cursor: 'pointer',
+    transition: 'filter 0.15s',
   },
-  '#start-mission': {
-    width: '100%',
-    padding: 'var(--game-token-28)',
+  '.start-option:hover,\n.start-chip:hover': {
+    filter: 'brightness(1.12)',
+  },
+  '.start-option:focus-visible,\n.start-chip:focus-visible,\n.start-icon-button:focus-visible': {
+    outline: 'var(--game-token-21) solid var(--color-primary-light)',
+    'outline-offset': 'var(--game-token-35)',
+  },
+  '.start-option-primary': {
+    background: 'var(--color-primary)',
+    color: 'var(--color-on-primary)',
+  },
+  '.start-option-secondary': {
+    background: 'var(--game-token-65)',
+    color: 'var(--color-text)',
+    'border-color': 'var(--color-primary)',
+  },
+  '.start-chip': {
+    display: 'inline-flex',
+    'align-items': 'center',
+    gap: 'var(--game-token-22)',
+    'min-height': 'var(--game-token-74)',
+    padding: 'var(--game-token-22) var(--game-token-28)',
+    'border-radius': 'var(--game-token-88)',
+    border: 'var(--game-token-16) solid var(--game-token-58)',
+    background: 'var(--game-token-65)',
+    color: 'var(--color-text)',
+    'font-family': 'var(--font)',
+    'font-size': 'var(--game-token-28)',
+    cursor: 'pointer',
+  },
+  '.start-chip[hidden]': {
+    display: 'none',
+  },
+  '.start-icon-button': {
+    display: 'grid',
+    'place-items': 'center',
+    width: 'var(--game-token-74)',
+    height: 'var(--game-token-74)',
     border: '0',
-    background: 'var(--gold)',
-    color: 'var(--game-token-29)',
-    'font-size': 'var(--game-token-11)',
-    'font-weight': '800',
-    'letter-spacing': 'var(--game-token-12)',
+    'border-radius': '50%',
+    background: 'var(--game-token-65)',
+    color: 'var(--color-text)',
+    cursor: 'pointer',
   },
-  '#start-mission:hover': {
-    filter: 'brightness(1.08)',
-  },
-  '.keys': {
-    color: 'var(--dim)',
-    'font-size': 'var(--game-token-30)',
-    'line-height': '1.8',
-    'margin-bottom': '0',
+  '.info-sheet': {
+    width: 'min(var(--game-token-70), 92vw)',
+    'max-height': '85dvh',
+    'overflow-y': 'auto',
+    padding: 'var(--game-token-26)',
+    'border-radius': 'var(--game-token-11)',
+    border: 'var(--game-token-16) solid var(--game-token-58)',
+    'border-top': 'var(--game-token-21) solid var(--color-primary)',
+    background: 'var(--color-surface-raised)',
+    color: 'var(--color-text)',
+    'line-height': '1.9',
   },
   '#hud[hidden]': {
     display: 'none',
@@ -912,18 +922,20 @@ export const gameTheme = {
     color: 'var(--game-token-59)',
   },
   '@media (max-width: 760px)': {
-    '#briefing': {
-      'grid-template-columns': '1fr',
-      'grid-template-rows': '38vh 1fr',
+    // Phones: the menu sits at the bottom over a stronger fade; info opens as a bottom sheet.
+    '#landing': {
+      background:
+        'linear-gradient(to top, var(--color-surface) 55%, var(--game-token-54) 75%, transparent 100%)',
     },
-    '.brief-panel': {
-      margin: '0 var(--game-token-42) var(--game-token-42)',
-      padding: 'var(--game-token-11)',
-      'align-self': 'start',
+    '.landing-panel': {
+      'margin-block': 'auto 0',
     },
-    '#brief-text': {
-      'min-height': 'var(--game-token-78)',
-      'font-size': 'var(--game-token-41)',
+    '.info-sheet': {
+      margin: 'auto auto 0',
+      width: '100vw',
+      'max-width': '100vw',
+      'border-radius': 'var(--game-token-11) var(--game-token-11) 0 0',
+      'padding-bottom': 'max(var(--game-token-26), env(safe-area-inset-bottom))',
     },
     '#minimap-button,\n  #minimap': {
       width: 'var(--game-token-72)',
@@ -995,9 +1007,6 @@ export const gameTheme = {
       'border-inline-start': '0',
       'border-top': 'var(--game-token-16) solid var(--line)',
     },
-    '.brief-robot': {
-      width: 'var(--game-token-81)',
-    },
     '#rank .bar': {
       height: 'var(--game-token-21)',
       'margin-top': 'var(--game-token-35)',
@@ -1014,14 +1023,6 @@ export const gameTheme = {
   // Only height is tested, so every phone held sideways matches whatever its width; narrow ones
   // also match the phone block above, and this block, coming later, wins.
   '@media (max-height: 520px)': {
-    '.brief-panel': {
-      'align-self': 'start',
-      margin: 'var(--game-token-42)',
-      padding: 'var(--game-token-11)',
-    },
-    '#brief-text': {
-      'font-size': 'var(--game-token-41)',
-    },
     '#minimap-button,\n  #minimap': {
       width: 'var(--game-token-72)',
       height: 'var(--game-token-72)',
@@ -1077,26 +1078,6 @@ export const gameTheme = {
       'grid-auto-flow': 'column',
       'margin-bottom': 'var(--game-token-69)',
     },
-  },
-  '.brief-robot': {
-    float: 'left',
-    width: 'var(--game-token-82)',
-    height: 'auto',
-    margin: 'calc(-1 * var(--game-token-45)) 0 0 var(--game-token-45)',
-    filter: 'drop-shadow(0 var(--game-token-45) var(--game-token-11) var(--game-token-83))',
-  },
-  '.brief-actions': {
-    display: 'flex',
-    gap: 'var(--game-token-45)',
-    'margin-top': 'var(--game-token-45)',
-  },
-  '.brief-actions button': {
-    flex: '1',
-    padding: 'var(--game-token-36)',
-    'font-size': 'var(--game-token-41)',
-  },
-  '.brief-actions button[hidden]': {
-    display: 'none',
   },
   '#ios-install': {
     width: 'min(var(--game-token-84), 92vw)',

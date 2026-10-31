@@ -436,7 +436,7 @@ export async function initializeSpawnCar(context) {
     context.ui.read('map-dialog').open ||
     context.ui.read('end').open ||
     context.ui.read('showroom').open ||
-    !context.ui.read('briefing').hidden;
+    !context.ui.read('landing').hidden;
   // Physical key codes, so the controls also work with a Persian keyboard layout.
   context.keyName = (e) =>
     e.code.startsWith('Key') ? e.code.slice(3).toLowerCase() : e.key.toLowerCase();
@@ -450,7 +450,7 @@ export async function registerKeyboard(context) {
   context.listen(window, 'keydown', (e) => {
     if (e.target instanceof HTMLInputElement) return;
     const k = context.keyName(e);
-    if (k === 'm' && !e.repeat && context.ui.read('briefing').hidden) {
+    if (k === 'm' && !e.repeat && context.ui.read('landing').hidden) {
       e.preventDefault();
       context.ui.read('map-dialog').open ? context.ui.close('map-dialog') : context.openMap();
       return;
@@ -735,7 +735,7 @@ export async function registerPreferences(context) {
   });
   context.ui.on('again', context.reset);
   context.ui.on('continue', () => context.ui.close('end'));
-  context.ui.on('restart', context.reset);
+  context.ui.on('restart', context.restartGame);
 
   // ---------- Objective, route and HUD ----------
   context.objectiveStation = () => {
@@ -1050,9 +1050,9 @@ export async function initializeCities(context) {
  * @returns {*} Operation result, when applicable.
  */
 export async function initializeBriefingAndTracking(context) {
-  context.BRIEF = strings.briefing.lines.join('\n');
-  context.briefChars = 0;
-  context.ui.on('start-mission', context.startMission);
+  context.ui.on('start', (mode) => context.startGame(mode));
+  context.ui.on('gps-offline', context.switchToOffline);
+  context.ui.on('gps-fallback-close', () => context.ui.close('gps-fallback'));
 
   // ---------- Real-world (GPS) mode ----------
   // The family mirrors the phone's position on the real map of Mashhad. Walking to a real place where

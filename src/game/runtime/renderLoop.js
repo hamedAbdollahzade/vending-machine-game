@@ -1,7 +1,5 @@
 import * as THREE from 'three';
-import iran from '../../data/iran.json';
 import { clearFraction } from '../world/collision.js';
-import { drawIran } from '../world/mapRender.js';
 import { syncActiveVehicle, trafficObstacles, updateGarage } from './garage.js';
 /**
  * Runs the resize operation for this subsystem.
@@ -73,7 +71,7 @@ export function frame(context) {
   const dt = THREE.MathUtils.clamp((now - context.last) / 1000, 0, context.MAX_FRAME);
   context.last = now;
   context.elapsed += dt;
-  const playing = context.ui.read('briefing').hidden;
+  const playing = context.ui.read('landing').hidden;
   const paused =
     !playing ||
     context.ui.read('shop').open ||
@@ -83,25 +81,6 @@ export function frame(context) {
     document.hidden;
   const steps = Math.max(1, Math.ceil(dt / (1 / 30))),
     step = dt / steps;
-  if (!playing) {
-    // Briefing: animate Iran, type the orders, slowly orbit the start point behind the overlay.
-    const ic = context.$('#iran'),
-      dpr = context.sizeCanvas(ic),
-      c = ic.getContext('2d');
-    c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawIran(c, iran, {
-      width: ic.width / dpr,
-      height: ic.height / dpr,
-      t: context.elapsed,
-      cities: context.CITIES,
-    });
-    context.briefChars = Math.min(context.BRIEF.length, context.briefChars + dt * 55);
-    context.ui.patch('brief-text', {
-      text:
-        context.BRIEF.slice(0, Math.floor(context.briefChars)) +
-        (context.briefChars < context.BRIEF.length ? '▌' : ''),
-    });
-  }
   if (!paused) {
     for (let i = 0; i < steps; i++) {
       context.state.minutes += (step * 10) / 60;
@@ -173,6 +152,7 @@ export function frame(context) {
     }
     context.updateCamera(dt);
   } else {
+    // Start screen: a slow orbit around the factory yard behind the menu.
     const a = context.elapsed * 0.08;
     context.camera.position.set(
       context.player.x + Math.cos(a) * 30,

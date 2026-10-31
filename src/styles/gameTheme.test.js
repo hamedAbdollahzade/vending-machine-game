@@ -28,7 +28,12 @@ describe('game theme', () => {
     expect(gameTheme['@media (max-width: 760px)']['@media (max-height: 520px)']).toBeUndefined();
   });
 
-  it('lets the briefing scroll so its buttons stay reachable on short screens', () => {
-    expect(gameTheme['#briefing']['overflow-y']).toBe('auto');
+  it('lets the start screen scroll so its buttons stay reachable on short screens', () => {
+    expect(gameTheme['#landing']['overflow-y']).toBe('auto');
+  });
+
+  it('keeps start screen buttons large enough to tap', () => {
+    expect(gameTheme['.start-option']['min-height']).toBe('var(--game-token-77)');
+    expect(gameTheme['.start-chip']['min-height']).toBe('var(--game-token-74)');
   });
 });

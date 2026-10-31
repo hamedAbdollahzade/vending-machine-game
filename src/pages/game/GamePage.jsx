@@ -6,7 +6,7 @@ import { createInterfaceBridge } from '@/game/interfaceBridge.js';
 import { useGameEngine } from '@/hooks/useGameEngine.js';
 import { setupPwa } from '@/game/device/pwa.js';
 import { GameSurfaces } from './GameSurfaces.jsx';
-import { BriefingPanel } from './BriefingPanel.jsx';
+import { StartScreen } from './startScreen/StartScreen.jsx';
 import { GameHud } from './GameHud.jsx';
 import { GameDialogs } from './GameDialogs.jsx';
 import { strings } from '@/i18n/fa.js';
@@ -41,7 +41,7 @@ export function GamePage() {
   return (
     <main ref={root}>
       <GameSurfaces {...props} />
-      <BriefingPanel {...props} />
+      <StartScreen {...props} />
       <GameHud {...props} />
       <GameDialogs {...props} />
       {error && (

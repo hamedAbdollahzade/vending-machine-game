@@ -121,6 +121,19 @@ export function resetGarage(context) {
 }
 
 /**
+ * Moves the family car (the first fleet vehicle) to a new spot, for modes that start away from
+ * the factory. The next reset parks it back in the yard.
+ * @param {object} context - Game context.
+ * @param {{x: number, z: number, heading: number}} pose - Where to park it.
+ */
+export function parkFamilyCar(context, pose) {
+  const family = context.garage.vehicles[0];
+  family.state = createCar(pose.x, pose.z, pose.heading);
+  placeModel(family);
+  setActive(context, family);
+}
+
+/**
  * Takes over the manager's car once he has parked it, so it can be driven like the others.
  * @param {object} context - Game context.
  */

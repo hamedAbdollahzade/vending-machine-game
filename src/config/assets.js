@@ -49,6 +49,8 @@ export const ASSETS = {
       gif: './gifs/machine-60.gif',
     },
   },
+  // Gallery photos for the start screen. TODO(asset): add { src, alt } entries, 1600 × 1000 WebP.
+  gallery: [],
   // 3D models. Every entry is null today: the game builds low-poly stand-ins in code
   // (src/game/models). TODO(asset): set a .glb path to use a real model.
   models: {

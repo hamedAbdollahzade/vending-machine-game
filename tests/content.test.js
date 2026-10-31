@@ -69,6 +69,6 @@ test('Brand palette keeps readable contrast', () => {
 test('Strings that take values build complete sentences', () => {
   assert.equal(strings.prompts.getIn('بی‌ام‌و'), 'F · سوار بی‌ام‌و شو');
   assert.equal(strings.units.hetoman('۵۰۰'), '۵۰۰ هتومان');
-  assert.ok(strings.briefing.subtitle.includes(COMPANY.shortName));
+  assert.ok(strings.landing.logoAlt.includes(COMPANY.shortName));
   assert.equal(strings.ranks.length, 6);
 });

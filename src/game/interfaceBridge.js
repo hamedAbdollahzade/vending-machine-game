@@ -7,7 +7,7 @@ import { publishProgress } from '../store/slices/gameSlice.js';
  */
 export function createInterfaceBridge(store) {
   let nodes = {
-      briefing: {
+      landing: {
         hidden: false,
       },
       hud: {

@@ -26,6 +26,7 @@ export function setRealMode(context, on) {
     error: null,
     waiting: null,
     stop: null,
+    offeredOffline: false,
   });
   for (const s of context.stations) if (s.def.test) s.model.group.visible = on;
   context.ui.classState('gps-toggle', 'on', on);
@@ -55,7 +56,11 @@ export function setRealMode(context, on) {
       context.real.error = null;
     },
     onHeading: (heading) => (context.real.heading = heading),
-    onError: (message) => (context.real.error = message),
+    onError: (message) => {
+      context.real.error = message;
+      // Started from the start screen's real-world option: offer offline play instead.
+      if (context.startMode === 'real') context.offerOffline(message);
+    },
     onStatus: (message) => (context.real.waiting = message),
     stabilizer: (context.real.stabilizer = createStabilizer()),
   });
@@ -114,8 +119,10 @@ function askRealMode(context, thenStart) {
   context.ui.on('real-go', async () => {
     context.ui.close('real-intro');
     await requestCompass();
+    // Record the mode first: without any GPS the error arrives during setRealMode itself.
+    if (thenStart) context.startMode = 'real';
     context.setRealMode(true);
-    if (thenStart) context.startMission();
+    if (thenStart) context.startGame('real');
   });
 }
 /**
