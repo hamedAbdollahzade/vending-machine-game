@@ -86,10 +86,13 @@ export function setupPwa(ui) {
         );
       })
       .catch(() => {});
+    // On a first visit the new worker takes control without any update; reloading then would
+    // throw the visitor back to the poster or start screen, so only updates reload the page.
+    const hadController = Boolean(navigator.serviceWorker.controller);
     navigator.serviceWorker.addEventListener(
       'controllerchange',
       () => {
-        if (reloading) return;
+        if (reloading || !hadController) return;
         reloading = true;
         location.reload();
       },
