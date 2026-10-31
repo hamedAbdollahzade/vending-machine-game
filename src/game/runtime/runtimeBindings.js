@@ -1,5 +1,5 @@
 import { placeStation, updateReachCircles, reset } from './runtimeLifecycle.js';
-import { startGame, restartGame, offerOffline, switchToOffline } from './startModes.js';
+import { startGame, restartGame, backToMenu, offerOffline, switchToOffline } from './startModes.js';
 import { look, toggleCar, updateWalk, updateDrive } from './movement.js';
 import { say, updateSubtitles, tone } from './audioAndDialogue.js';
 import {
@@ -18,7 +18,6 @@ import {
 import {
   rebuildRouteMesh,
   updateRoute,
-  drawCompass,
   refreshHUD,
   updatePrompt,
   updateHUD,
@@ -98,7 +97,6 @@ const RUNTIME_METHODS = {
   checkEnd,
   rebuildRouteMesh,
   updateRoute,
-  drawCompass,
   refreshHUD,
   updatePrompt,
   sizeCanvas,
@@ -108,6 +106,7 @@ const RUNTIME_METHODS = {
   openMap,
   startGame,
   restartGame,
+  backToMenu,
   offerOffline,
   switchToOffline,
   setRealMode,

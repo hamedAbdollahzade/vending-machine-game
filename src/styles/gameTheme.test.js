@@ -19,8 +19,14 @@ describe('game theme', () => {
     expect(allValues(gameTheme).filter((value) => String(value).includes('-var('))).toEqual([]);
   });
 
-  it('keeps the phone rank bar at the top instead of stretching it to full height', () => {
-    expect(gameTheme['@media (max-width: 760px)']['#rank']).toMatchObject({ bottom: 'auto' });
+  it('keeps the floating menu and objective clear of the phone notch', () => {
+    expect(gameTheme['#game-menu'].top).toContain('safe-area-inset-top');
+    expect(gameTheme['#objective'].top).toContain('safe-area-inset-top');
+  });
+
+  it('gives every floating menu item a 44px tap target', () => {
+    expect(gameTheme['.menu-item']['min-height']).toBe('var(--game-token-32)');
+    expect(gameTheme[':root']['--game-token-32']).toBe('44px');
   });
 
   it('keeps the landscape phone layout as a top-level media block', () => {

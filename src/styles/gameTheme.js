@@ -264,13 +264,145 @@ export const gameTheme = {
     position: 'fixed',
     'z-index': '10',
   },
-  '#compass': {
-    top: 'var(--game-token-28)',
+  // Floating menu: one round button in the top corner (right in RTL) that reveals every
+  // secondary action as a vertical list, sliding in under it.
+  '#game-menu': {
+    top: 'max(var(--game-token-30), env(safe-area-inset-top))',
+    right: 'max(var(--game-token-30), env(safe-area-inset-right))',
+    'z-index': '20',
+    display: 'grid',
+    'justify-items': 'end',
+    gap: 'var(--game-token-45)',
+  },
+  '#menu-button': {
+    display: 'grid',
+    'place-items': 'center',
+    width: 'var(--game-token-24)',
+    height: 'var(--game-token-24)',
+    border: '0',
+    'border-radius': '50%',
+    background: 'var(--color-primary)',
+    color: 'var(--color-on-primary)',
+    'box-shadow': '0 var(--game-token-17) var(--game-token-30) var(--game-token-60)',
+    cursor: 'pointer',
+  },
+  '#menu-items': {
+    display: 'grid',
+    gap: 'var(--game-token-17)',
+    'max-height': 'calc(100dvh - var(--game-token-56))',
+    'overflow-y': 'auto',
+    padding: 'var(--game-token-22)',
+    'border-radius': 'var(--game-token-28)',
+    background: 'var(--panel-solid)',
+    border: 'var(--game-token-16) solid var(--line)',
+    animation: 'menu-in 0.16s ease-out',
+  },
+  '#menu-items[hidden]': {
+    display: 'none',
+  },
+  '@keyframes menu-in': {
+    from: { opacity: '0', transform: 'translateY(calc(-1 * var(--game-token-45)))' },
+    to: { opacity: '1', transform: 'none' },
+  },
+  '.menu-item': {
+    display: 'flex',
+    'align-items': 'center',
+    gap: 'var(--game-token-30)',
+    'min-width': 'var(--game-token-80)',
+    'min-height': 'var(--game-token-32)',
+    padding: '0 var(--game-token-30)',
+    border: '0',
+    'border-radius': 'var(--game-token-36)',
+    background: 'transparent',
+    color: 'var(--color-text)',
+    'font-family': 'var(--font)',
+    'font-size': 'var(--game-token-28)',
+    cursor: 'pointer',
+  },
+  '.menu-item:hover,\n.menu-item:focus-visible': {
+    background: 'var(--game-token-58)',
+    outline: 'none',
+  },
+  '.menu-item.on': {
+    color: 'var(--color-primary-light)',
+  },
+  '.menu-item[hidden]': {
+    display: 'none',
+  },
+  // Current objective: one compact line at the top centre; the arrow turns towards the target.
+  '#objective': {
+    top: 'max(var(--game-token-30), env(safe-area-inset-top))',
     left: '50%',
     transform: 'translateX(-50%)',
-    width: 'min(var(--game-token-31), 80vw)',
-    height: 'var(--game-token-32)',
-    'pointer-events': 'none',
+    display: 'flex',
+    'align-items': 'center',
+    gap: 'var(--game-token-36)',
+    'max-width': 'min(var(--game-token-70), calc(100vw - 2 * var(--game-token-56)))',
+    'min-height': 'var(--game-token-24)',
+    padding: 'var(--game-token-22) var(--game-token-28)',
+    border: 'var(--game-token-16) solid var(--line)',
+    'border-radius': 'var(--game-token-88)',
+    background: 'var(--panel-solid)',
+    color: 'var(--color-text)',
+    'font-family': 'var(--font)',
+    cursor: 'pointer',
+  },
+  '#objective[hidden]': {
+    display: 'none',
+  },
+  '#objective-arrow': {
+    display: 'grid',
+    'place-items': 'center',
+    'flex-shrink': '0',
+    width: 'var(--game-token-19)',
+    height: 'var(--game-token-19)',
+    'border-radius': '50%',
+    background: 'var(--color-primary)',
+    color: 'var(--color-on-primary)',
+    transition: 'transform 0.2s',
+  },
+  '#objective-title': {
+    overflow: 'hidden',
+    'white-space': 'nowrap',
+    'text-overflow': 'ellipsis',
+    'font-size': 'var(--game-token-41)',
+  },
+  '#objective-distance': {
+    'flex-shrink': '0',
+    color: 'var(--gold)',
+    'font-size': 'var(--game-token-30)',
+  },
+  '#gps-status': {
+    top: 'calc(max(var(--game-token-30), env(safe-area-inset-top)) + var(--game-token-56) - var(--game-token-42))',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    padding: 'var(--game-token-17) var(--game-token-30)',
+    'border-radius': 'var(--game-token-88)',
+    background: 'var(--panel-solid)',
+    color: 'var(--gold)',
+    'font-size': 'var(--game-token-30)',
+  },
+  '#gps-status[hidden]': {
+    display: 'none',
+  },
+  // Speed while driving, small, above the bottom controls.
+  '#speed-stat': {
+    bottom: 'max(var(--game-token-11), env(safe-area-inset-bottom))',
+    right: 'max(var(--game-token-11), env(safe-area-inset-right))',
+    display: 'flex',
+    'align-items': 'baseline',
+    gap: 'var(--game-token-17)',
+    padding: 'var(--game-token-22) var(--game-token-28)',
+    'border-radius': 'var(--game-token-88)',
+    background: 'var(--panel-solid)',
+    color: 'var(--color-text)',
+  },
+  '#speed-stat[hidden]': {
+    display: 'none',
+  },
+  '#speed': {
+    'font-size': 'var(--game-token-55)',
+    'font-variant-numeric': 'tabular-nums',
   },
   '#minimap-button': {
     top: 'var(--game-token-11)',
@@ -288,73 +420,33 @@ export const gameTheme = {
     'border-radius': '50%',
     'box-shadow': '0 0 0 var(--game-token-17) var(--game-token-34)',
   },
-  '.map-hint': {
-    position: 'absolute',
-    bottom: 'calc(-1 * var(--game-token-17))',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    padding: 'var(--game-token-35) var(--game-token-36)',
-    background: 'var(--panel-solid)',
-    color: 'var(--dim)',
-    'font-size': 'var(--game-token-37)',
-    border: 'var(--game-token-16) solid var(--line)',
-  },
-  '#location': {
-    top: 'var(--game-token-38)',
-    left: 'var(--game-token-11)',
-    width: 'var(--game-token-33)',
-    'text-align': 'center',
-    'text-shadow': '0 var(--game-token-16) var(--game-token-21) var(--game-token-39)',
-  },
-  '#street': {
-    display: 'block',
-    'font-weight': '600',
-    'font-size': 'var(--game-token-28)',
-  },
-  '#mode-label': {
-    color: 'var(--teal)',
-  },
-  '#objectives': {
-    top: 'var(--game-token-11)',
-    right: 'var(--game-token-11)',
-    width: 'min(var(--game-token-40), 40vw)',
-    padding: 'var(--game-token-30) var(--game-token-28)',
-    background: 'linear-gradient(270deg, var(--panel) 60%, transparent)',
-    'border-inline-start': 'var(--game-token-21) solid var(--gold)',
-  },
-  '#objectives h2': {
-    margin: '0 0 var(--game-token-22)',
-    'font-size': 'var(--game-token-41)',
-    color: 'var(--gold)',
-    'letter-spacing': 'var(--game-token-16)',
-  },
-  '#mission-list': {
+  '.mission-list': {
     margin: '0',
     padding: '0',
     'list-style': 'none',
     'font-size': 'var(--game-token-41)',
     'line-height': '1.7',
   },
-  '#mission-list li': {
+  '.mission-list li': {
     color: 'var(--dim)',
   },
-  '#mission-list li.active': {
+  '.mission-list li.active': {
     color: 'var(--hud)',
     'font-weight': '600',
   },
-  '#mission-list li.active::before': {
+  '.mission-list li.active::before': {
     content: "'◆ '",
     color: 'var(--gold)',
   },
-  '#mission-list li.done': {
+  '.mission-list li.done': {
     'text-decoration': 'line-through',
     opacity: '0.55',
   },
-  '#mission-list li.done::before': {
+  '.mission-list li.done::before': {
     content: "'✓ '",
     color: 'var(--teal)',
   },
-  '#mission-list li.hidden': {
+  '.mission-list li.hidden': {
     display: 'none',
   },
   '#waypoint': {
@@ -522,71 +614,7 @@ export const gameTheme = {
     color: 'var(--teal)',
     'font-size': 'var(--game-token-28)',
   },
-  '#status': {
-    bottom: 'var(--game-token-11)',
-    right: 'var(--game-token-11)',
-    display: 'flex',
-    gap: 'var(--game-token-36)',
-  },
-  '.stat': {
-    'min-width': 'var(--game-token-56)',
-    padding: 'var(--game-token-22) var(--game-token-30)',
-    background: 'var(--panel)',
-    'border-bottom': 'var(--game-token-35) solid var(--teal)',
-    display: 'grid',
-    'line-height': '1.3',
-  },
-  '.stat small': {
-    color: 'var(--dim)',
-    'font-size': 'var(--game-token-37)',
-  },
-  '.stat strong': {
-    'font-size': 'var(--game-token-55)',
-    'font-weight': '800',
-  },
-  '.stat span': {
-    'font-size': 'var(--game-token-37)',
-    color: 'var(--dim)',
-  },
-  '.stat[hidden]': {
-    display: 'none',
-  },
-  '#rank': {
-    bottom: 'var(--game-token-11)',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: 'min(var(--game-token-57), 50vw)',
-    padding: 'var(--game-token-17) var(--game-token-36)',
-    'text-align': 'center',
-    'font-size': 'var(--game-token-30)',
-    background: 'var(--panel)',
-  },
-  '#rank b': {
-    color: 'var(--gold)',
-    'margin-inline-end': 'var(--game-token-45)',
-  },
-  '#rank span': {
-    color: 'var(--dim)',
-  },
-  '#rank .bar': {
-    height: 'var(--game-token-17)',
-    'margin-top': 'var(--game-token-17)',
-    background: 'var(--game-token-58)',
-  },
-  '#rank .bar i': {
-    display: 'block',
-    height: '100%',
-    width: '0',
-    background: 'var(--gold)',
-    transition: 'width 0.6s',
-  },
-  '#toolbar': {
-    bottom: 'var(--game-token-11)',
-    left: 'var(--game-token-11)',
-    display: 'flex',
-    gap: 'var(--game-token-22)',
-  },
-  '#toolbar button,\n.ghost': {
+  '.ghost': {
     padding: 'var(--game-token-22) var(--game-token-30)',
     background: 'var(--panel)',
     color: 'var(--hud)',
@@ -922,6 +950,14 @@ export const gameTheme = {
     color: 'var(--game-token-59)',
   },
   '@media (max-width: 760px)': {
+    // Phones: the objective chip takes the whole top row up to the menu button.
+    '#objective': {
+      left: 'max(var(--game-token-30), env(safe-area-inset-left))',
+      right:
+        'calc(max(var(--game-token-30), env(safe-area-inset-right)) + var(--game-token-24) + var(--game-token-36))',
+      transform: 'none',
+      'max-width': 'none',
+    },
     // Phones: the menu sits at the bottom over a stronger fade; info opens as a bottom sheet.
     '#landing': {
       background:
@@ -945,57 +981,7 @@ export const gameTheme = {
       top: 'var(--game-token-79)',
       left: 'var(--game-token-30)',
     },
-    '#location': {
-      top: 'var(--game-token-80)',
-      left: 'var(--game-token-30)',
-      width: 'var(--game-token-72)',
-    },
-    '#objectives': {
-      top: 'var(--game-token-79)',
-      right: 'var(--game-token-30)',
-      width: '52vw',
-      padding: 'var(--game-token-45)',
-    },
-    '#mission-list li:not(.active)': {
-      display: 'none',
-    },
-    '#status': {
-      right: 'var(--game-token-30)',
-      bottom: 'var(--game-token-24)',
-    },
-    '.stat': {
-      'min-width': 'var(--game-token-81)',
-      padding: 'var(--game-token-17) var(--game-token-45)',
-    },
-    '.stat strong': {
-      'font-size': 'var(--game-token-42)',
-    },
     // The rank bar moves to the top on phones; without bottom: auto it would stretch to full height.
-    '#rank': {
-      top: 'var(--game-token-17)',
-      bottom: 'auto',
-      width: '70vw',
-      padding: 'var(--game-token-35) var(--game-token-45)',
-      'font-size': 'var(--game-token-37)',
-    },
-    '#compass': {
-      top: 'var(--game-token-89)',
-    },
-    '#toolbar': {
-      left: 'var(--game-token-45)',
-      right: 'var(--game-token-45)',
-      bottom: 'var(--game-token-45)',
-      'overflow-x': 'auto',
-      'flex-wrap': 'nowrap',
-      'scrollbar-width': 'none',
-      'padding-bottom': 'env(safe-area-inset-bottom, var(--game-token-9))',
-    },
-    '#toolbar button': {
-      padding: 'var(--game-token-17) var(--game-token-45)',
-      'font-size': 'var(--game-token-37)',
-      flex: '0 0 auto',
-      'white-space': 'nowrap',
-    },
     '#crosshair': {
       display: 'none',
     },
@@ -1007,13 +993,6 @@ export const gameTheme = {
       'border-inline-start': '0',
       'border-top': 'var(--game-token-16) solid var(--line)',
     },
-    '#rank .bar': {
-      height: 'var(--game-token-21)',
-      'margin-top': 'var(--game-token-35)',
-    },
-    '#gps-status': {
-      top: '42%',
-    },
     '#touch': {
       bottom: 'var(--game-token-78)',
     },
@@ -1023,6 +1002,10 @@ export const gameTheme = {
   // Only height is tested, so every phone held sideways matches whatever its width; narrow ones
   // also match the phone block above, and this block, coming later, wins.
   '@media (max-height: 520px)': {
+    // Sideways phones: lift the dialogue line above the row of touch buttons.
+    '#hud #subtitle': {
+      top: '34%',
+    },
     '#minimap-button,\n  #minimap': {
       width: 'var(--game-token-72)',
       height: 'var(--game-token-72)',
@@ -1030,46 +1013,6 @@ export const gameTheme = {
     '#minimap-button': {
       top: 'var(--game-token-30)',
       left: 'var(--game-token-30)',
-    },
-    '#location': {
-      top: 'calc(var(--game-token-72) + var(--game-token-42))',
-      left: 'var(--game-token-30)',
-      width: 'var(--game-token-72)',
-    },
-    '#objectives': {
-      top: 'var(--game-token-30)',
-      right: 'var(--game-token-30)',
-      width: '30vw',
-      padding: 'var(--game-token-45)',
-    },
-    '#mission-list li:not(.active)': {
-      display: 'none',
-    },
-    '#rank': {
-      top: 'var(--game-token-17)',
-      bottom: 'auto',
-      width: '40vw',
-      padding: 'var(--game-token-35) var(--game-token-45)',
-      'font-size': 'var(--game-token-37)',
-    },
-    '#rank .bar': {
-      height: 'var(--game-token-21)',
-      'margin-top': 'var(--game-token-35)',
-    },
-    '#compass': {
-      top: 'var(--game-token-89)',
-      width: '34vw',
-    },
-    '.stat': {
-      'min-width': 'var(--game-token-81)',
-      padding: 'var(--game-token-17) var(--game-token-45)',
-    },
-    '.stat strong': {
-      'font-size': 'var(--game-token-42)',
-    },
-    '#toolbar button': {
-      padding: 'var(--game-token-17) var(--game-token-45)',
-      'font-size': 'var(--game-token-37)',
     },
     '#touch': {
       bottom: 'var(--game-token-24)',
@@ -1122,20 +1065,6 @@ export const gameTheme = {
     color: 'var(--game-token-59)',
     'font-weight': '800',
   },
-  '#gps-status': {
-    display: 'block',
-    'margin-top': 'var(--game-token-35)',
-    color: 'var(--gold)',
-    'font-size': 'var(--game-token-30)',
-  },
-  '#gps-status[hidden]': {
-    display: 'none',
-  },
-  '#gps-toggle.on': {
-    background: 'var(--teal)',
-    color: 'var(--game-token-59)',
-    'border-color': 'var(--teal)',
-  },
   '#real-intro': {
     width: 'min(var(--game-token-85), 92vw)',
     padding: 'var(--game-token-55)',
@@ -1182,14 +1111,6 @@ export const gameTheme = {
   },
   'body.ar #crosshair': {
     display: 'none',
-  },
-  '#ar-toggle[hidden],\n#stable-toggle[hidden]': {
-    display: 'none',
-  },
-  '#ar-toggle.on,\n#stable-toggle.on': {
-    background: 'var(--teal)',
-    color: 'var(--game-token-59)',
-    'border-color': 'var(--teal)',
   },
   'body.real #crosshair,\nbody.real #stick': {
     display: 'none',

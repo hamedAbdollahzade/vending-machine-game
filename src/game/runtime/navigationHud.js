@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import data from '../../data/mellat.json';
-import { routeBetween, nearestSegment } from '../world/routing.js';
+import { routeBetween } from '../world/routing.js';
 import { FACTORY } from '../../constants/locations.js';
 import { isOpen, formatClock, fa } from '../economy/gameState.js';
 import { rankFor, activeMission, MISSIONS } from '../economy/scoring.js';
@@ -116,49 +115,26 @@ export function updateRoute(context, dt) {
   context.rebuildRouteMesh();
 }
 /**
- * Runs the draw compass operation for this subsystem.
- * @param {*} context - context.
- * @param {*} headingDeg - heading Deg.
- * @param {*} markers - markers.
- * @returns {*} Operation result, when applicable.
+ * Updates the objective chip: what to do next, how far it is, and an arrow that points at it
+ * relative to where the camera looks (0° = straight ahead).
+ * @param {object} context - Game context.
+ * @param {{objective: object | null, pos: {x: number, z: number}, headingDeg: number}} view -
+ * Objective station, player position and camera bearing.
  */
-export function drawCompass(context, headingDeg, markers) {
-  const w = 560,
-    h = 44;
-  context.compass.clearRect(0, 0, w, h);
-  context.compass.fillStyle = 'rgba(10,16,14,.45)';
-  context.compass.fillRect(0, 10, w, 24);
-  context.compass.textAlign = 'center';
-  context.compass.textBaseline = 'middle';
-  const labels = strings.hud.compass;
-  for (let d = -100; d <= 100; d += 5) {
-    const deg = (((Math.round(headingDeg / 5) * 5 + d) % 360) + 360) % 360,
-      x = w / 2 + ((deg - headingDeg + 540) % 360) * 2.6 - 180 * 2.6;
-    if (x < 10 || x > w - 10) continue;
-    context.compass.fillStyle = 'rgba(236,242,238,.8)';
-    if (labels[deg] !== undefined) {
-      context.compass.font = 'bold 13px Vazirmatn, sans-serif';
-      context.compass.fillStyle = deg === 0 ? '#f2c94c' : '#ecf2ee';
-      context.compass.fillText(labels[deg], x, 22);
-    } else if (deg % 15 === 0) {
-      context.compass.font = '10px Vazirmatn, sans-serif';
-      context.compass.fillText(fa(deg), x, 22);
-    } else context.compass.fillRect(x - 0.5, 18, 1, 8);
-  }
-  for (const m of markers) {
-    const x = w / 2 + (((m.bearing - headingDeg + 540) % 360) - 180) * 2.6;
-    if (x < 10 || x > w - 10) continue;
-    context.compass.save();
-    context.compass.translate(x, 6);
-    context.compass.rotate(Math.PI / 4);
-    context.compass.fillStyle = m.color;
-    context.compass.fillRect(-4, -4, 8, 8);
-    context.compass.restore();
-  }
-  context.compass.fillStyle = '#ecf2ee';
-  context.compass.fillRect(w / 2 - 1, 34, 2, 8);
-  context.compass.font = 'bold 11px Vazirmatn, sans-serif';
-  context.compass.fillText(fa(Math.round(headingDeg) % 360), w / 2, 6);
+function updateObjectiveChip(context, { objective, pos, headingDeg }) {
+  const mission = activeMission(context.state);
+  // A route the player picked on the map shows the place; otherwise show the mission itself.
+  const ownRoute = context.waypoint && context.waypoint !== mission?.target;
+  const title = ownRoute ? objective?.def.name : (mission?.title ?? objective?.def.name);
+  context.ui.patch('objective', { hidden: !title });
+  if (!title) return;
+  context.ui.patch('objective-title', { text: title });
+  context.ui.patch('objective-distance', {
+    text: objective ? formatDistance(Math.hypot(objective.x - pos.x, objective.z - pos.z)) : '',
+  });
+  if (!objective) return;
+  const turn = bearing(objective.x - pos.x, objective.z - pos.z) - headingDeg;
+  context.ui.style('objective-arrow', { transform: `rotate(${Math.round(turn)}deg)` });
 }
 /**
  * Runs the refresh hud operation for this subsystem.
@@ -191,21 +167,9 @@ export function refreshHUD(context) {
     })),
   });
   context.ui.publishGame(context.state);
-  context.ui.patch('mode-label', {
-    text: modeLabel(context),
-  });
   context.ui.patch('speed-stat', {
     hidden: context.mode !== 'drive',
   });
-}
-/**
- * Describes how the player is travelling, for the HUD.
- * @param {object} context - Game context.
- * @returns {string} Persian label.
- */
-function modeLabel(context) {
-  if (context.mode !== 'drive') return strings.common.walking;
-  return strings.travel.inVehicle(context.vehicle.label);
 }
 /**
  * Updates prompt from the active simulation.
@@ -249,10 +213,9 @@ export function updatePrompt(context) {
 /**
  * Updates hud from the active simulation.
  * @param {*} context - context.
- * @param {*} dt - dt.
  * @returns {*} Operation result, when applicable.
  */
-export function updateHUD(context, dt) {
+export function updateHUD(context) {
   context.ui.patch('showroom-open', {
     hidden:
       context.real.on ||
@@ -282,27 +245,19 @@ export function updateHUD(context, dt) {
         };
   const headingDeg = bearing(forward.x, forward.z);
   const objective = context.objectiveStation();
-  context.drawCompass(
-    headingDeg,
-    objective
-      ? [
-          {
-            bearing: bearing(objective.x - pos.x, objective.z - pos.z),
-            color: '#f2c94c',
-          },
-        ]
-      : [],
-  );
-  drawMinimap(context.minimap, context.mapAssets, {
-    size: 220,
-    x: pos.x,
-    z: pos.z,
-    heading: context.mode === 'drive' ? context.car.heading : context.player.heading,
-    camForward: forward,
-    radius: context.mode === 'drive' ? 650 : 200,
-    markers: context.markers(),
-    route: context.route?.points,
-  });
+  updateObjectiveChip(context, { objective, pos, headingDeg });
+  // The minimap is optional (floating menu); skip drawing it while it is hidden.
+  if (context.showMinimap)
+    drawMinimap(context.minimap, context.mapAssets, {
+      size: 220,
+      x: pos.x,
+      z: pos.z,
+      heading: context.mode === 'drive' ? context.car.heading : context.player.heading,
+      camForward: forward,
+      radius: context.mode === 'drive' ? 650 : 200,
+      markers: context.markers(),
+      route: context.route?.points,
+    });
   // Objective marker above the machine, clamped to the screen edge when off-screen.
   context.ui.patch('waypoint', {
     hidden: !objective,
@@ -337,19 +292,6 @@ export function updateHUD(context, dt) {
       s.model.beacon.material.opacity =
         (isObjective ? 0.32 : 0.14) * Math.min(1, Math.hypot(s.x - pos.x, s.z - pos.z) / 40);
     }
-  }
-  context.streetTimer -= dt;
-  if (context.streetTimer <= 0) {
-    context.streetTimer = 0.6;
-    const street = nearestSegment(context.segments, pos.x, pos.z, 35, (s) => s[5] >= 0);
-    const inFactory = Math.hypot(pos.x - FACTORY.center.x, pos.z - FACTORY.center.z) < 130;
-    context.ui.patch('street', {
-      text: inFactory
-        ? strings.hud.factory(FACTORY.name)
-        : street
-          ? strings.hud.street(data.names[street.name])
-          : strings.hud.outskirts,
-    });
   }
   context.updatePrompt();
 }

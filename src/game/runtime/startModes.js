@@ -122,6 +122,19 @@ export function restartGame(context) {
 }
 
 /**
+ * Leaves play and shows the start screen again, with a fresh game behind it.
+ * @param {object} context - Game context.
+ */
+export function backToMenu(context) {
+  context.setRealMode(false);
+  for (const id of ['shop', 'map-dialog', 'end', 'showroom', 'gps-fallback']) context.ui.close(id);
+  document.exitPointerLock?.();
+  context.reset();
+  context.ui.patch('hud', { hidden: true });
+  context.ui.patch('landing', { hidden: false });
+}
+
+/**
  * Explains that location is unavailable and offers to play offline instead. Shown once per
  * real-world session, the first time tracking reports an error.
  * @param {object} context - Game context.

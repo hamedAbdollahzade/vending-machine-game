@@ -1,5 +1,5 @@
 import { strings } from '@/i18n/fa.js';
-import { StartIcon } from './StartIcon.jsx';
+import { Icon } from '@/components/shared/Icon.jsx';
 
 // The four ways into the game, in display order, with their icons.
 const OPTIONS = [
@@ -35,7 +35,7 @@ export function StartOptions({ actions }) {
             index < 2 ? 'start-option start-option-primary' : 'start-option start-option-secondary'
           }
         >
-          <StartIcon name={icon} className="h-7 w-7 shrink-0" />
+          <Icon name={icon} className="h-7 w-7 shrink-0" />
           <span className="grid text-start">
             <span className="font-bold">{strings.landing.modes[mode].label}</span>
             <span className="text-xs opacity-80">{strings.landing.modes[mode].hint}</span>

@@ -736,6 +736,25 @@ export async function registerPreferences(context) {
   context.ui.on('again', context.reset);
   context.ui.on('continue', () => context.ui.close('end'));
   context.ui.on('restart', context.restartGame);
+  context.ui.on('back-to-menu', context.backToMenu);
+  // The minimap is off by default to keep the screen clear; the floating menu toggles it.
+  try {
+    context.showMinimap = localStorage.getItem('minimap') === 'on';
+  } catch {
+    context.showMinimap = false;
+  }
+  const applyMinimap = () => {
+    context.ui.patch('minimap-button', { hidden: !context.showMinimap });
+    context.ui.patch('minimap-toggle', { pressed: context.showMinimap });
+  };
+  applyMinimap();
+  context.ui.on('minimap-toggle', () => {
+    context.showMinimap = !context.showMinimap;
+    try {
+      localStorage.setItem('minimap', context.showMinimap ? 'on' : 'off');
+    } catch {}
+    applyMinimap();
+  });
 
   // ---------- Objective, route and HUD ----------
   context.objectiveStation = () => {
@@ -779,7 +798,6 @@ export async function initializeRouteMaterial(context) {
     z: 0,
   };
   context.routeMode = null;
-  context.compass = context.$('#compass').getContext('2d');
   context.minimap = context.$('#minimap').getContext('2d');
 }
 /**

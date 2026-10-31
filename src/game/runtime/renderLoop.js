@@ -169,7 +169,7 @@ export function frame(context) {
   if (!context.arMode) context.imagery.update(context.camera.position.x, context.camera.position.z);
   if (playing) {
     context.hudTimer -= dt;
-    context.updateHUD(dt);
+    context.updateHUD();
     if (context.ui.read('map-dialog').open && context.hudTimer <= 0) {
       context.hudTimer = 0.5;
       context.renderMap();

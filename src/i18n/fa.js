@@ -29,6 +29,7 @@ export const strings = {
     /** @type {(n: string) => string} */
     rial: (n) => `${n} ریال`,
     hetomanName: 'هتومان',
+    speed: 'km/h',
   },
   app: {
     preparing: 'در حال آماده‌سازی بازی…',
@@ -105,28 +106,61 @@ export const strings = {
     clockStart: '۰۸:۳۰',
     speed: 'سرعت',
     speedStart: '۰',
+    rank: 'درجه',
+    xp: 'امتیاز',
     rankStart: 'تازه‌وارد',
     xpStart: '۰ XP',
     missions: 'مأموریت‌ها',
     run: 'دویدن',
   },
+  menu: {
+    open: 'منو',
+    label: 'منوی بازی',
+    map: 'نقشه',
+    missions: 'مأموریت‌ها',
+    status: 'وضعیت',
+    products: 'محصولات',
+    realWorld: 'دنیای واقعی',
+    camera: 'دوربین',
+    stable: 'پایدار',
+    sound: 'صدا',
+    graphics: 'گرافیک',
+    minimap: 'نقشهٔ کوچک',
+    fullscreen: 'تمام‌صفحه',
+    help: 'راهنما',
+    restart: 'شروع دوباره',
+    home: 'منوی اصلی',
+    close: 'بستن',
+  },
+  objective: {
+    label: 'هدف بعدی',
+    open: 'نمایش مأموریت‌ها',
+  },
+  help: {
+    keyboardTitle: 'صفحه‌کلید',
+    keyboard: [
+      ['W A S D', 'حرکت'],
+      ['Shift', 'دویدن'],
+      ['ماوس', 'چرخاندن دوربین'],
+      ['F', 'سوار و پیاده شدن'],
+      ['E', 'خرید'],
+      ['Q', 'معرفی محصولات'],
+      ['M', 'نقشه'],
+      ['Space', 'ترمز دستی'],
+    ],
+    touchTitle: 'لمسی',
+    touch: [
+      ['دایرهٔ پایین', 'حرکت و رانندگی'],
+      ['کشیدن صفحه', 'چرخاندن دوربین'],
+      ['دکمهٔ وسط پایین', 'کار بعدی: خرید، سوار شدن، معرفی'],
+    ],
+  },
   hud: {
     openMap: 'باز کردن نقشهٔ شهر (M)',
-    mapHint: 'نقشه · M',
     interact: 'تعامل با بازی',
-    compass: { 0: 'شمال', 90: 'شرق', 180: 'جنوب', 270: 'غرب' },
     // Single-letter north marker on the minimap.
     minimapNorth: 'ش',
-    /** @type {(name: string) => string} */
-    factory: (name) => `کارخانهٔ ${name}`,
-    /** @type {(street: string) => string} */
-    street: (street) => `مشهد · ${street}`,
-    outskirts: 'حومهٔ مشهد',
     metroPrefix: 'ایستگاه مترو ',
-  },
-  travel: {
-    /** @type {(vehicle: string) => string} */
-    inVehicle: (vehicle) => `در ${vehicle} · F برای پیاده شدن`,
   },
   prompts: {
     /** @type {(model: string) => string} */

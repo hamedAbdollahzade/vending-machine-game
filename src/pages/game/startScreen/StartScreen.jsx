@@ -3,7 +3,7 @@ import { GameNode } from '@/components/shared/GameNode.jsx';
 import { COMPANY } from '@/config/company.js';
 import { ASSETS } from '@/config/assets.js';
 import { strings } from '@/i18n/fa.js';
-import { StartIcon } from './StartIcon.jsx';
+import { Icon } from '@/components/shared/Icon.jsx';
 import { StartOptions } from './StartOptions.jsx';
 import { InfoSheet } from './InfoSheet.jsx';
 
@@ -49,7 +49,7 @@ export function StartScreen({ nodes, actions }) {
         <nav aria-label={text.sectionsLabel} className="mt-6 flex flex-wrap gap-2">
           {SECTIONS.map(([key, icon]) => (
             <button key={key} type="button" className="start-chip" onClick={() => setSection(key)}>
-              <StartIcon name={icon} className="h-4 w-4" />
+              <Icon name={icon} className="h-4 w-4" />
               {key === 'about' ? text.history : text.sections[key]}
             </button>
           ))}
@@ -62,7 +62,7 @@ export function StartScreen({ nodes, actions }) {
             model={nodes.install}
             onAction={() => actions.emit('install')}
           >
-            <StartIcon name="download" className="h-4 w-4" />
+            <Icon name="download" className="h-4 w-4" />
             {text.install}
           </GameNode>
         </nav>
